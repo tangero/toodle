@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Seznam textů</h2>
+<form method="get" class="mb-3">
+    <div class="row">
+        <div class="col">
+            <input type="date" name="start_date" class="form-control" placeholder="Od data">
+        </div>
+        <div class="col">
+            <input type="date" name="end_date" class="form-control" placeholder="Do data">
+        </div>
+        <div class="col">
+            <input type="text" name="hashtag" class="form-control" placeholder="Hashtag">
+        </div>
+        <div class="col">
+            <button type="submit" class="btn btn-primary">Filtrovat</button>
+        </div>
+    </div>
+</form>
+<ul class="list-group">
+{% for text in texts %}
+    <li class="list-group-item">
+        <p>{{ text.content }}</p>
+        <small>
+            Hashtagy: 
+            {% for hashtag in text.hashtags.split(',') %}
+                <span class="badge bg-secondary">#{{ hashtag }}</span>
+            {% endfor %}
+            <br>
+            Vytvořeno: {{ text.created_at }}
+        </small>
+    </li>
+{% empty %}
+    <li class="list-group-item">Žádné texty k zobrazení.</li>
+{% endfor %}
+</ul>
+{% endblock %}

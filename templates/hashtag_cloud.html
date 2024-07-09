@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Cloud hashtagů</h2>
+<div id="hashtag-cloud">
+{% for hashtag, count in hashtag_counts.items %}
+    <span style="font-size: {{ count|add:10 }}px; margin: 5px;" class="badge bg-primary">#{{ hashtag }} ({{ count }})</span>
+{% empty %}
+    <p>Žádné hashtagy k zobrazení.</p>
+{% endfor %}
+</div>
+{% endblock %}
