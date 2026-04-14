@@ -1,2 +1,0 @@
-# toodle
-Můj pracovní log
