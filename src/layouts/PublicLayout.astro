@@ -7,6 +7,7 @@ interface Props {
 }
 
 const { title, description } = Astro.props;
+const user = Astro.locals.user;
 ---
 
 <BaseLayout title={title} description={description}>
@@ -15,9 +16,15 @@ const { title, description } = Astro.props;
       <a href="/" class="text-xl font-bold text-gray-900">Letní škola AI</a>
       <div class="flex items-center gap-4">
         <a href="/" class="text-sm text-gray-600 hover:text-gray-900">Kurzy</a>
-        <a href="/prihlaseni" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-          Přihlásit se
-        </a>
+        {user ? (
+          <a href="/profil" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+            Můj profil
+          </a>
+        ) : (
+          <a href="/prihlaseni" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+            Přihlásit se
+          </a>
+        )}
       </div>
     </nav>
   </header>

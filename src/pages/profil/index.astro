@@ -1,0 +1,85 @@
+---
+import PublicLayout from '@layouts/PublicLayout.astro';
+import { getAll } from '@lib/db';
+import type { Enrollment, Course } from '@lib/types';
+
+const user = Astro.locals.user!;
+const env = Astro.locals.runtime.env;
+
+interface EnrollmentWithCourse extends Enrollment {
+  course_title: string;
+  course_slug: string;
+}
+
+const enrollments = await getAll<EnrollmentWithCourse>(
+  env.DB,
+  `SELECT e.*, c.title as course_title, c.slug as course_slug
+   FROM enrollments e
+   JOIN courses c ON e.course_id = c.id
+   WHERE e.user_id = ?
+   ORDER BY e.started_at DESC`,
+  user.id,
+);
+
+const activeEnrollments = enrollments.filter((e) => e.status === 'active');
+const completedEnrollments = enrollments.filter((e) => e.status === 'completed');
+---
+
+<PublicLayout title="Můj profil">
+  <div class="py-8">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Ahoj, {user.name}</h1>
+        <p class="text-gray-600">{user.email}</p>
+      </div>
+      <div class="flex gap-3">
+        <a href="/profil/nastaveni" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+          Nastavení
+        </a>
+        <form method="POST" action="/api/auth/logout">
+          <button type="submit" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            Odhlásit
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <section class="mt-8">
+      <h2 class="text-lg font-semibold text-gray-900">Aktivní kurzy</h2>
+      {activeEnrollments.length === 0 ? (
+        <p class="mt-3 text-gray-500">Nemáte žádné aktivní kurzy. <a href="/" class="text-blue-600 hover:underline">Prohlédněte si nabídku</a>.</p>
+      ) : (
+        <div class="mt-3 space-y-3">
+          {activeEnrollments.map((e) => (
+            <a href={`/profil/kurz/${e.id}`} class="block rounded-lg border border-gray-200 p-4 hover:bg-gray-50">
+              <div class="flex items-center justify-between">
+                <h3 class="font-medium text-gray-900">{e.course_title}</h3>
+                <span class="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+                  Lekce {e.current_lesson}
+                </span>
+              </div>
+            </a>
+          ))}
+        </div>
+      )}
+    </section>
+
+    {completedEnrollments.length > 0 && (
+      <section class="mt-8">
+        <h2 class="text-lg font-semibold text-gray-900">Dokončené kurzy</h2>
+        <div class="mt-3 space-y-3">
+          {completedEnrollments.map((e) => (
+            <a href={`/profil/kurz/${e.id}`} class="block rounded-lg border border-gray-200 p-4 hover:bg-gray-50">
+              <div class="flex items-center justify-between">
+                <h3 class="font-medium text-gray-900">{e.course_title}</h3>
+                <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
+                  Dokončeno
+                </span>
+              </div>
+            </a>
+          ))}
+        </div>
+      </section>
+    )}
+  </div>
+</PublicLayout>

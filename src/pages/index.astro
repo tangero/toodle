@@ -1,5 +1,14 @@
 ---
-import PublicLayout from '../layouts/PublicLayout.astro';
+import PublicLayout from '@layouts/PublicLayout.astro';
+import { getAll } from '@lib/db';
+import type { Course } from '@lib/types';
+
+const env = Astro.locals.runtime.env;
+
+const courses = await getAll<Course>(
+  env.DB,
+  `SELECT * FROM courses WHERE status = 'published' ORDER BY created_at DESC`,
+);
 ---
 
 <PublicLayout title="Kurzy" description="Naučte se AI krok za krokem — drip email kurzy pro začátečníky i firmy.">
@@ -12,6 +21,32 @@ import PublicLayout from '../layouts/PublicLayout.astro';
 
   <section class="py-8">
     <h2 class="mb-6 text-2xl font-bold text-gray-900">Dostupné kurzy</h2>
-    <p class="text-gray-500">Kurzy se brzy objeví.</p>
+
+    {courses.length === 0 ? (
+      <p class="text-gray-500">Kurzy se brzy objeví.</p>
+    ) : (
+      <div class="grid gap-6 sm:grid-cols-2">
+        {courses.map((course) => (
+          <a
+            href={`/kurz/${course.slug}`}
+            class="group rounded-xl border border-gray-200 p-6 transition hover:border-blue-300 hover:shadow-md"
+          >
+            <h3 class="text-xl font-semibold text-gray-900 group-hover:text-blue-600">
+              {course.title}
+            </h3>
+            <p class="mt-2 text-gray-600">{course.perex}</p>
+            <div class="mt-4 flex items-center gap-4 text-sm text-gray-500">
+              <span>{course.lesson_count} lekcí</span>
+              <span>&middot;</span>
+              <span>{course.author_name}</span>
+              <span>&middot;</span>
+              <span class="font-medium text-gray-900">
+                {course.price_czk === 0 ? 'Zdarma' : `${course.price_czk} Kč`}
+              </span>
+            </div>
+          </a>
+        ))}
+      </div>
+    )}
   </section>
 </PublicLayout>

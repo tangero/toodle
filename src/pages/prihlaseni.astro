@@ -1,0 +1,91 @@
+---
+import PublicLayout from '@layouts/PublicLayout.astro';
+
+const error = Astro.url.searchParams.get('error');
+const redirectTo = Astro.url.searchParams.get('redirect') || '/profil';
+
+const errorMessages: Record<string, string> = {
+  'missing-token': 'Odkaz je neplatný.',
+  'invalid-token': 'Odkaz vypršel nebo byl již použit. Vyžádejte si nový.',
+};
+---
+
+<PublicLayout title="Přihlášení">
+  <div class="mx-auto max-w-md py-12">
+    <h1 class="text-2xl font-bold text-gray-900">Přihlášení</h1>
+    <p class="mt-2 text-gray-600">
+      Zadejte svůj email a pošleme vám odkaz pro přihlášení.
+    </p>
+
+    {error && (
+      <div class="mt-4 rounded-lg bg-red-50 p-4 text-sm text-red-700">
+        {errorMessages[error] || 'Nastala chyba. Zkuste to znovu.'}
+      </div>
+    )}
+
+    <form id="login-form" class="mt-6 space-y-4">
+      <input type="hidden" name="redirect" value={redirectTo} />
+      <div>
+        <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+        <input
+          type="email"
+          id="email"
+          name="email"
+          required
+          class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          placeholder="vas@email.cz"
+        />
+      </div>
+      <button
+        type="submit"
+        class="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+      >
+        Odeslat přihlašovací odkaz
+      </button>
+    </form>
+
+    <div id="message" class="mt-4 hidden rounded-lg p-4 text-sm"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById('login-form') as HTMLFormElement;
+    const messageEl = document.getElementById('message') as HTMLDivElement;
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const email = formData.get('email') as string;
+      const button = form.querySelector('button') as HTMLButtonElement;
+
+      button.disabled = true;
+      button.textContent = 'Odesílám...';
+      messageEl.classList.add('hidden');
+
+      try {
+        const res = await fetch('/api/auth/magic-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json();
+
+        messageEl.classList.remove('hidden');
+        if (res.ok) {
+          messageEl.className = 'mt-4 rounded-lg bg-green-50 p-4 text-sm text-green-700';
+          messageEl.textContent = data.message;
+          form.classList.add('hidden');
+        } else {
+          messageEl.className = 'mt-4 rounded-lg bg-red-50 p-4 text-sm text-red-700';
+          messageEl.textContent = data.error;
+        }
+      } catch {
+        messageEl.classList.remove('hidden');
+        messageEl.className = 'mt-4 rounded-lg bg-red-50 p-4 text-sm text-red-700';
+        messageEl.textContent = 'Nastala chyba. Zkuste to znovu.';
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Odeslat přihlašovací odkaz';
+      }
+    });
+  </script>
+</PublicLayout>

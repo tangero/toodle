@@ -1,0 +1,60 @@
+---
+import PublicLayout from '@layouts/PublicLayout.astro';
+
+const user = Astro.locals.user!;
+---
+
+<PublicLayout title="Nastavení">
+  <div class="mx-auto max-w-2xl py-8">
+    <h1 class="text-2xl font-bold text-gray-900">Nastavení účtu</h1>
+
+    <section class="mt-8 rounded-lg border border-gray-200 p-6">
+      <h2 class="text-lg font-semibold text-gray-900">Osobní údaje</h2>
+      <dl class="mt-4 space-y-3">
+        <div>
+          <dt class="text-sm text-gray-500">Jméno</dt>
+          <dd class="text-gray-900">{user.name}</dd>
+        </div>
+        <div>
+          <dt class="text-sm text-gray-500">Email</dt>
+          <dd class="text-gray-900">{user.email}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="mt-6 rounded-lg border border-gray-200 p-6">
+      <h2 class="text-lg font-semibold text-gray-900">Ochrana osobních údajů (GDPR)</h2>
+      <p class="mt-2 text-sm text-gray-600">
+        Máte právo na export a smazání svých údajů.
+      </p>
+      <div class="mt-4 flex gap-3">
+        <a
+          href="/api/gdpr/export"
+          class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          Exportovat data
+        </a>
+        <button
+          id="delete-account"
+          class="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+        >
+          Smazat účet
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    document.getElementById('delete-account')?.addEventListener('click', async () => {
+      if (!confirm('Opravdu chcete smazat svůj účet? Tato akce je nevratná.')) return;
+      if (!confirm('Potvrzujete smazání účtu a všech vašich dat?')) return;
+
+      const res = await fetch('/api/gdpr/delete', { method: 'POST' });
+      if (res.ok) {
+        window.location.href = '/?deleted=1';
+      } else {
+        alert('Nastala chyba při mazání účtu.');
+      }
+    });
+  </script>
+</PublicLayout>
