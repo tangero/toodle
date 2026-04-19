@@ -1,0 +1,75 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { getAll } from '@lib/db';
+import type { Course } from '@lib/types';
+
+const env = Astro.locals.runtime.env;
+const courses = await getAll<Course>(
+  env.DB,
+  `SELECT id, slug, title, status, lesson_count, price_czk, delivery_mode, created_at
+   FROM courses ORDER BY created_at DESC`,
+);
+
+const statusLabel: Record<string, string> = {
+  draft: 'Draft',
+  published: 'Publikovaný',
+  archived: 'Archivovaný',
+};
+const statusClass: Record<string, string> = {
+  draft: 'bg-yellow-100 text-yellow-700',
+  published: 'bg-green-100 text-green-700',
+  archived: 'bg-gray-100 text-gray-600',
+};
+---
+
+<AdminLayout title="Kurzy">
+  <div class="mb-4 flex justify-end">
+    <a href="/admin/kurzy/novy" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+      + Nový kurz
+    </a>
+  </div>
+
+  {courses.length === 0 ? (
+    <div class="rounded-xl border border-dashed border-gray-300 py-12 text-center text-gray-500">
+      <p>Žádné kurzy. <a href="/admin/kurzy/novy" class="text-blue-600 hover:underline">Vytvořte první kurz →</a></p>
+    </div>
+  ) : (
+    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white">
+      <table class="w-full text-sm">
+        <thead class="border-b border-gray-200 bg-gray-50">
+          <tr>
+            <th class="px-4 py-3 text-left font-medium text-gray-700">Název</th>
+            <th class="px-4 py-3 text-left font-medium text-gray-700">Stav</th>
+            <th class="px-4 py-3 text-left font-medium text-gray-700">Lekce</th>
+            <th class="px-4 py-3 text-left font-medium text-gray-700">Cena</th>
+            <th class="px-4 py-3 text-left font-medium text-gray-700">Doručení</th>
+            <th class="px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {courses.map((c) => (
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-3">
+                <a href={`/admin/kurzy/${c.id}`} class="font-medium text-gray-900 hover:text-blue-600">{c.title}</a>
+                <p class="text-xs text-gray-400">{c.slug}</p>
+              </td>
+              <td class="px-4 py-3">
+                <span class:list={['rounded-full px-2.5 py-1 text-xs font-medium', statusClass[c.status]]}>
+                  {statusLabel[c.status]}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-gray-600">{c.lesson_count}</td>
+              <td class="px-4 py-3 text-gray-600">{c.price_czk === 0 ? 'Zdarma' : `${c.price_czk} Kč`}</td>
+              <td class="px-4 py-3 text-gray-600 text-xs">
+                {c.delivery_mode === 'next_workday' ? 'Po-Pá auto' : 'Na kliknutí'}
+              </td>
+              <td class="px-4 py-3 text-right">
+                <a href={`/admin/kurzy/${c.id}`} class="text-sm text-blue-600 hover:underline">Upravit</a>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+</AdminLayout>

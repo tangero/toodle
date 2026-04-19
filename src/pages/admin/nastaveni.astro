@@ -1,0 +1,65 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { getOne } from '@lib/db';
+
+const env = Astro.locals.runtime.env;
+
+const userCount = await getOne<{ count: number }>(env.DB, `SELECT COUNT(*) as count FROM users WHERE deleted_at IS NULL`);
+const courseCount = await getOne<{ count: number }>(env.DB, `SELECT COUNT(*) as count FROM courses WHERE status != 'archived'`);
+const enrollmentCount = await getOne<{ count: number }>(env.DB, `SELECT COUNT(*) as count FROM enrollments`);
+---
+
+<AdminLayout title="Nastavení">
+  <div class="max-w-2xl space-y-6">
+    <section class="rounded-xl border border-gray-200 bg-white p-5">
+      <h2 class="mb-3 font-semibold text-gray-900">Stav systému</h2>
+      <dl class="grid grid-cols-3 gap-4">
+        <div class="text-center">
+          <dt class="text-sm text-gray-500">Uživatelé</dt>
+          <dd class="text-2xl font-bold text-gray-900">{userCount?.count ?? 0}</dd>
+        </div>
+        <div class="text-center">
+          <dt class="text-sm text-gray-500">Kurzy</dt>
+          <dd class="text-2xl font-bold text-gray-900">{courseCount?.count ?? 0}</dd>
+        </div>
+        <div class="text-center">
+          <dt class="text-sm text-gray-500">Enrollmenty</dt>
+          <dd class="text-2xl font-bold text-gray-900">{enrollmentCount?.count ?? 0}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="rounded-xl border border-gray-200 bg-white p-5">
+      <h2 class="mb-3 font-semibold text-gray-900">Cron joby</h2>
+      <p class="mb-3 text-sm text-gray-600">Cron joby se spouští automaticky přes Cloudflare Cron Triggers.</p>
+      <dl class="space-y-2 text-sm">
+        {[
+          ['0 7 * * 1-5', 'Doručování lekcí — každé Po-Pá v 7:00'],
+          ['*/30 * * * *', 'Párování plateb FIO — každých 30 minut'],
+          ['0 9 * * *', 'Upomínky + expirace objednávek — každý den v 9:00'],
+          ['0 18 * * *', 'Denní digest adminovi — každý den v 18:00'],
+        ].map(([cron, desc]) => (
+          <div class="flex items-start gap-3 rounded-lg bg-gray-50 px-3 py-2">
+            <code class="shrink-0 text-xs text-gray-500">{cron}</code>
+            <span class="text-gray-700">{desc}</span>
+          </div>
+        ))}
+      </dl>
+    </section>
+
+    <section class="rounded-xl border border-gray-200 bg-white p-5">
+      <h2 class="mb-3 font-semibold text-gray-900">Konfigurace secrets</h2>
+      <p class="text-sm text-gray-600 mb-3">
+        Secrets se nastavují přes <code class="bg-gray-100 px-1 rounded">wrangler secret put</code>:
+      </p>
+      <div class="space-y-1 text-sm font-mono">
+        {['RESEND_API_KEY', 'ANTHROPIC_API_KEY', 'FIO_API_TOKEN', 'ADMIN_EMAIL', 'JWT_SECRET', 'CRON_SECRET'].map((key) => (
+          <div class="flex items-center gap-2">
+            <span class="text-gray-600">wrangler secret put</span>
+            <span class="text-blue-600">{key}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  </div>
+</AdminLayout>

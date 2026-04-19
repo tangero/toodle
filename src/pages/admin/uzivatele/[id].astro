@@ -1,0 +1,137 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { getOne, getAll } from '@lib/db';
+import type { User, Enrollment, Order } from '@lib/types';
+
+const { id } = Astro.params;
+const env = Astro.locals.runtime.env;
+
+const user = await getOne<User>(
+  env.DB,
+  `SELECT id, email, name, created_at, verified_at FROM users WHERE id = ? AND deleted_at IS NULL`,
+  id,
+);
+if (!user) return Astro.redirect('/admin/uzivatele');
+
+const enrollments = await getAll<Enrollment & { course_title: string }>(
+  env.DB,
+  `SELECT e.*, c.title as course_title FROM enrollments e JOIN courses c ON e.course_id = c.id WHERE e.user_id = ? ORDER BY e.started_at DESC`,
+  id,
+);
+
+const orders = await getAll<Order & { course_title: string }>(
+  env.DB,
+  `SELECT o.*, c.title as course_title FROM orders o JOIN courses c ON o.course_id = c.id WHERE o.user_id = ? ORDER BY o.created_at DESC`,
+  id,
+);
+
+const emailLogs = await getAll<{ template: string; sent_at: string; opened_at: string | null; clicked_at: string | null; bounced_at: string | null }>(
+  env.DB,
+  `SELECT el.template, el.sent_at, el.opened_at, el.clicked_at, el.bounced_at
+   FROM email_log el
+   JOIN enrollments e ON el.enrollment_id = e.id
+   WHERE e.user_id = ?
+   ORDER BY el.sent_at DESC LIMIT 20`,
+  id,
+);
+
+const statusColors: Record<string, string> = {
+  active: 'bg-blue-100 text-blue-700',
+  completed: 'bg-green-100 text-green-700',
+  cancelled: 'bg-red-100 text-red-700',
+  pending: 'bg-yellow-100 text-yellow-700',
+  paused: 'bg-gray-100 text-gray-600',
+  stalled: 'bg-orange-100 text-orange-700',
+  paid: 'bg-green-100 text-green-700',
+  overpaid: 'bg-orange-100 text-orange-700',
+  underpaid: 'bg-orange-100 text-orange-700',
+};
+---
+
+<AdminLayout title={user.email}>
+  <a href="/admin/uzivatele" class="mb-6 block text-sm text-gray-500 hover:text-gray-700">&larr; Všichni uživatelé</a>
+
+  <div class="grid gap-6 lg:grid-cols-3">
+    <div class="rounded-xl border border-gray-200 bg-white p-5">
+      <h2 class="mb-3 font-semibold text-gray-900">Základní údaje</h2>
+      <dl class="space-y-2 text-sm">
+        <div>
+          <dt class="text-gray-500">Email</dt>
+          <dd class="font-medium text-gray-900">{user.email}</dd>
+        </div>
+        <div>
+          <dt class="text-gray-500">Jméno</dt>
+          <dd class="text-gray-900">{user.name}</dd>
+        </div>
+        <div>
+          <dt class="text-gray-500">Ověřen</dt>
+          <dd class="text-gray-900">{user.verified_at ? new Date(user.verified_at).toLocaleDateString('cs-CZ') : 'Ne'}</dd>
+        </div>
+        <div>
+          <dt class="text-gray-500">Registrace</dt>
+          <dd class="text-gray-900">{new Date(user.created_at).toLocaleDateString('cs-CZ')}</dd>
+        </div>
+      </dl>
+    </div>
+
+    <div class="lg:col-span-2 space-y-6">
+      <section class="rounded-xl border border-gray-200 bg-white p-5">
+        <h2 class="mb-3 font-semibold text-gray-900">Enrollmenty ({enrollments.length})</h2>
+        {enrollments.length === 0 ? (
+          <p class="text-sm text-gray-500">Žádné kurzy.</p>
+        ) : (
+          <div class="space-y-2">
+            {enrollments.map((e) => (
+              <div class="flex items-center gap-3 rounded-lg border border-gray-100 px-3 py-2 text-sm">
+                <span class:list={['rounded-full px-2 py-0.5 text-xs font-medium', statusColors[e.status] ?? 'bg-gray-100 text-gray-600']}>
+                  {e.status}
+                </span>
+                <span class="flex-1 font-medium text-gray-900">{e.course_title}</span>
+                <span class="text-gray-400">lekce {e.current_lesson}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section class="rounded-xl border border-gray-200 bg-white p-5">
+        <h2 class="mb-3 font-semibold text-gray-900">Objednávky ({orders.length})</h2>
+        {orders.length === 0 ? (
+          <p class="text-sm text-gray-500">Žádné objednávky.</p>
+        ) : (
+          <div class="divide-y divide-gray-100">
+            {orders.map((o) => (
+              <div class="flex items-center gap-3 py-2 text-sm">
+                <span class:list={['rounded-full px-2 py-0.5 text-xs font-medium', statusColors[o.status] ?? 'bg-gray-100 text-gray-600']}>
+                  {o.status}
+                </span>
+                <span class="flex-1 text-gray-900">{o.course_title}</span>
+                <span class="text-gray-500">{o.amount_czk} Kč</span>
+                <span class="text-xs text-gray-400">VS: {o.vs}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section class="rounded-xl border border-gray-200 bg-white p-5">
+        <h2 class="mb-3 font-semibold text-gray-900">Email log (posledních 20)</h2>
+        {emailLogs.length === 0 ? (
+          <p class="text-sm text-gray-500">Žádné emaily.</p>
+        ) : (
+          <div class="divide-y divide-gray-100 text-sm">
+            {emailLogs.map((log) => (
+              <div class="flex items-center gap-2 py-2">
+                <span class="text-gray-500 text-xs">{new Date(log.sent_at).toLocaleDateString('cs-CZ')}</span>
+                <span class="flex-1 font-medium text-gray-900">{log.template}</span>
+                {log.opened_at && <span class="text-xs text-green-600">otevřeno</span>}
+                {log.clicked_at && <span class="text-xs text-blue-600">kliknuto</span>}
+                {log.bounced_at && <span class="text-xs text-red-600">bounce</span>}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  </div>
+</AdminLayout>
