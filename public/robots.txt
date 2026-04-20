@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /profil/
+Disallow: /api/
+Disallow: /odhlaseni/
+
+Sitemap: https://skola.aivefirmach.cz/sitemap.xml
