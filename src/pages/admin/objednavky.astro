@@ -1,0 +1,88 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { getAll } from '@lib/db';
+
+const env = Astro.locals.runtime.env;
+const statusFilter = Astro.url.searchParams.get('status') ?? '';
+
+const orders = await getAll<{
+  id: string; vs: string; user_email: string; course_title: string;
+  amount_czk: number; status: string; created_at: string; paid_at: string | null;
+}>(
+  env.DB,
+  `SELECT o.id, o.vs, u.email as user_email, c.title as course_title,
+          o.amount_czk, o.status, o.created_at, o.paid_at
+   FROM orders o
+   JOIN users u ON o.user_id = u.id
+   JOIN courses c ON o.course_id = c.id
+   ${statusFilter ? `WHERE o.status = '${statusFilter}'` : ''}
+   ORDER BY o.created_at DESC
+   LIMIT 100`,
+);
+
+const statusColors: Record<string, string> = {
+  pending: 'bg-yellow-100 text-yellow-700',
+  paid: 'bg-green-100 text-green-700',
+  cancelled: 'bg-red-100 text-red-700',
+  overpaid: 'bg-orange-100 text-orange-700',
+  underpaid: 'bg-orange-100 text-orange-700',
+};
+
+const statuses = ['', 'pending', 'paid', 'cancelled', 'overpaid', 'underpaid'];
+const statusLabels: Record<string, string> = {
+  '': 'Vše', pending: 'Čeká', paid: 'Zaplaceno',
+  cancelled: 'Zrušeno', overpaid: 'Přeplaceno', underpaid: 'Nedoplaceno',
+};
+---
+
+<AdminLayout title="Objednávky">
+  <div class="mb-4 flex gap-2 flex-wrap">
+    {statuses.map((s) => (
+      <a
+        href={s ? `/admin/objednavky?status=${s}` : '/admin/objednavky'}
+        class:list={[
+          'rounded-lg px-3 py-1.5 text-sm font-medium',
+          statusFilter === s ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+        ]}
+      >
+        {statusLabels[s]}
+      </a>
+    ))}
+  </div>
+
+  <div class="overflow-hidden rounded-xl border border-gray-200 bg-white">
+    <table class="w-full text-sm">
+      <thead class="border-b border-gray-200 bg-gray-50">
+        <tr>
+          <th class="px-4 py-3 text-left font-medium text-gray-700">VS</th>
+          <th class="px-4 py-3 text-left font-medium text-gray-700">Uživatel</th>
+          <th class="px-4 py-3 text-left font-medium text-gray-700">Kurz</th>
+          <th class="px-4 py-3 text-left font-medium text-gray-700">Částka</th>
+          <th class="px-4 py-3 text-left font-medium text-gray-700">Stav</th>
+          <th class="px-4 py-3 text-left font-medium text-gray-700">Datum</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {orders.map((o) => (
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-3 font-mono text-xs text-gray-500">{o.vs}</td>
+            <td class="px-4 py-3 text-gray-900">{o.user_email}</td>
+            <td class="px-4 py-3 text-gray-900">{o.course_title}</td>
+            <td class="px-4 py-3 font-medium text-gray-900">{o.amount_czk} Kč</td>
+            <td class="px-4 py-3">
+              <span class:list={['rounded-full px-2.5 py-1 text-xs font-medium', statusColors[o.status] ?? 'bg-gray-100 text-gray-600']}>
+                {o.status}
+              </span>
+            </td>
+            <td class="px-4 py-3 text-xs text-gray-400">
+              {new Date(o.created_at).toLocaleDateString('cs-CZ')}
+            </td>
+          </tr>
+        ))}
+        {orders.length === 0 && (
+          <tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">Žádné objednávky.</td></tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</AdminLayout>

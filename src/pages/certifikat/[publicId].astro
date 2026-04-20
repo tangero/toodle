@@ -1,0 +1,81 @@
+---
+import PublicLayout from '@layouts/PublicLayout.astro';
+import { getOne } from '@lib/db';
+import type { Certificate } from '@lib/types';
+
+const { publicId } = Astro.params;
+const env = Astro.locals.runtime.env;
+
+interface CertificateDetail extends Certificate {
+  user_name: string;
+  user_email: string;
+  course_title: string;
+  enrollment_score: number | null;
+}
+
+const cert = await getOne<CertificateDetail>(
+  env.DB,
+  `SELECT c.*, u.name as user_name, u.email as user_email,
+          co.title as course_title, e.score as enrollment_score
+   FROM certificates c
+   JOIN enrollments e ON c.enrollment_id = e.id
+   JOIN users u ON e.user_id = u.id
+   JOIN courses co ON e.course_id = co.id
+   WHERE c.public_id = ?`,
+  publicId,
+);
+
+if (!cert) {
+  return Astro.redirect('/404');
+}
+
+const issuedDate = new Date(cert.issued_at).toLocaleDateString('cs-CZ', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+});
+---
+
+<PublicLayout title={`Certifikát — ${cert.course_title}`}>
+  <div class="mx-auto max-w-lg py-12 text-center">
+    <div class="rounded-xl border-2 border-blue-200 bg-gradient-to-b from-blue-50 to-white p-8">
+      <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+        <svg class="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
+        </svg>
+      </div>
+
+      <h1 class="mt-6 text-sm font-medium uppercase tracking-wider text-gray-500">Certifikát</h1>
+      <h2 class="mt-2 text-2xl font-bold text-gray-900">{cert.course_title}</h2>
+
+      <div class="mt-6 space-y-1">
+        <p class="text-lg font-semibold text-gray-900">{cert.user_name}</p>
+        <p class="text-sm text-gray-500">úspěšně dokončil/a kurz</p>
+      </div>
+
+      {cert.enrollment_score !== null && (
+        <div class="mt-4">
+          <span class="inline-block rounded-full bg-blue-100 px-4 py-1 text-sm font-medium text-blue-700">
+            Skóre: {cert.enrollment_score}%
+          </span>
+        </div>
+      )}
+
+      <p class="mt-6 text-sm text-gray-500">Vydáno: {issuedDate}</p>
+
+      <div class="mt-4">
+        <a
+          href={`/api/certificates/${publicId}`}
+          class="text-sm font-medium text-blue-600 hover:underline"
+        >
+          Stáhnout PDF
+        </a>
+      </div>
+    </div>
+
+    <p class="mt-6 text-xs text-gray-400">
+      Tento certifikát byl ověřen systémem Letní školy AI.
+      ID: {cert.public_id}
+    </p>
+  </div>
+</PublicLayout>

@@ -1,0 +1,74 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import CourseForm from '@components/admin/CourseForm';
+import LessonEditor from '@components/admin/LessonEditor';
+import TestEditor from '@components/admin/TestEditor';
+import { getOne, getAll } from '@lib/db';
+import type { Course, Lesson, Test } from '@lib/types';
+
+const { id } = Astro.params;
+const env = Astro.locals.runtime.env;
+
+const course = await getOne<Course>(env.DB, `SELECT * FROM courses WHERE id = ?`, id);
+if (!course) return Astro.redirect('/admin/kurzy');
+
+const lessons = await getAll<Lesson>(
+  env.DB,
+  `SELECT * FROM lessons WHERE course_id = ? ORDER BY position ASC`,
+  id,
+);
+
+const test = await getOne<Test>(env.DB, `SELECT * FROM tests WHERE course_id = ?`, id);
+const testQuestions = test ? JSON.parse(test.questions_json) : [];
+
+const tabs = ['kurz', 'lekce', 'test'] as const;
+type Tab = typeof tabs[number];
+const activeTab = (Astro.url.searchParams.get('tab') as Tab) ?? 'kurz';
+---
+
+<AdminLayout title={course.title}>
+  <div class="mb-6 flex items-center gap-4">
+    <a href="/admin/kurzy" class="text-sm text-gray-500 hover:text-gray-700">&larr; Všechny kurzy</a>
+    <a href={`/kurz/${course.slug}`} target="_blank" class="text-sm text-blue-600 hover:underline">
+      Zobrazit na webu ↗
+    </a>
+  </div>
+
+  <div class="mb-6 flex gap-1 border-b border-gray-200">
+    {tabs.map((tab) => (
+      <a
+        href={`/admin/kurzy/${id}?tab=${tab}`}
+        class:list={[
+          'px-4 py-2 text-sm font-medium border-b-2 -mb-px',
+          activeTab === tab
+            ? 'border-blue-600 text-blue-600'
+            : 'border-transparent text-gray-500 hover:text-gray-700',
+        ]}
+      >
+        {tab === 'kurz' ? 'Nastavení kurzu' : tab === 'lekce' ? 'Lekce' : 'Test'}
+      </a>
+    ))}
+  </div>
+
+  {activeTab === 'kurz' && (
+    <div class="max-w-3xl">
+      <CourseForm client:load course={course} />
+    </div>
+  )}
+
+  {activeTab === 'lekce' && (
+    <div class="max-w-3xl">
+      <LessonEditor client:load courseId={id!} initialLessons={lessons} />
+    </div>
+  )}
+
+  {activeTab === 'test' && (
+    <div class="max-w-3xl">
+      <p class="mb-4 text-sm text-gray-600">
+        Přidejte otázky závěrečného testu. Otázky s výběrem jsou hodnoceny automaticky,
+        otevřené otázky jsou hodnoceny pomocí Claude API.
+      </p>
+      <TestEditor client:load courseId={id!} initialQuestions={testQuestions} />
+    </div>
+  )}
+</AdminLayout>

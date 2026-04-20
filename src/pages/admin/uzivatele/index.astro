@@ -1,0 +1,79 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { getAll } from '@lib/db';
+
+const env = Astro.locals.runtime.env;
+const search = Astro.url.searchParams.get('search') ?? '';
+
+const users = await getAll<{
+  id: string; email: string; name: string;
+  created_at: string; verified_at: string | null; enrollment_count: number;
+}>(
+  env.DB,
+  `SELECT u.id, u.email, u.name, u.created_at, u.verified_at,
+          COUNT(e.id) as enrollment_count
+   FROM users u
+   LEFT JOIN enrollments e ON e.user_id = u.id
+   WHERE u.deleted_at IS NULL AND (u.email LIKE ? OR u.name LIKE ?)
+   GROUP BY u.id
+   ORDER BY u.created_at DESC
+   LIMIT 100`,
+  `%${search}%`, `%${search}%`,
+);
+---
+
+<AdminLayout title="Uživatelé">
+  <form method="get" class="mb-4 flex gap-2">
+    <input
+      type="text"
+      name="search"
+      value={search}
+      placeholder="Hledat podle emailu nebo jména..."
+      class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+    />
+    <button type="submit" class="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200">
+      Hledat
+    </button>
+  </form>
+
+  <div class="overflow-hidden rounded-xl border border-gray-200 bg-white">
+    <table class="w-full text-sm">
+      <thead class="border-b border-gray-200 bg-gray-50">
+        <tr>
+          <th class="px-4 py-3 text-left font-medium text-gray-700">Email / Jméno</th>
+          <th class="px-4 py-3 text-left font-medium text-gray-700">Ověřen</th>
+          <th class="px-4 py-3 text-left font-medium text-gray-700">Kurzy</th>
+          <th class="px-4 py-3 text-left font-medium text-gray-700">Registrace</th>
+          <th class="px-4 py-3"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {users.map((u) => (
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-3">
+              <p class="font-medium text-gray-900">{u.email}</p>
+              <p class="text-xs text-gray-400">{u.name}</p>
+            </td>
+            <td class="px-4 py-3">
+              {u.verified_at ? (
+                <span class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Ano</span>
+              ) : (
+                <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">Ne</span>
+              )}
+            </td>
+            <td class="px-4 py-3 text-gray-600">{u.enrollment_count}</td>
+            <td class="px-4 py-3 text-xs text-gray-400">
+              {new Date(u.created_at).toLocaleDateString('cs-CZ')}
+            </td>
+            <td class="px-4 py-3 text-right">
+              <a href={`/admin/uzivatele/${u.id}`} class="text-sm text-blue-600 hover:underline">Detail</a>
+            </td>
+          </tr>
+        ))}
+        {users.length === 0 && (
+          <tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">Žádní uživatelé.</td></tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</AdminLayout>

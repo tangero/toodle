@@ -1,0 +1,156 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { getAll } from '@lib/db';
+
+const env = Astro.locals.runtime.env;
+
+const payments = await getAll<{
+  id: string; vs: string; amount_czk: number; received_at: string;
+  matched_order_id: string | null; note: string | null;
+  order_status: string | null; user_email: string | null; course_title: string | null;
+}>(
+  env.DB,
+  `SELECT p.id, p.vs, p.amount_czk, p.received_at,
+          p.matched_order_id, p.note,
+          o.status as order_status,
+          u.email as user_email,
+          c.title as course_title
+   FROM payments p
+   LEFT JOIN orders o ON p.matched_order_id = o.id
+   LEFT JOIN users u ON o.user_id = u.id
+   LEFT JOIN courses c ON o.course_id = c.id
+   ORDER BY p.received_at DESC
+   LIMIT 100`,
+);
+
+const unmatched = payments.filter((p) => !p.matched_order_id);
+
+// For manual matching: get pending orders
+const pendingOrders = await getAll<{ id: string; vs: string; user_email: string; course_title: string; amount_czk: number }>(
+  env.DB,
+  `SELECT o.id, o.vs, u.email as user_email, c.title as course_title, o.amount_czk
+   FROM orders o
+   JOIN users u ON o.user_id = u.id
+   JOIN courses c ON o.course_id = c.id
+   WHERE o.status = 'pending'
+   ORDER BY o.created_at DESC`,
+);
+---
+
+<AdminLayout title="Platby">
+  {unmatched.length > 0 && (
+    <div class="mb-6 rounded-lg bg-orange-50 border border-orange-200 p-4">
+      <p class="text-sm font-medium text-orange-800">
+        ⚠️ {unmatched.length} nespárovaných plateb vyžaduje ruční zpracování.
+      </p>
+    </div>
+  )}
+
+  <div class="mb-8 overflow-hidden rounded-xl border border-gray-200 bg-white">
+    <div class="border-b border-gray-200 bg-gray-50 px-4 py-3">
+      <h2 class="font-semibold text-gray-900">Přijaté platby</h2>
+    </div>
+    <table class="w-full text-sm">
+      <thead class="border-b border-gray-100">
+        <tr>
+          <th class="px-4 py-3 text-left font-medium text-gray-700">Přijato</th>
+          <th class="px-4 py-3 text-left font-medium text-gray-700">VS</th>
+          <th class="px-4 py-3 text-left font-medium text-gray-700">Částka</th>
+          <th class="px-4 py-3 text-left font-medium text-gray-700">Spárováno s</th>
+          <th class="px-4 py-3 text-left font-medium text-gray-700">Stav</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {payments.map((p) => (
+          <tr class:list={['hover:bg-gray-50', !p.matched_order_id && 'bg-orange-50']}>
+            <td class="px-4 py-3 text-xs text-gray-500">{new Date(p.received_at).toLocaleDateString('cs-CZ')}</td>
+            <td class="px-4 py-3 font-mono text-xs text-gray-500">{p.vs}</td>
+            <td class="px-4 py-3 font-medium text-gray-900">{p.amount_czk} Kč</td>
+            <td class="px-4 py-3 text-sm text-gray-700">
+              {p.user_email ? (
+                <span>{p.user_email} · {p.course_title}</span>
+              ) : (
+                <span class="text-orange-600 font-medium">Nespárováno</span>
+              )}
+            </td>
+            <td class="px-4 py-3">
+              {p.order_status ? (
+                <span class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">{p.order_status}</span>
+              ) : (
+                <span class="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">čeká</span>
+              )}
+            </td>
+          </tr>
+        ))}
+        {payments.length === 0 && (
+          <tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">Žádné platby.</td></tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+
+  {unmatched.length > 0 && pendingOrders.length > 0 && (
+    <div class="rounded-xl border border-gray-200 bg-white p-5">
+      <h2 class="mb-4 font-semibold text-gray-900">Ruční párování plateb</h2>
+      <div id="match-form" class="space-y-3">
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Nespárovaná platba</label>
+            <select id="payment-select" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+              <option value="">Vyberte platbu...</option>
+              {unmatched.map((p) => (
+                <option value={p.id}>VS {p.vs} · {p.amount_czk} Kč · {new Date(p.received_at).toLocaleDateString('cs-CZ')}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Objednávka</label>
+            <select id="order-select" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+              <option value="">Vyberte objednávku...</option>
+              {pendingOrders.map((o) => (
+                <option value={o.id}>{o.user_email} · {o.course_title} · {o.amount_czk} Kč (VS {o.vs})</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <button
+          id="match-btn"
+          class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          Spárovat
+        </button>
+        <div id="match-msg" class="hidden text-sm"></div>
+      </div>
+    </div>
+  )}
+
+  <script>
+    const btn = document.getElementById('match-btn');
+    const msg = document.getElementById('match-msg');
+    btn?.addEventListener('click', async () => {
+      const paymentId = (document.getElementById('payment-select') as HTMLSelectElement).value;
+      const orderId = (document.getElementById('order-select') as HTMLSelectElement).value;
+      if (!paymentId || !orderId) { alert('Vyberte platbu i objednávku.'); return; }
+      btn!.setAttribute('disabled', '');
+      try {
+        const res = await fetch('/api/admin/payments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ payment_id: paymentId, order_id: orderId }),
+        });
+        const data = await res.json() as { ok?: boolean; status?: string; error?: string };
+        msg!.classList.remove('hidden');
+        if (res.ok) {
+          msg!.className = 'text-sm text-green-700';
+          msg!.textContent = `Spárováno. Stav objednávky: ${data.status}`;
+          setTimeout(() => window.location.reload(), 1500);
+        } else {
+          msg!.className = 'text-sm text-red-700';
+          msg!.textContent = data.error ?? 'Chyba';
+        }
+      } finally {
+        btn!.removeAttribute('disabled');
+      }
+    });
+  </script>
+</AdminLayout>

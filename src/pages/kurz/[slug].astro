@@ -1,0 +1,76 @@
+---
+import PublicLayout from '@layouts/PublicLayout.astro';
+import { getOne, getAll } from '@lib/db';
+import { renderMarkdown } from '@lib/markdown';
+import type { Course, Lesson } from '@lib/types';
+
+const { slug } = Astro.params;
+const env = Astro.locals.runtime.env;
+
+const course = await getOne<Course>(
+  env.DB,
+  `SELECT * FROM courses WHERE slug = ? AND status = 'published'`,
+  slug,
+);
+
+if (!course) {
+  return Astro.redirect('/404');
+}
+
+const lessons = await getAll<Lesson>(
+  env.DB,
+  `SELECT id, position, title, reading_minutes FROM lessons WHERE course_id = ? ORDER BY position ASC`,
+  course.id,
+);
+
+const descriptionHtml = renderMarkdown(course.description_md);
+const deliveryLabel = course.delivery_mode === 'next_workday'
+  ? 'Automaticky Po-Pá'
+  : 'Na kliknutí (vlastní tempo)';
+---
+
+<PublicLayout title={course.title} description={course.perex}>
+  <article class="py-8">
+    <div class="mx-auto max-w-3xl">
+      <header>
+        <h1 class="text-3xl font-bold tracking-tight text-gray-900">{course.title}</h1>
+        <p class="mt-3 text-lg text-gray-600">{course.perex}</p>
+        <div class="mt-4 flex flex-wrap gap-4 text-sm text-gray-500">
+          <span>Autor: <strong class="text-gray-700">{course.author_name}</strong></span>
+          <span>{course.lesson_count} lekcí</span>
+          <span>Doručení: {deliveryLabel}</span>
+        </div>
+      </header>
+
+      <div class="mt-8 flex items-center gap-4">
+        <a
+          href={`/objednavka/${course.slug}`}
+          class="rounded-lg bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700"
+        >
+          {course.price_czk === 0 ? 'Zapsat se zdarma' : `Objednat za ${course.price_czk} Kč`}
+        </a>
+      </div>
+
+      {course.description_md && (
+        <section class="prose prose-gray mt-10 max-w-none" set:html={descriptionHtml} />
+      )}
+
+      {lessons.length > 0 && (
+        <section class="mt-10">
+          <h2 class="text-xl font-semibold text-gray-900">Osnova kurzu</h2>
+          <ol class="mt-4 space-y-2">
+            {lessons.map((lesson) => (
+              <li class="flex items-center gap-3 rounded-lg border border-gray-100 px-4 py-3">
+                <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-medium text-gray-600">
+                  {lesson.position}
+                </span>
+                <span class="text-gray-900">{lesson.title}</span>
+                <span class="ml-auto text-xs text-gray-400">{lesson.reading_minutes} min</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+    </div>
+  </article>
+</PublicLayout>

@@ -1,0 +1,10 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import CourseForm from '@components/admin/CourseForm';
+---
+
+<AdminLayout title="Nový kurz">
+  <div class="max-w-3xl">
+    <CourseForm client:load />
+  </div>
+</AdminLayout>
