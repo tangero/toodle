@@ -1,0 +1,186 @@
+---
+import PublicLayout from '@layouts/PublicLayout.astro';
+import { getOne } from '@lib/db';
+import type { Course, Enrollment } from '@lib/types';
+
+const { slug } = Astro.params;
+const env = Astro.locals.runtime.env;
+const user = Astro.locals.user;
+
+const course = await getOne<Course>(
+  env.DB,
+  `SELECT * FROM courses WHERE slug = ? AND status = 'published'`,
+  slug,
+);
+if (!course) return Astro.redirect('/');
+
+// Check existing enrollment
+let existingEnrollment: Enrollment | null = null;
+if (user) {
+  existingEnrollment = await getOne<Enrollment>(
+    env.DB,
+    `SELECT * FROM enrollments WHERE user_id = ? AND course_id = ? AND status != 'cancelled'`,
+    user.id,
+    course.id,
+  );
+}
+
+const deliveryLabel = course.delivery_mode === 'next_workday'
+  ? 'Automaticky každý pracovní den'
+  : 'Vlastním tempem (na kliknutí)';
+---
+
+<PublicLayout title={`Objednávka — ${course.title}`}>
+  <div class="mx-auto max-w-lg py-10">
+    <a href={`/kurz/${course.slug}`} class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na kurz</a>
+
+    <h1 class="mt-4 text-2xl font-bold text-gray-900">{course.title}</h1>
+    <p class="mt-1 text-gray-600">{course.perex}</p>
+
+    <div class="mt-4 flex gap-4 text-sm text-gray-500">
+      <span>{course.lesson_count} lekcí</span>
+      <span>·</span>
+      <span>{deliveryLabel}</span>
+      <span>·</span>
+      <span class="font-semibold text-gray-900">
+        {course.price_czk === 0 ? 'Zdarma' : `${course.price_czk} Kč`}
+      </span>
+    </div>
+
+    {existingEnrollment ? (
+      <div class="mt-8 rounded-xl border border-blue-200 bg-blue-50 p-5">
+        <p class="font-medium text-blue-900">Jste již zapsáni na tento kurz.</p>
+        <a href={`/profil/kurz/${existingEnrollment.id}`} class="mt-3 inline-block rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700">
+          Přejít na kurz
+        </a>
+      </div>
+    ) : (
+      <div class="mt-8 rounded-xl border border-gray-200 bg-white p-6">
+        <form id="order-form" class="space-y-4">
+          <input type="hidden" id="course-slug" value={course.slug} />
+          <input type="hidden" id="course-id" value={course.id} />
+
+          {!user && (
+            <>
+              <div>
+                <label for="name" class="block text-sm font-medium text-gray-700">Jméno</label>
+                <input type="text" id="name" required
+                  class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="Jan Novák" />
+              </div>
+              <div>
+                <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+                <input type="email" id="email" required
+                  class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="jan@example.cz" />
+              </div>
+            </>
+          )}
+
+          {user && (
+            <div class="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700">
+              Objednáváte jako <strong>{user.email}</strong>
+            </div>
+          )}
+
+          <div id="error-msg" class="hidden rounded-lg bg-red-50 p-3 text-sm text-red-700"></div>
+
+          <button type="submit"
+            class="w-full rounded-lg bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+            {course.price_czk === 0 ? 'Zapsat se zdarma' : `Objednat za ${course.price_czk} Kč`}
+          </button>
+        </form>
+
+        <div id="order-result" class="hidden">
+          <!-- filled by JS -->
+        </div>
+      </div>
+    )}
+  </div>
+
+  <script>
+    const form = document.getElementById('order-form') as HTMLFormElement | null;
+    const resultEl = document.getElementById('order-result') as HTMLDivElement;
+    const errorEl = document.getElementById('error-msg') as HTMLDivElement;
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+      btn.disabled = true;
+      btn.textContent = 'Zpracovávám...';
+      errorEl.classList.add('hidden');
+
+      const slug = (document.getElementById('course-slug') as HTMLInputElement).value;
+      const emailEl = document.getElementById('email') as HTMLInputElement | null;
+      const nameEl = document.getElementById('name') as HTMLInputElement | null;
+
+      const body: Record<string, string> = { slug };
+      if (emailEl) body.email = emailEl.value;
+      if (nameEl) body.name = nameEl.value;
+
+      try {
+        const res = await fetch('/api/orders/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json() as {
+          ok?: boolean; error?: string; type?: string;
+          vs?: string; amount?: number; free?: boolean; redirectTo?: string;
+        };
+
+        if (!res.ok) {
+          errorEl.textContent = data.error ?? 'Nastala chyba.';
+          errorEl.classList.remove('hidden');
+          btn.disabled = false;
+          btn.textContent = 'Zkusit znovu';
+          return;
+        }
+
+        form.classList.add('hidden');
+        resultEl.classList.remove('hidden');
+
+        if (data.free || data.type === 'free') {
+          resultEl.innerHTML = `
+            <div class="rounded-xl border border-green-200 bg-green-50 p-5 text-center">
+              <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+                <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              </div>
+              <h2 class="text-lg font-semibold text-green-900">Úspěšně zapsáno!</h2>
+              <p class="mt-1 text-sm text-green-700">
+                Zkontrolujte email — poslali jsme vám ověřovací odkaz.
+                Po ověření začnou chodit lekce.
+              </p>
+              <a href="/profil" class="mt-4 inline-block rounded-lg bg-green-600 px-5 py-2 text-sm font-medium text-white hover:bg-green-700">
+                Přejít do profilu
+              </a>
+            </div>`;
+        } else {
+          resultEl.innerHTML = `
+            <div class="rounded-xl border border-blue-200 bg-blue-50 p-5">
+              <h2 class="text-lg font-semibold text-blue-900">Platební instrukce</h2>
+              <p class="mt-2 text-sm text-blue-800">
+                Uhraďte prosím <strong>${data.amount} Kč</strong> bankovním převodem na:
+              </p>
+              <div class="mt-3 space-y-1 rounded-lg bg-white p-4 text-sm font-mono">
+                <p><span class="text-gray-500">Číslo účtu:</span> <strong>2702819819/2010</strong></p>
+                <p><span class="text-gray-500">Variabilní symbol:</span> <strong>${data.vs}</strong></p>
+                <p><span class="text-gray-500">Částka:</span> <strong>${data.amount} Kč</strong></p>
+              </div>
+              <p class="mt-3 text-xs text-blue-700">
+                Po přijetí platby vám automaticky zašleme první lekci.
+                Platba je splatná do 14 dní.
+              </p>
+            </div>`;
+        }
+      } catch {
+        errorEl.textContent = 'Nastala chyba při zpracování objednávky.';
+        errorEl.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = 'Zkusit znovu';
+      }
+    });
+  </script>
+</PublicLayout>

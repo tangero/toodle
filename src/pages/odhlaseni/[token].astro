@@ -1,0 +1,66 @@
+---
+import PublicLayout from '@layouts/PublicLayout.astro';
+import { verifyUnsubscribeToken } from '@lib/unsubscribe';
+import { getOne, run } from '@lib/db';
+import { logAudit } from '@lib/audit';
+
+const { token } = Astro.params;
+const env = Astro.locals.runtime.env;
+
+let status: 'ok' | 'invalid' | 'already' = 'invalid';
+
+if (token) {
+  const enrollmentId = await verifyUnsubscribeToken(token, env.JWT_SECRET);
+  if (enrollmentId) {
+    const enrollment = await getOne<{ id: string; status: string; user_id: string }>(
+      env.DB,
+      `SELECT id, status, user_id FROM enrollments WHERE id = ?`,
+      enrollmentId,
+    );
+    if (enrollment) {
+      if (enrollment.status === 'cancelled') {
+        status = 'already';
+      } else {
+        await run(
+          env.DB,
+          `UPDATE enrollments SET status = 'cancelled', next_send_at = NULL WHERE id = ?`,
+          enrollmentId,
+        );
+        await logAudit(env.DB, 'unsubscribe', 'enrollment.cancelled', enrollmentId);
+        status = 'ok';
+      }
+    }
+  }
+}
+---
+
+<PublicLayout title="Odhlášení z kurzu">
+  <div class="mx-auto max-w-md py-16 text-center">
+    {status === 'ok' && (
+      <div>
+        <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+          <svg class="h-8 w-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+          </svg>
+        </div>
+        <h1 class="mt-4 text-2xl font-bold text-gray-900">Odhlášení proběhlo</h1>
+        <p class="mt-2 text-gray-600">Byli jste odhlášeni z kurzu. Další lekce vám nebudou chodit.</p>
+        <a href="/" class="mt-6 inline-block rounded-lg bg-gray-800 px-6 py-2 text-sm font-medium text-white hover:bg-gray-900">
+          Zpět na hlavní stránku
+        </a>
+      </div>
+    )}
+    {status === 'already' && (
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Již odhlášeno</h1>
+        <p class="mt-2 text-gray-600">Z tohoto kurzu jste již dříve odhlášeni.</p>
+      </div>
+    )}
+    {status === 'invalid' && (
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Neplatný odkaz</h1>
+        <p class="mt-2 text-gray-600">Odkaz pro odhlášení je neplatný nebo vypršel.</p>
+      </div>
+    )}
+  </div>
+</PublicLayout>
