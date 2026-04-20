@@ -1,0 +1,52 @@
+---
+import PublicLayout from '@layouts/PublicLayout.astro';
+import { getOne } from '@lib/db';
+import TestForm from '@components/TestForm';
+import type { Enrollment, Course, Test, TestQuestion } from '@lib/types';
+
+const { enrollmentId } = Astro.params;
+const user = Astro.locals.user!;
+const env = Astro.locals.runtime.env;
+
+const enrollment = await getOne<Enrollment>(
+  env.DB,
+  `SELECT * FROM enrollments WHERE id = ? AND user_id = ?`,
+  enrollmentId,
+  user.id,
+);
+if (!enrollment || enrollment.status !== 'completed') return Astro.redirect('/profil');
+
+// Already submitted?
+if (enrollment.score !== null) return Astro.redirect(`/profil/kurz/${enrollmentId}`);
+
+const course = await getOne<Course>(
+  env.DB, `SELECT * FROM courses WHERE id = ?`, enrollment.course_id,
+);
+if (!course) return Astro.redirect('/profil');
+
+const testRow = await getOne<Test>(
+  env.DB, `SELECT * FROM tests WHERE course_id = ?`, enrollment.course_id,
+);
+if (!testRow) return Astro.redirect(`/profil/kurz/${enrollmentId}`);
+
+const questions: TestQuestion[] = JSON.parse(testRow.questions_json);
+if (questions.length === 0) return Astro.redirect(`/profil/kurz/${enrollmentId}`);
+---
+
+<PublicLayout title={`Test — ${course.title}`}>
+  <div class="mx-auto max-w-2xl py-8">
+    <a href={`/profil/kurz/${enrollmentId}`} class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět</a>
+
+    <h1 class="mt-4 text-2xl font-bold text-gray-900">Závěrečný test</h1>
+    <p class="mt-1 text-gray-600">{course.title}</p>
+    <p class="mt-1 text-sm text-gray-500">{questions.length} otázek · Pro udělení certifikátu potřebujete alespoň 70 %</p>
+
+    <div class="mt-8">
+      <TestForm
+        client:load
+        enrollmentId={enrollmentId!}
+        questions={questions}
+      />
+    </div>
+  </div>
+</PublicLayout>

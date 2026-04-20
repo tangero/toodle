@@ -14,6 +14,7 @@ interface Env {
 
   // Secrets
   RESEND_API_KEY: string;
+  RESEND_WEBHOOK_SECRET: string;
   ANTHROPIC_API_KEY: string;
   FIO_API_TOKEN: string;
   ADMIN_EMAIL: string;

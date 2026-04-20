@@ -13,6 +13,7 @@
     "generate-types": "wrangler types"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
     "@astrojs/cloudflare": "^13.1.9",
     "@astrojs/react": "^5.0.3",
     "@tailwindcss/vite": "^4.2.2",
@@ -21,6 +22,8 @@
     "astro": "^6.1.6",
     "isomorphic-dompurify": "^3.9.0",
     "marked": "^18.0.0",
+    "pdf-lib": "^1.17.1",
+    "qrcode": "^1.5.4",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "tailwindcss": "^4.2.2",
@@ -29,5 +32,8 @@
   },
   "overrides": {
     "vite": "^7"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.6"
   }
 }
