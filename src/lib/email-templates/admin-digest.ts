@@ -8,6 +8,7 @@ interface DigestData {
   unmatchedPayments: number;
   bouncedEmails: number;
   date: string;
+  appUrl: string;
 }
 
 export function adminDigestEmail(data: DigestData): string {
@@ -40,7 +41,7 @@ export function adminDigestEmail(data: DigestData): string {
     ` : ''}
 
     <div style="text-align: center; margin-top: 24px;">
-      <a href="https://skola.aivefirmach.cz/admin" style="background-color: #2563eb; color: #fff; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-size: 14px;">
+      <a href="${data.appUrl}/admin" style="background-color: #2563eb; color: #fff; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-size: 14px;">
         Otevřít admin panel
       </a>
     </div>

@@ -16,8 +16,7 @@ const enrollment = await getOne<Enrollment>(
 );
 if (!enrollment || enrollment.status !== 'completed') return Astro.redirect('/profil');
 
-// Already submitted?
-if (enrollment.score !== null) return Astro.redirect(`/profil/kurz/${enrollmentId}`);
+const previousScore = enrollment.score;
 
 const course = await getOne<Course>(
   env.DB, `SELECT * FROM courses WHERE id = ?`, enrollment.course_id,
@@ -40,6 +39,12 @@ if (questions.length === 0) return Astro.redirect(`/profil/kurz/${enrollmentId}`
     <h1 class="mt-4 text-2xl font-bold text-gray-900">Závěrečný test</h1>
     <p class="mt-1 text-gray-600">{course.title}</p>
     <p class="mt-1 text-sm text-gray-500">{questions.length} otázek · Pro udělení certifikátu potřebujete alespoň 70 %</p>
+
+    {previousScore !== null && (
+      <div class="mt-3 rounded-lg bg-blue-50 border border-blue-200 p-3 text-sm text-blue-800">
+        Váš předchozí výsledek: <strong>{previousScore} %</strong>. Můžete test opakovat pro lepší skóre.
+      </div>
+    )}
 
     <div class="mt-8">
       <TestForm

@@ -33,6 +33,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     unmatchedPayments: unmatchedPayments?.count ?? 0,
     bouncedEmails: bouncedEmails?.count ?? 0,
     date: new Date().toLocaleDateString('cs-CZ'),
+    appUrl: env.APP_URL,
   });
 
   await sendEmail(env, {

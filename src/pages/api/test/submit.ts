@@ -28,7 +28,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (!enrollment) return json({ error: 'Enrollment nenalezen' }, 404);
   if (enrollment.user_id !== user.id) return json({ error: 'Přístup odepřen' }, 403);
   if (enrollment.status !== 'completed') return json({ error: 'Kurz není dokončen' }, 400);
-  if (enrollment.score !== null) return json({ error: 'Test již byl odevzdán' }, 409);
+
+  const previousBestScore = enrollment.score;
 
   const testRow = await getOne<{ questions_json: string }>(
     env.DB, `SELECT questions_json FROM tests WHERE course_id = ?`, enrollment.course_id,
@@ -103,9 +104,23 @@ export const POST: APIRoute = async ({ request, locals }) => {
     JSON.stringify(feedbackItems), llmRaw || null,
   );
 
-  // Issue certificate if passed
+  // Update best score on enrollment
+  if (previousBestScore === null || score > previousBestScore) {
+    await run(env.DB, `UPDATE enrollments SET score = ? WHERE id = ?`, score, enrollmentId);
+  }
+
+  // Issue certificate if passed and score improved (or no cert yet)
   let certificatePublicId: string | null = null;
-  if (passed) {
+  if (passed && (previousBestScore === null || score > (previousBestScore ?? 0))) {
+    // Delete old certificate if exists
+    const oldCert = await getOne<{ id: string; pdf_r2_key: string }>(
+      env.DB, `SELECT id, pdf_r2_key FROM certificates WHERE enrollment_id = ?`, enrollmentId,
+    );
+    if (oldCert) {
+      await env.BUCKET.delete(oldCert.pdf_r2_key);
+      await run(env.DB, `DELETE FROM certificates WHERE id = ?`, oldCert.id);
+    }
+
     const userRow = await getOne<{ name: string; email: string }>(
       env.DB, `SELECT name, email FROM users WHERE id = ?`, user.id,
     );

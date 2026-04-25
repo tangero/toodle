@@ -6,17 +6,22 @@ import { completionEmail } from '@lib/email-templates/completion';
 import { createUnsubscribeToken } from '@lib/unsubscribe';
 import { logAudit } from '@lib/audit';
 
-// Returns the next weekday ISO string at 07:00 local time (UTC for simplicity)
-function nextWorkdayAt7(): string {
+function getCzechHour(): number {
+  return new Date().toLocaleString('en-US', { timeZone: 'Europe/Prague', hour: 'numeric', hour12: false }) as unknown as number;
+}
+
+function nextWorkdayAt7CET(): string {
   const now = new Date();
-  const next = new Date(now);
-  next.setUTCHours(7, 0, 0, 0);
-  if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
-  // Skip weekend
-  while (next.getUTCDay() === 0 || next.getUTCDay() === 6) {
-    next.setUTCDate(next.getUTCDate() + 1);
+  const czNow = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Prague' }));
+  const next = new Date(czNow);
+  next.setHours(7, 0, 0, 0);
+  if (next <= czNow) next.setDate(next.getDate() + 1);
+  while (next.getDay() === 0 || next.getDay() === 6) {
+    next.setDate(next.getDate() + 1);
   }
-  return next.toISOString();
+  // Convert back to UTC
+  const offset = czNow.getTime() - now.getTime();
+  return new Date(next.getTime() - offset).toISOString();
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {
@@ -125,7 +130,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         results.completed++;
       } else {
         const nextSendAt = enrollment.delivery_mode === 'next_workday'
-          ? nextWorkdayAt7()
+          ? nextWorkdayAt7CET()
           : null; // on_click: wait for user action
 
         await run(

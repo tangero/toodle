@@ -1,0 +1,17 @@
+name = "letni-skola-ai-cron"
+main = "src/index.ts"
+compatibility_date = "2026-04-15"
+
+[vars]
+APP_URL = "https://skola.aivefirmach.cz"
+
+# Secrets (configure via `wrangler secret put`):
+# CRON_SECRET
+
+[triggers]
+crons = [
+  "0 5,6,7 * * 1-5",  # send-lessons: covers CET/CEST for 7:00 Czech time
+  "*/30 * * * *",       # match-payments: every 30 min
+  "0 7 * * *",          # reminders + expire-orders: 9:00 CET / 8:00 CEST
+  "0 16 * * *",         # admin-digest: 18:00 CET / 17:00 CEST
+]

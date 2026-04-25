@@ -123,7 +123,33 @@ export default function LessonEditor({ courseId, initialLessons }: LessonEditorP
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600">Obsah lekce (Markdown)</label>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-medium text-gray-600">Obsah lekce (Markdown)</label>
+                    <label className="cursor-pointer rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50">
+                      + Obrázek
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const fd = new FormData();
+                          fd.append('file', file);
+                          try {
+                            const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
+                            const data = await res.json() as { url?: string; error?: string };
+                            if (data.url) {
+                              setEditField('content_md', lesson.content_md + `\n\n![${file.name}](${data.url})\n`);
+                            } else {
+                              setError(data.error ?? 'Chyba uploadu');
+                            }
+                          } catch { setError('Chyba uploadu obrázku'); }
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                  </div>
                   <textarea
                     rows={12}
                     value={lesson.content_md}
