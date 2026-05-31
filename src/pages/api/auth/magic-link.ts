@@ -4,8 +4,9 @@ import { sendEmail } from '@lib/email';
 import { magicLinkEmail } from '@lib/email-templates/magic-link';
 import { checkRateLimit } from '@lib/rate-limit';
 
-export const POST: APIRoute = async ({ request, locals }) => {
-  const env = locals.runtime.env;
+import { env } from '@lib/env';
+
+export const POST: APIRoute = async ({ request }) => {
 
   let body: { email?: string; name?: string };
   try {

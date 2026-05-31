@@ -2,9 +2,9 @@
 import PublicLayout from '@layouts/PublicLayout.astro';
 import { getAll } from '@lib/db';
 import type { Enrollment, Course } from '@lib/types';
+import { env } from "@lib/env";
 
 const user = Astro.locals.user!;
-const env = Astro.locals.runtime.env;
 
 interface EnrollmentWithCourse extends Enrollment {
   course_title: string;

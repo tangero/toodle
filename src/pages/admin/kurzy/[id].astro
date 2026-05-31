@@ -5,9 +5,9 @@ import LessonEditor from '@components/admin/LessonEditor';
 import TestEditor from '@components/admin/TestEditor';
 import { getOne, getAll } from '@lib/db';
 import type { Course, Lesson, Test } from '@lib/types';
+import { env } from "@lib/env";
 
 const { id } = Astro.params;
-const env = Astro.locals.runtime.env;
 
 const course = await getOne<Course>(env.DB, `SELECT * FROM courses WHERE id = ?`, id);
 if (!course) return Astro.redirect('/admin/kurzy');
@@ -66,7 +66,7 @@ const activeTab = (Astro.url.searchParams.get('tab') as Tab) ?? 'kurz';
     <div class="max-w-3xl">
       <p class="mb-4 text-sm text-gray-600">
         Přidejte otázky závěrečného testu. Otázky s výběrem jsou hodnoceny automaticky,
-        otevřené otázky jsou hodnoceny pomocí Claude API.
+        otevřené otázky jsou hodnoceny pomocí OpenRouter API.
       </p>
       <TestEditor client:load courseId={id!} initialQuestions={testQuestions} />
     </div>

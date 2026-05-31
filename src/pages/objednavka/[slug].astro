@@ -2,9 +2,10 @@
 import PublicLayout from '@layouts/PublicLayout.astro';
 import { getOne } from '@lib/db';
 import type { Course, Enrollment } from '@lib/types';
+import { env } from "@lib/env";
 
 const { slug } = Astro.params;
-const env = Astro.locals.runtime.env;
+
 const user = Astro.locals.user;
 
 const course = await getOne<Course>(

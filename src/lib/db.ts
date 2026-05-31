@@ -1,4 +1,5 @@
 import { ulid } from 'ulid';
+import type { D1Database, D1Result } from '@cloudflare/workers-types';
 
 export function generateId(): string {
   return ulid();

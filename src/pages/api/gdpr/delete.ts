@@ -2,9 +2,10 @@ import type { APIRoute } from 'astro';
 import { getAll, run } from '@lib/db';
 import { logAudit } from '@lib/audit';
 import { clearSessionCookie } from '@lib/auth';
+import { env } from "@lib/env";
 
 export const POST: APIRoute = async ({ locals }) => {
-  const env = locals.runtime.env;
+
   const user = locals.user;
   if (!user) return json({ error: 'Nepřihlášen' }, 401);
 

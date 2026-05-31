@@ -1,43 +1,39 @@
-# Astro Starter Kit: Minimal
+# Letní škola AI – skola-ai
 
-```sh
-npm create astro@latest -- --template minimal
+Moderní implementace emailového kurzu na Astro + Cloudflare (D1 + R2).
+
+## Rychlý start pro vývojáře
+
+```bash
+npm install
+cp .env.example .env.local   # uprav hodnoty
+npm run build
+npm run dev:wrangler         # doporučený lokální server s D1/R2 emulací
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+## Důležité dokumenty
 
-## 🚀 Project Structure
+- [LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md) – jak spustit lokálně s plnou emulací
+- [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md) – kompletní checklist před produkčním launchi
+- [docs/PRD.md](./docs/PRD.md) – produktové požadavky
+- [docs/IMPLEMENTATION_PLAN.md](./docs/IMPLEMENTATION_PLAN.md) – historický plán implementace
 
-Inside of your Astro project, you'll see the following folders and files:
+## Technologický stack
 
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
-```
+- Astro 6 + React (admin část)
+- Cloudflare Pages + Workers
+- Cloudflare D1 (databáze)
+- Cloudflare R2 (soubory, certifikáty)
+- Resend (email)
+- OpenRouter (dynamický výběr modelu pro hodnocení otevřených otázek)
+- FIO API (automatické párování plateb)
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+## Důležitá poznámka
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+Projekt používá Cloudflare bindings přes centrální helper `@lib/env`.
 
-Any static assets, like images, can be placed in the `public/` directory.
+Viz `LOCAL_DEVELOPMENT.md` pro detaily.
 
-## 🧞 Commands
+## Go-live checklist
 
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+Před spuštěním na reálné doméně projdi celý [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md).

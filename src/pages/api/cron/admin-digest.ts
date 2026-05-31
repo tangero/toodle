@@ -3,8 +3,9 @@ import { getOne } from '@lib/db';
 import { sendEmail } from '@lib/email';
 import { adminDigestEmail } from '@lib/email-templates/admin-digest';
 
-export const POST: APIRoute = async ({ request, locals }) => {
-  const env = locals.runtime.env;
+import { env } from '@lib/env';
+
+export const POST: APIRoute = async ({ request }) => {
 
   // Verify cron secret
   const secret = request.headers.get('X-Cron-Secret');

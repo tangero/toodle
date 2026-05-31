@@ -1,8 +1,9 @@
 import type { APIRoute } from 'astro';
 import { getAll, getOne } from '@lib/db';
+import { env } from "@lib/env";
 
 export const GET: APIRoute = async ({ locals }) => {
-  const env = locals.runtime.env;
+
   const user = locals.user;
   if (!user) return new Response('Nepřihlášen', { status: 401 });
 

@@ -1,3 +1,5 @@
+import type { AppEnv } from './env';
+
 interface SendEmailParams {
   to: string;
   subject: string;
@@ -10,7 +12,7 @@ interface SendEmailResult {
 }
 
 export async function sendEmail(
-  env: Env,
+  env: AppEnv,
   params: SendEmailParams,
 ): Promise<SendEmailResult> {
   const response = await fetch('https://api.resend.com/emails', {

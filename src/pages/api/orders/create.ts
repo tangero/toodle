@@ -7,6 +7,7 @@ import { welcomeEmail } from '@lib/email-templates/welcome';
 import { logAudit } from '@lib/audit';
 import { checkRateLimit } from '@lib/rate-limit';
 import type { Course, Enrollment, User } from '@lib/types';
+import { env } from "@lib/env";
 
 function generateVS(courseId: string): string {
   // 10-digit VS: first 4 chars of courseId (numeric hash) + 6 random digits
@@ -18,7 +19,6 @@ function generateVS(courseId: string): string {
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {
-  const env = locals.runtime.env;
 
   let body: { slug?: string; email?: string; name?: string };
   try {

@@ -1,5 +1,5 @@
 -- Migration 0001: Initial schema
--- Run with: wrangler d1 execute letni-skola-ai-db --file=./db/migrations/0001_initial.sql
+-- Run with: wrangler d1 execute skola-ai-db --remote --file=./db/migrations/0001_initial.sql
 
 -- Users
 CREATE TABLE IF NOT EXISTS users (

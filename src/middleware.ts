@@ -2,10 +2,10 @@ import { defineMiddleware } from 'astro:middleware';
 import { getSessionCookie, verifySession, isAdmin } from '@lib/auth';
 import { getOne } from '@lib/db';
 import type { User } from '@lib/types';
+import { env } from '@lib/env';
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const { request, locals, url } = context;
-  const env = locals.runtime.env;
 
   // Resolve authenticated user from session cookie
   const sessionToken = getSessionCookie(request);

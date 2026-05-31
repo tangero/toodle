@@ -1,6 +1,7 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import QRCode from 'qrcode';
 import { generateId, run } from '@lib/db';
+import type { D1Database, R2Bucket } from '@cloudflare/workers-types';
 
 interface CertificateParams {
   userName: string;

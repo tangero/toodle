@@ -10,8 +10,9 @@ const ALLOWED_TYPES: Record<string, string> = {
 };
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 
-export const POST: APIRoute = async ({ request, locals }) => {
-  const env = locals.runtime.env;
+import { env } from '@lib/env';
+
+export const POST: APIRoute = async ({ request }) => {
 
   const contentType = request.headers.get('Content-Type') ?? '';
   if (!contentType.includes('multipart/form-data')) {

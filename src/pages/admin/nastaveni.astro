@@ -1,8 +1,7 @@
 ---
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { getOne } from '@lib/db';
-
-const env = Astro.locals.runtime.env;
+import { env } from "@lib/env";
 
 const userCount = await getOne<{ count: number }>(env.DB, `SELECT COUNT(*) as count FROM users WHERE deleted_at IS NULL`);
 const courseCount = await getOne<{ count: number }>(env.DB, `SELECT COUNT(*) as count FROM courses WHERE status != 'archived'`);
@@ -53,7 +52,7 @@ const enrollmentCount = await getOne<{ count: number }>(env.DB, `SELECT COUNT(*)
         Secrets se nastavují přes <code class="bg-gray-100 px-1 rounded">wrangler secret put</code>:
       </p>
       <div class="space-y-1 text-sm font-mono">
-        {['RESEND_API_KEY', 'ANTHROPIC_API_KEY', 'FIO_API_TOKEN', 'ADMIN_EMAIL', 'JWT_SECRET', 'CRON_SECRET'].map((key) => (
+        {['RESEND_API_KEY', 'OPENROUTER_API_KEY', 'FIO_API_TOKEN', 'ADMIN_EMAIL', 'JWT_SECRET', 'CRON_SECRET'].map((key) => (
           <div class="flex items-center gap-2">
             <span class="text-gray-600">wrangler secret put</span>
             <span class="text-blue-600">{key}</span>

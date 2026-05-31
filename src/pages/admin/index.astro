@@ -1,8 +1,7 @@
 ---
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { getAll, getOne } from '@lib/db';
-
-const env = Astro.locals.runtime.env;
+import { env } from "@lib/env";
 
 interface Stats {
   total_enrollments: number;

@@ -1,8 +1,7 @@
 ---
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { getAll } from '@lib/db';
-
-const env = Astro.locals.runtime.env;
+import { env } from "@lib/env";
 
 const payments = await getAll<{
   id: string; vs: string; amount_czk: number; received_at: string;
@@ -128,8 +127,8 @@ const pendingOrders = await getAll<{ id: string; vs: string; user_email: string;
     const btn = document.getElementById('match-btn');
     const msg = document.getElementById('match-msg');
     btn?.addEventListener('click', async () => {
-      const paymentId = (document.getElementById('payment-select') as HTMLSelectElement).value;
-      const orderId = (document.getElementById('order-select') as HTMLSelectElement).value;
+      const paymentId = (document.getElementById('payment-select') as HTMLSelectElement | null)?.value || '';
+      const orderId = (document.getElementById('order-select') as HTMLSelectElement | null)?.value || '';
       if (!paymentId || !orderId) { alert('Vyberte platbu i objednávku.'); return; }
       btn!.setAttribute('disabled', '');
       try {

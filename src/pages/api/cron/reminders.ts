@@ -5,8 +5,9 @@ import { reminderEmail } from '@lib/email-templates/reminder';
 import { createUnsubscribeToken } from '@lib/unsubscribe';
 import { logAudit } from '@lib/audit';
 
-export const POST: APIRoute = async ({ request, locals }) => {
-  const env = locals.runtime.env;
+import { env } from '@lib/env';
+
+export const POST: APIRoute = async ({ request }) => {
 
   if (request.headers.get('X-Cron-Secret') !== env.CRON_SECRET) {
     return new Response('Unauthorized', { status: 401 });

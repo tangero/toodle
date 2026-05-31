@@ -2,9 +2,9 @@
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { getOne, getAll } from '@lib/db';
 import type { User, Enrollment, Order } from '@lib/types';
+import { env } from "@lib/env";
 
 const { id } = Astro.params;
-const env = Astro.locals.runtime.env;
 
 const user = await getOne<User>(
   env.DB,

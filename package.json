@@ -1,5 +1,5 @@
 {
-  "name": "toodle",
+  "name": "skola-ai",
   "type": "module",
   "version": "0.0.1",
   "engines": {
@@ -10,10 +10,11 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "generate-types": "wrangler types"
+    "generate-types": "wrangler types",
+    "check": "astro check",
+    "dev:wrangler": "npm run build && wrangler pages dev dist --compatibility-date=2026-04-15 --d1=DB --r2=BUCKET --port=8788"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.90.0",
     "@astrojs/cloudflare": "^13.1.9",
     "@astrojs/react": "^5.0.3",
     "@tailwindcss/vite": "^4.2.2",
@@ -34,6 +35,9 @@
     "vite": "^7"
   },
   "devDependencies": {
-    "@types/qrcode": "^1.5.6"
+    "@astrojs/check": "^0.9.9",
+    "@cloudflare/workers-types": "^4.20260531.1",
+    "@types/qrcode": "^1.5.6",
+    "typescript": "^5.9.3"
   }
 }

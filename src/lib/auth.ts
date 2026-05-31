@@ -1,5 +1,6 @@
 import { generateId, getOne, run } from './db';
 import type { User, MagicLink } from './types';
+import type { D1Database } from '@cloudflare/workers-types';
 
 const JWT_EXPIRY_SECONDS = 7 * 24 * 60 * 60; // 7 days
 const MAGIC_LINK_EXPIRY_MINUTES = 15;
@@ -85,7 +86,7 @@ function base64url(data: ArrayBuffer | Uint8Array): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-function base64urlDecode(str: string): Uint8Array {
+function base64urlDecode(str: string): Uint8Array<ArrayBuffer> {
   const padded = str.replace(/-/g, '+').replace(/_/g, '/');
   const binary = atob(padded);
   const bytes = new Uint8Array(binary.length);

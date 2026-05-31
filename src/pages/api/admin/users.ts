@@ -1,9 +1,10 @@
 import type { APIRoute } from 'astro';
 import { getAll, getOne, run } from '@lib/db';
 import { logAudit } from '@lib/audit';
+import { env } from "@lib/env";
 
 export const GET: APIRoute = async ({ request, locals }) => {
-  const env = locals.runtime.env;
+
   const url = new URL(request.url);
   const id = url.searchParams.get('id');
 
@@ -41,7 +42,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
 };
 
 export const DELETE: APIRoute = async ({ request, locals }) => {
-  const env = locals.runtime.env;
+
   const user = locals.user!;
   const url = new URL(request.url);
   const id = url.searchParams.get('id');

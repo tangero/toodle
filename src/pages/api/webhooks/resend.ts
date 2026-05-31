@@ -9,8 +9,9 @@ interface ResendWebhookEvent {
   };
 }
 
-export const POST: APIRoute = async ({ request, locals }) => {
-  const env = locals.runtime.env;
+import { env } from '@lib/env';
+
+export const POST: APIRoute = async ({ request }) => {
 
   // Verify Resend webhook signature (svix-based)
   const svixId = request.headers.get('svix-id');

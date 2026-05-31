@@ -8,8 +8,9 @@ import type { TestQuestion } from '@lib/types';
 
 const PASSING_SCORE = 70;
 
+import { env } from '@lib/env';
+
 export const POST: APIRoute = async ({ request, locals }) => {
-  const env = locals.runtime.env;
   const user = locals.user;
   if (!user) return json({ error: 'Nepřihlášen' }, 401);
 
@@ -60,14 +61,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
   }
 
-  // Evaluate open-ended with Claude
+  // Evaluate open-ended answers through OpenRouter auto routing.
   const openQuestions = questions.filter((q) => q.type === 'open_ended');
   if (openQuestions.length > 0) {
     for (const q of openQuestions) totalPoints += q.max_points;
 
     try {
       const { evaluations, raw } = await evaluateOpenEndedAnswers(
-        env.ANTHROPIC_API_KEY,
+        env.OPENROUTER_API_KEY,
         courseRow?.title ?? '',
         openQuestions.map((q) => ({
           questionId: q.id,
@@ -75,6 +76,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           answer: answers[q.id] ?? '',
           maxPoints: q.max_points,
         })),
+        env.OPENROUTER_MODEL,
       );
       llmRaw = raw;
       for (const ev of evaluations) {

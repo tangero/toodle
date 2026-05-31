@@ -2,8 +2,7 @@
 import PublicLayout from '@layouts/PublicLayout.astro';
 import { getAll } from '@lib/db';
 import type { Course } from '@lib/types';
-
-const env = Astro.locals.runtime.env;
+import { env } from "@lib/env";
 
 const courses = await getAll<Course>(
   env.DB,
@@ -16,6 +15,53 @@ const courses = await getAll<Course>(
     <h1 class="text-4xl font-bold tracking-tight text-gray-900">Letní škola AI</h1>
     <p class="mt-4 text-lg text-gray-600">
       Naučte se AI krok za krokem. Každý den jedna krátká lekce do emailu.
+    </p>
+  </section>
+
+  <section class="border-y border-gray-200 py-12">
+    <div class="mx-auto max-w-3xl text-center">
+      <h2 class="text-3xl font-bold tracking-tight text-gray-900">
+        AI se nenaučíte koukáním. Naučíte se ji používáním.
+      </h2>
+      <p class="mt-4 text-lg leading-8 text-gray-600">
+        Proto jsme z kurzů odstranili všechno, co začátečníky brzdí:
+        dlouhé přednášky, technické výrazy bez vysvětlení a prázdnou teorii.
+        Každý pracovní den dostanete jednu krátkou lekci, jeden praktický
+        příklad a jeden úkol, který si hned vyzkoušíte.
+      </p>
+    </div>
+
+    <div class="mt-10 grid gap-6 md:grid-cols-3">
+      <div class="rounded-lg border border-gray-200 p-6">
+        <p class="text-sm font-semibold uppercase tracking-wide text-blue-600">Krok 1</p>
+        <h3 class="mt-2 text-lg font-semibold text-gray-900">Ráno vám přijde lekce</h3>
+        <p class="mt-3 text-gray-600">
+          Stručná, praktická a napsaná lidsky. Bez zbytečného čekání na čas,
+          kdy si pustíte dlouhé školení.
+        </p>
+      </div>
+
+      <div class="rounded-lg border border-gray-200 p-6">
+        <p class="text-sm font-semibold uppercase tracking-wide text-blue-600">Krok 2</p>
+        <h3 class="mt-2 text-lg font-semibold text-gray-900">Zkopírujete připravený prompt</h3>
+        <p class="mt-3 text-gray-600">
+          Nemusíte vymýšlet, jak se AI zeptat. Ukážeme vám konkrétní zadání
+          a stručně vysvětlíme každý nový pojem.
+        </p>
+      </div>
+
+      <div class="rounded-lg border border-gray-200 p-6">
+        <p class="text-sm font-semibold uppercase tracking-wide text-blue-600">Krok 3</p>
+        <h3 class="mt-2 text-lg font-semibold text-gray-900">Použijete výsledek v praxi</h3>
+        <p class="mt-3 text-gray-600">
+          E-mail, shrnutí, plán, obrázek, nápad nebo rozhodnutí. Každá lekce
+          má jasný výstup, který si rovnou vyzkoušíte.
+        </p>
+      </div>
+    </div>
+
+    <p class="mx-auto mt-8 max-w-2xl text-center text-lg font-medium text-gray-900">
+      Za pár minut denně si vybudujete návyk, díky kterému AI opravdu začnete používat.
     </p>
   </section>
 

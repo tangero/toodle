@@ -1,8 +1,9 @@
 import type { APIRoute } from 'astro';
 import { verifyMagicLink, createSession, setSessionCookie } from '@lib/auth';
+import { env } from "@lib/env";
 
-export const GET: APIRoute = async ({ request, locals, redirect }) => {
-  const env = locals.runtime.env;
+export const GET: APIRoute = async ({ request, redirect }) => {
+
   const url = new URL(request.url);
   const token = url.searchParams.get('token');
 

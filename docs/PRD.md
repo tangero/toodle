@@ -20,7 +20,7 @@ MVP: dva kurzy („AI pro začátečníky“ a „AI pro firmy“) s minimální
 - **Frontend**: Astro + React (administrativní a interaktivní části)
 - **CSS**: Tailwind CSS
 - **E-mail**: Resend
-- **Hodnocení LLM**: Claude API (Anthropic) — hodnocení otevřených otázek v testech
+- **Hodnocení LLM**: OpenRouter API s dynamickým výběrem modelu — hodnocení otevřených otázek v testech
 - **Cron**: Cloudflare Cron Triggers (prostřednictvím doprovodného Workeru)
 - **Secrets**: Cloudflare Workers secrets
 - **PDF**: pdf-lib (generování certifikátů ve Workeru)
@@ -87,7 +87,7 @@ Všechny ID jsou TEXT (ULID), všechny časové značky jsou řetězce ISO 8601.
 ### 8. Závěrečný test
 - Otázky s výběrem odpovědí + otevřené otázky
 - Otázky s výběrem odpovědí: automatické hodnocení
-- Otevřené otázky: hodnocení pomocí Claude API (strukturovaný výstup JSON s zpětnou vazbou pro každou otázku)
+- Otevřené otázky: hodnocení pomocí OpenRouter API, výchozí model `openrouter/auto` (JSON výstup se zpětnou vazbou pro každou otázku)
 - Minimální počet bodů pro úspěšné absolvování: 70 %
 - Výsledky s podrobnou zpětnou vazbou
 
@@ -153,7 +153,7 @@ toodle/
 │ │ ├── auth.ts # magic link, JWT, relace, cookies
 │ │ ├── email.ts # klient API pro opětovné odeslání
 │ │ ├── fio.ts # klient API banky FIO
-│ │ ├── llm.ts # vyhodnocení testů API Claude
+│ │ ├── llm.ts # vyhodnocení testů OpenRouter API
 │ │ ├── certificate.ts # generování PDF + nahrávání R2
 │ │ ├── markdown.ts # marked + DOMPurify
 │ │ ├── rate-limit.ts # omezovač rychlosti v paměti
@@ -220,15 +220,15 @@ toodle/
 
 ## Kontrolní seznam nasazení
 
-1. `wrangler d1 create letni-skola-ai-db` → aktualizovat `database_id` v `wrangler.jsonc`
-2. `wrangler d1 execute letni-skola-ai-db --file=./db/migrations/0001_initial.sql`
-3. `wrangler r2 bucket create letni-skola-ai-storage`
+1. `wrangler d1 create skola-ai-db` → aktualizovat `database_id` v `wrangler.jsonc`
+2. `wrangler d1 execute skola-ai-db --file=./db/migrations/0001_initial.sql`
+3. `wrangler r2 bucket create skola-ai-storage`
 4. Nastavit secrets:
 ```
    
 wrangler secret put RESEND_API_KEY
    wrangler secret put RESEND_WEBHOOK_SECRET
-   wrangler secret put ANTHROPIC_API_KEY
+   wrangler secret put OPENROUTER_API_KEY
    wrangler secret put FIO_API_TOKEN
    wrangler secret put ADMIN_EMAIL
    wrangler secret put JWT_SECRET

@@ -1,8 +1,9 @@
 import type { APIRoute } from 'astro';
 import { getAll } from '@lib/db';
+import { env } from "@lib/env";
 
 export const GET: APIRoute = async ({ locals }) => {
-  const env = locals.runtime.env;
+
   const baseUrl = env.APP_URL ?? 'https://skola.aivefirmach.cz';
 
   const courses = await getAll<{ slug: string }>(

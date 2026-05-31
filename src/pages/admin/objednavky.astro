@@ -1,8 +1,8 @@
 ---
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { getAll } from '@lib/db';
+import { env } from "@lib/env";
 
-const env = Astro.locals.runtime.env;
 const statusFilter = Astro.url.searchParams.get('status') ?? '';
 
 const orders = await getAll<{

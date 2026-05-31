@@ -2,8 +2,8 @@
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { getAll } from '@lib/db';
 import type { Course } from '@lib/types';
+import { env } from "@lib/env";
 
-const env = Astro.locals.runtime.env;
 const courses = await getAll<Course>(
   env.DB,
   `SELECT id, slug, title, status, lesson_count, price_czk, delivery_mode, created_at

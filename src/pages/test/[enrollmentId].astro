@@ -3,10 +3,10 @@ import PublicLayout from '@layouts/PublicLayout.astro';
 import { getOne } from '@lib/db';
 import TestForm from '@components/TestForm';
 import type { Enrollment, Course, Test, TestQuestion } from '@lib/types';
+import { env } from "@lib/env";
 
 const { enrollmentId } = Astro.params;
 const user = Astro.locals.user!;
-const env = Astro.locals.runtime.env;
 
 const enrollment = await getOne<Enrollment>(
   env.DB,

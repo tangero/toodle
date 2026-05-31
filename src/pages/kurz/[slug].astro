@@ -3,9 +3,9 @@ import PublicLayout from '@layouts/PublicLayout.astro';
 import { getOne, getAll } from '@lib/db';
 import { renderMarkdown } from '@lib/markdown';
 import type { Course, Lesson } from '@lib/types';
+import { env } from "@lib/env";
 
 const { slug } = Astro.params;
-const env = Astro.locals.runtime.env;
 
 const course = await getOne<Course>(
   env.DB,

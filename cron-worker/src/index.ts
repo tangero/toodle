@@ -1,3 +1,5 @@
+/// <reference types="@cloudflare/workers-types" />
+
 interface Env {
   APP_URL: string;
   CRON_SECRET: string;

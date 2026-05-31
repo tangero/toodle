@@ -3,9 +3,9 @@ import PublicLayout from '@layouts/PublicLayout.astro';
 import { verifyUnsubscribeToken } from '@lib/unsubscribe';
 import { getOne, run } from '@lib/db';
 import { logAudit } from '@lib/audit';
+import { env } from "@lib/env";
 
 const { token } = Astro.params;
-const env = Astro.locals.runtime.env;
 
 let status: 'ok' | 'invalid' | 'already' = 'invalid';
 

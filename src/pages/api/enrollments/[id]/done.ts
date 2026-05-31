@@ -5,9 +5,10 @@ import { lessonEmail } from '@lib/email-templates/lesson';
 import { completionEmail } from '@lib/email-templates/completion';
 import { createUnsubscribeToken } from '@lib/unsubscribe';
 import { logAudit } from '@lib/audit';
+import { env } from "@lib/env";
 
 export const POST: APIRoute = async ({ params, locals }) => {
-  const env = locals.runtime.env;
+
   const user = locals.user;
   if (!user) return json({ error: 'Nepřihlášen' }, 401);
 

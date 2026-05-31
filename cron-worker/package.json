@@ -1,12 +1,13 @@
 {
-  "name": "letni-skola-ai-cron",
+  "name": "skola-ai-cron",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "dev": "wrangler dev --config wrangler.toml",
+    "deploy": "wrangler deploy --config wrangler.toml"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260531.1",
     "wrangler": "^4.83.0"
   }
 }

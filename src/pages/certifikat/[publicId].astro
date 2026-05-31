@@ -2,9 +2,9 @@
 import PublicLayout from '@layouts/PublicLayout.astro';
 import { getOne } from '@lib/db';
 import type { Certificate } from '@lib/types';
+import { env } from "@lib/env";
 
 const { publicId } = Astro.params;
-const env = Astro.locals.runtime.env;
 
 interface CertificateDetail extends Certificate {
   user_name: string;

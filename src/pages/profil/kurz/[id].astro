@@ -3,10 +3,10 @@ import PublicLayout from '@layouts/PublicLayout.astro';
 import { getOne, getAll } from '@lib/db';
 import { renderMarkdown } from '@lib/markdown';
 import type { Enrollment, Course, Lesson, Certificate } from '@lib/types';
+import { env } from "@lib/env";
 
 const { id } = Astro.params;
 const user = Astro.locals.user!;
-const env = Astro.locals.runtime.env;
 
 const enrollment = await getOne<Enrollment>(
   env.DB,

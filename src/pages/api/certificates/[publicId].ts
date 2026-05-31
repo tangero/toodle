@@ -1,8 +1,9 @@
 import type { APIRoute } from 'astro';
 import { getOne } from '@lib/db';
+import { env } from "@lib/env";
 
-export const GET: APIRoute = async ({ params, locals }) => {
-  const env = locals.runtime.env;
+export const GET: APIRoute = async ({ params }) => {
+
   const { publicId } = params;
 
   const cert = await getOne<{ pdf_r2_key: string }>(

@@ -1,10 +1,11 @@
 import type { APIRoute } from 'astro';
 import { getOne, run } from '@lib/db';
 import { logAudit } from '@lib/audit';
+import { env } from "@lib/env";
 
 // Manual payment-to-order matching
 export const POST: APIRoute = async ({ request, locals }) => {
-  const env = locals.runtime.env;
+
   const user = locals.user!;
 
   let body: Record<string, string>;

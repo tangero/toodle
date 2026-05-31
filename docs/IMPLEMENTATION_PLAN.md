@@ -69,25 +69,25 @@ expression volá příslušný endpoint hlavní aplikace s `X-Cron-Secret`.
 
 ### B1. Vytvořit D1 databázi
 ```bash
-wrangler d1 create letni-skola-ai-db
+wrangler d1 create skola-ai-db
 ```
 → aktualizovat `database_id` ve `wrangler.jsonc`
 
 ### B2. Spustit migraci
 ```bash
-wrangler d1 execute letni-skola-ai-db --file=./db/migrations/0001_initial.sql
+wrangler d1 execute skola-ai-db --file=./db/migrations/0001_initial.sql
 ```
 
 ### B3. Vytvořit R2 bucket
 ```bash
-wrangler r2 bucket create letni-skola-ai-storage
+wrangler r2 bucket create skola-ai-storage
 ```
 
 ### B4. Nastavit secrets
 ```bash
 wrangler secret put RESEND_API_KEY
 wrangler secret put RESEND_WEBHOOK_SECRET
-wrangler secret put ANTHROPIC_API_KEY
+wrangler secret put OPENROUTER_API_KEY
 wrangler secret put FIO_API_TOKEN
 wrangler secret put ADMIN_EMAIL          # patrick@zandl.cz
 wrangler secret put JWT_SECRET           # vygenerovat: openssl rand -hex 32

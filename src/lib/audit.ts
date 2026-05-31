@@ -1,4 +1,5 @@
 import { generateId, run } from './db';
+import type { D1Database } from '@cloudflare/workers-types';
 
 export async function logAudit(
   db: D1Database,
