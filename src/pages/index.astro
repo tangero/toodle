@@ -2,97 +2,185 @@
 import PublicLayout from '@layouts/PublicLayout.astro';
 import { getAll } from '@lib/db';
 import type { Course } from '@lib/types';
-import { env } from "@lib/env";
+import { env } from '@lib/env';
 
 const courses = await getAll<Course>(
   env.DB,
   `SELECT * FROM courses WHERE status = 'published' ORDER BY created_at DESC`,
 );
+
+const steps = [
+  {
+    n: '1',
+    title: 'Ráno vám přijde lekce',
+    body: 'Stručná, praktická a napsaná lidsky. Bez čekání na čas, kdy si pustíte dlouhé školení.',
+  },
+  {
+    n: '2',
+    title: 'Zkopírujete připravený prompt',
+    body: 'Nemusíte vymýšlet, jak se AI zeptat. Ukážeme vám konkrétní zadání a vysvětlíme každý nový pojem.',
+  },
+  {
+    n: '3',
+    title: 'Použijete výsledek v praxi',
+    body: 'E-mail, shrnutí, plán nebo nápad. Každá lekce má jasný výstup, který si rovnou vyzkoušíte.',
+  },
+];
+
+const testimonials = [
+  {
+    quote: 'Konečně něco, co jsem dotáhla do konce. Patnáct minut denně zvládnu i ve vlaku.',
+    name: 'Jana K.',
+    role: 'účetní',
+    color: '#2563eb',
+  },
+  {
+    quote: 'Myslel jsem, že na to nemám hlavu. Po týdnu jsem psal e-maily s AI rychleji než kolegové.',
+    name: 'Martin V.',
+    role: 'obchodní zástupce',
+    color: '#f59e0b',
+  },
+  {
+    quote: 'Dobré tempo. Žádná omáčka, hned víte, co máte zkusit. A funguje to.',
+    name: 'Petra S.',
+    role: 'majitelka kavárny',
+    color: '#10b981',
+  },
+];
+
+const deliveryLabel = (mode: string) => mode === 'next_workday' ? 'Automaticky Po-Pá' : 'Vlastním tempem';
+const fmtPrice = (czk: number) => czk === 0 ? 'Zdarma' : `${czk.toLocaleString('cs-CZ')} Kč`;
+const lessonCountLabel = (count: number) => count === 1
+  ? '1 lekce'
+  : count >= 2 && count <= 4
+    ? `${count} lekce`
+    : `${count} lekcí`;
+const firstSlug = courses[0]?.slug;
 ---
 
-<PublicLayout title="Kurzy" description="Naučte se AI krok za krokem — drip email kurzy pro začátečníky i firmy.">
-  <section class="py-12 text-center">
-    <h1 class="text-4xl font-bold tracking-tight text-gray-900">Letní škola AI</h1>
-    <p class="mt-4 text-lg text-gray-600">
-      Naučte se AI krok za krokem. Každý den jedna krátká lekce do emailu.
-    </p>
-  </section>
-
-  <section class="border-y border-gray-200 py-12">
-    <div class="mx-auto max-w-3xl text-center">
-      <h2 class="text-3xl font-bold tracking-tight text-gray-900">
-        AI se nenaučíte koukáním. Naučíte se ji používáním.
-      </h2>
-      <p class="mt-4 text-lg leading-8 text-gray-600">
-        Proto jsme z kurzů odstranili všechno, co začátečníky brzdí:
-        dlouhé přednášky, technické výrazy bez vysvětlení a prázdnou teorii.
-        Každý pracovní den dostanete jednu krátkou lekci, jeden praktický
-        příklad a jeden úkol, který si hned vyzkoušíte.
+<PublicLayout title="Kurzy" description="Naučte se AI krok za krokem. E-mailové kurzy pro začátečníky i firmy.">
+  <section class="hero">
+    <div class="wrap">
+      <span class="eyebrow">⚡ E-mailové kurzy AI pro úplné začátečníky</span>
+      <h1>Naučte se <span class="mk p">AI</span><br />krok za <span class="mk o">krokem</span></h1>
+      <p class="sub">
+        Každý pracovní den vám přijde jedna krátká lekce do e-mailu. Žádné dlouhé přednášky.
+        Jeden příklad, jeden prompt, jeden úkol, který si hned vyzkoušíte.
       </p>
-    </div>
-
-    <div class="mt-10 grid gap-6 md:grid-cols-3">
-      <div class="rounded-lg border border-gray-200 p-6">
-        <p class="text-sm font-semibold uppercase tracking-wide text-blue-600">Krok 1</p>
-        <h3 class="mt-2 text-lg font-semibold text-gray-900">Ráno vám přijde lekce</h3>
-        <p class="mt-3 text-gray-600">
-          Stručná, praktická a napsaná lidsky. Bez zbytečného čekání na čas,
-          kdy si pustíte dlouhé školení.
-        </p>
+      <div class="cta">
+        <a class="btn btn-pink btn-big" href="#kurzy">Vybrat si kurz →</a>
+        <a class="btn btn-white btn-big" href="#jak">Jak to funguje</a>
       </div>
-
-      <div class="rounded-lg border border-gray-200 p-6">
-        <p class="text-sm font-semibold uppercase tracking-wide text-blue-600">Krok 2</p>
-        <h3 class="mt-2 text-lg font-semibold text-gray-900">Zkopírujete připravený prompt</h3>
-        <p class="mt-3 text-gray-600">
-          Nemusíte vymýšlet, jak se AI zeptat. Ukážeme vám konkrétní zadání
-          a stručně vysvětlíme každý nový pojem.
-        </p>
-      </div>
-
-      <div class="rounded-lg border border-gray-200 p-6">
-        <p class="text-sm font-semibold uppercase tracking-wide text-blue-600">Krok 3</p>
-        <h3 class="mt-2 text-lg font-semibold text-gray-900">Použijete výsledek v praxi</h3>
-        <p class="mt-3 text-gray-600">
-          E-mail, shrnutí, plán, obrázek, nápad nebo rozhodnutí. Každá lekce
-          má jasný výstup, který si rovnou vyzkoušíte.
-        </p>
+      <span class="sticker">
+        <span><b>0 Kč</b><span>start zdarma</span></span>
+      </span>
+      <div class="stats">
+        <div class="st"><b>15 min</b><span>denně stačí</span></div>
+        <div class="st"><b>Po-Pá</b><span>bez víkendů</span></div>
+        <div class="st"><b>0 Kč</b><span>první kurz</span></div>
       </div>
     </div>
-
-    <p class="mx-auto mt-8 max-w-2xl text-center text-lg font-medium text-gray-900">
-      Za pár minut denně si vybudujete návyk, díky kterému AI opravdu začnete používat.
-    </p>
   </section>
 
-  <section class="py-8">
-    <h2 class="mb-6 text-2xl font-bold text-gray-900">Dostupné kurzy</h2>
+  <div class="marquee" aria-hidden="true">
+    <div class="track">
+      <span>jeden prompt denně <span class="d">●</span></span>
+      <span>bez zbytečné teorie <span class="d">●</span></span>
+      <span>praktické úkoly <span class="d">●</span></span>
+      <span>lekce přímo v e-mailu <span class="d">●</span></span>
+      <span>jeden prompt denně <span class="d">●</span></span>
+      <span>bez zbytečné teorie <span class="d">●</span></span>
+      <span>praktické úkoly <span class="d">●</span></span>
+      <span>lekce přímo v e-mailu <span class="d">●</span></span>
+    </div>
+  </div>
 
-    {courses.length === 0 ? (
-      <p class="text-gray-500">Kurzy se brzy objeví.</p>
-    ) : (
-      <div class="grid gap-6 sm:grid-cols-2">
-        {courses.map((course) => (
-          <a
-            href={`/kurz/${course.slug}`}
-            class="group rounded-xl border border-gray-200 p-6 transition hover:border-blue-300 hover:shadow-md"
-          >
-            <h3 class="text-xl font-semibold text-gray-900 group-hover:text-blue-600">
-              {course.title}
-            </h3>
-            <p class="mt-2 text-gray-600">{course.perex}</p>
-            <div class="mt-4 flex items-center gap-4 text-sm text-gray-500">
-              <span>{course.lesson_count} lekcí</span>
-              <span>&middot;</span>
-              <span>{course.author_name}</span>
-              <span>&middot;</span>
-              <span class="font-medium text-gray-900">
-                {course.price_czk === 0 ? 'Zdarma' : `${course.price_czk} Kč`}
-              </span>
-            </div>
-          </a>
+  <section class="section" id="jak">
+    <div class="wrap">
+      <div class="shead">
+        <h2>AI se nenaučíte koukáním. Naučíte se ji používáním.</h2>
+        <p>
+          Z kurzů jsme odstranili dlouhé přednášky, nejasné pojmy a prázdnou teorii.
+          Každý den dostanete jednu věc, kterou si hned zkusíte.
+        </p>
+      </div>
+      <div class="steps">
+        {steps.map((step) => (
+          <div class="step">
+            <div class="num">{step.n}</div>
+            <h3>{step.title}</h3>
+            <p>{step.body}</p>
+          </div>
         ))}
       </div>
-    )}
+      <p class="closing">
+        Za pár minut denně si vybudujete návyk, díky kterému AI opravdu začnete používat.
+      </p>
+    </div>
+  </section>
+
+  <section class="section courses" id="kurzy">
+    <div class="wrap">
+      <div class="shead">
+        <h2>Vyberte si kurz</h2>
+        <p>Začněte tématem, které vám pomůže hned v běžném dni.</p>
+      </div>
+      {courses.length === 0 ? (
+        <p style="color:#fff;font-weight:700;margin-top:28px">Kurzy se brzy objeví.</p>
+      ) : (
+        <div class="grid">
+          {courses.map((course) => (
+            <a class="pcard" href={`/kurz/${course.slug}`}>
+              <div class="hd">
+                <span>{course.price_czk === 0 ? 'Start zdarma' : 'Kurz'}</span>
+                <span>{lessonCountLabel(course.lesson_count)}</span>
+              </div>
+              <div class="bd">
+                <h3>{course.title}</h3>
+                <p class="perex">{course.perex}</p>
+                <div class="foot">
+                  <span class={`ptag ${course.price_czk === 0 ? 'free' : 'paid'}`}>{fmtPrice(course.price_czk)}</span>
+                  <span class="go">{deliveryLabel(course.delivery_mode)} →</span>
+                </div>
+              </div>
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  </section>
+
+  <section class="section tband">
+    <div class="wrap">
+      <div class="tgrid">
+        {testimonials.map((item) => (
+          <div class="tcard">
+            <div class="stars">★★★★★</div>
+            <p>„{item.quote}“</p>
+            <div class="who">
+              <span class="av" style={`background:${item.color}`}>{item.name.charAt(0)}</span>
+              <span>
+                <span class="nm">{item.name}</span><br />
+                <span class="rl">{item.role}</span>
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="section fcta">
+    <div class="wrap">
+      <div class="box">
+        <div class="dec" style="width:220px;height:220px;background:rgba(255,255,255,.10);top:-60px;right:-40px"></div>
+        <div class="dec" style="width:140px;height:140px;background:rgba(255,255,255,.08);bottom:-50px;left:30px"></div>
+        <div style="position:relative;z-index:2">
+          <h2>Začněte už zítra ráno</h2>
+          <p>První lekce dorazí další pracovní den. Bez závazků, kdykoli můžete přestat.</p>
+          {firstSlug && <a class="btn btn-orange btn-big" href={`/kurz/${firstSlug}`}>Zapsat se zdarma →</a>}
+        </div>
+      </div>
+    </div>
   </section>
 </PublicLayout>

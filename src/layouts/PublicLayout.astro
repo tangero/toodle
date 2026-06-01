@@ -8,34 +8,39 @@ interface Props {
 
 const { title, description } = Astro.props;
 const user = Astro.locals.user;
+const year = new Date().getFullYear();
 ---
 
 <BaseLayout title={title} description={description}>
-  <header class="border-b border-gray-200 bg-white">
-    <nav class="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
-      <a href="/" class="text-xl font-bold text-gray-900">Letní škola AI</a>
-      <div class="flex items-center gap-4">
-        <a href="/" class="text-sm text-gray-600 hover:text-gray-900">Kurzy</a>
-        {user ? (
-          <a href="/profil" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-            Můj profil
-          </a>
-        ) : (
-          <a href="/prihlaseni" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-            Přihlásit se
-          </a>
-        )}
+  <div class="sa">
+    <header class="hdr">
+      <div class="wrap row">
+        <a class="logo" href="/">
+          <span class="mark"><b>Ai</b></span>
+          Škola AI
+        </a>
+        <nav class="nav" aria-label="Hlavní navigace">
+          <a class="lnk" href="/#kurzy">Kurzy</a>
+          <a class="lnk" href="/#jak">Jak to funguje</a>
+          {user
+            ? <a class="btn btn-purple btn-sm" href="/profil">Můj profil</a>
+            : <a class="btn btn-purple btn-sm" href="/prihlaseni">Přihlásit se</a>}
+        </nav>
       </div>
-    </nav>
-  </header>
+    </header>
 
-  <main class="mx-auto max-w-5xl px-4 py-8">
-    <slot />
-  </main>
+    <main>
+      <slot />
+    </main>
 
-  <footer class="border-t border-gray-200 bg-gray-50">
-    <div class="mx-auto max-w-5xl px-4 py-6 text-center text-sm text-gray-500">
-      &copy; {new Date().getFullYear()} Letní škola AI. Všechna práva vyhrazena.
-    </div>
-  </footer>
+    <footer class="ft">
+      <div class="wrap row">
+        <a class="logo" style="font-size:18px" href="/">
+          <span class="mark"><b>Ai</b></span>
+          Škola AI
+        </a>
+        <span>© {year} Škola AI. AI bez zbytečné teorie.</span>
+      </div>
+    </footer>
+  </div>
 </BaseLayout>
