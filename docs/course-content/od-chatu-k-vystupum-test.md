@@ -4,7 +4,7 @@ Sedm otázek s výběrem odpovědi (po 2 bodech) a dvě otevřené (po 5 bodech)
 
 Poznámky k zadání testu v adminu:
 
-- Hodnotitel (LLM) vidí u otevřené otázky **jen text otázky a odpověď**. Kritéria proto musí být přímo v zadání otázky. Jsou tam jako „V odpovědi uveď“.
+- Hodnotitel (LLM) vidí u otevřené otázky **jen text otázky a odpověď**. Kritéria proto musí být přímo v zadání otázky. Jsou tam jako „V odpovědi uveďte“.
 - Odpověď se před hodnocením ořízne na 2 000 znaků. V zadání je proto doporučený rozsah.
 - Správné odpovědi jsou rozložené: a, c, b, d, b, c, a.
 - JSON níže odpovídá typu `TestQuestion` (`src/lib/types.ts`). Do databáze se test dostává skriptem `scripts/import-courses.mjs`, který JSON před importem zkontroluje (id, možnosti, správná odpověď, body).
@@ -14,7 +14,7 @@ Poznámky k zadání testu v adminu:
 1. **Kdy se vyplatí založit projekt místo dalšího chatu?** Správně a). Lekce 2.
 2. **Shrnutí zprávy uvádí výdaje 145 mld. Kč, zpráva má ve sloupci Skutečnost 124 mld. Kč. Co se nejspíš stalo?** Správně c). Lekce 3.
 3. **Proč je u dokumentu lepší upravit jeden odstavec než nechat přepsat celý text?** Správně b). Lekce 4.
-4. **Jak poznáš, že AI součet z tabulky spočítala a neodhadla?** Správně d). Lekce 6.
+4. **Jak poznáte, že AI součet z tabulky spočítala a neodhadla?** Správně d). Lekce 6.
 5. **Rešerše u tvrzení uvádí odkaz. Co to znamená?** Správně b). Lekce 8.
 6. **Co je prompt injection?** Správně c). Lekce 9.
 7. **Která část v zadání úlohy pro agenta chybí nejčastěji a proč vadí?** Správně a). Lekce 10.
@@ -101,7 +101,7 @@ Poznámky k zadání testu v adminu:
   {
     "id": "q4",
     "type": "multiple_choice",
-    "question": "AI ti vrátila součet výdajů z tabulky s tisíci řádků. Jak nejlépe ověříš, že ho spočítala a neodhadla?",
+    "question": "AI vám vrátila součet výdajů z tabulky s tisíci řádků. Jak nejlépe ověříte, že ho spočítala a neodhadla?",
     "options": [
       {
         "id": "a",
@@ -138,7 +138,7 @@ Poznámky k zadání testu v adminu:
       },
       {
         "id": "c",
-        "text": "Zdroj je primární, protože jsem primární zdroje chtěl v zadání."
+        "text": "Zdroj je primární, protože zadání primární zdroje požadovalo."
       },
       {
         "id": "d",
@@ -201,13 +201,13 @@ Poznámky k zadání testu v adminu:
   {
     "id": "q8",
     "type": "open_ended",
-    "question": "Máš 40stránkovou výroční zprávu v PDF plnou tabulek. Napiš zadání (prompt), kterým necháš AI udělat shrnutí tak, aby se dalo ověřit. V odpovědi uveď: pro jakého čtenáře shrnutí je, jaký má mít rozsah a obsah, jak má AI uvádět zdroje čísel (strany), jedno pravidlo proti typické chybě v číslech (sloupec, jednotka nebo rok) a požadovaný formát. Rozsah odpovědi do 1 500 znaků.",
+    "question": "Máte 40stránkovou výroční zprávu v PDF plnou tabulek. Napište zadání (prompt), kterým necháte AI udělat shrnutí tak, aby se dalo ověřit. V odpovědi uveďte: pro jakého čtenáře shrnutí je, jaký má mít rozsah a obsah, jak má AI uvádět zdroje čísel (strany), jedno pravidlo proti typické chybě v číslech (sloupec, jednotka nebo rok) a požadovaný formát. Rozsah odpovědi do 1 500 znaků.",
     "max_points": 5
   },
   {
     "id": "q9",
     "type": "open_ended",
-    "question": "AI ti z dokumentu připravila prezentaci, kterou máš zítra ukázat vedení nebo rodičům. Popiš, co zkontroluješ, než ji ukážeš. V odpovědi uveď aspoň čtyři konkrétní kontroly a u každé napiš, jak ji provedeš. Měly by mezi nimi být: čísla proti zdroji, zdroje tvrzení, jména nebo citlivé údaje a stažený soubor či tón. Rozsah odpovědi do 1 500 znaků.",
+    "question": "AI vám z dokumentu připravila prezentaci, kterou máte zítra ukázat vedení nebo rodičům. Popište, co zkontrolujete, než ji ukážete. V odpovědi uveďte aspoň čtyři konkrétní kontroly a u každé napište, jak ji provedete. Měly by mezi nimi být: čísla proti zdroji, zdroje tvrzení, jména nebo citlivé údaje a stažený soubor či tón. Rozsah odpovědi do 1 500 znaků.",
     "max_points": 5
   }
 ]

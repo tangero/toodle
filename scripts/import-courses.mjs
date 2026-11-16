@@ -29,7 +29,9 @@ const CONTENT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'docs', 
 const args = process.argv.slice(2);
 const outIndex = args.indexOf('--out');
 const outPath = outIndex >= 0 ? args[outIndex + 1] : null;
-const wanted = args.filter((a, i) => a !== '--out' && i !== outIndex + 1);
+// Hodnotu za --out vyřazujeme jen tehdy, když byl přepínač zadán (jinak by outIndex + 1 = 0 zahodil první název kurzu).
+const wanted = args.filter((a, i) => a !== '--out' && !(outIndex >= 0 && i === outIndex + 1));
+if (outIndex >= 0 && !outPath) fail('Za --out chybí cesta k souboru.');
 
 const files = readdirSync(CONTENT_DIR);
 const prefixes = files

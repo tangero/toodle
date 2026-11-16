@@ -277,9 +277,11 @@ Nové pojmy: data, dataset, trend, graf.
 
 Poznámka: nepoužívat těžké statistické pojmy bez vysvětlení.
 
-### Lekce 13 - Vlastní GPTs a kdy je použít
+### Lekce 13 - Vlastní pomocník: od GPTs k projektům
 
-Cíl: vysvětlit, co jsou vlastní GPTs a kdy se hodí začátečníkovi.
+Pozn. 16. 11. 2026: OpenAI vlastní GPTs ruší (osobní účty už nové nevytvářejí, existující jdou používat do 11. 12. 2026). Lekce proto staví na projektu s vlastními instrukcemi, GPTs zmiňuje jen jako končící funkci.
+
+Cíl: čtenář si napíše zadání pro vlastního pomocníka a uloží ho jako instrukce projektu.
 
 Obsah:
 

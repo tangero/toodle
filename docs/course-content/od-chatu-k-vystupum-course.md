@@ -8,51 +8,54 @@ Podklad pro `scripts/import-courses.mjs`. Sekce Popis, Uvítací e-mail a Závě
 - Název: Od chatu k hotovým výstupům
 - Autor: Patrick Zandl
 - Cena: 0
+- Pořadí: 20
+- Pro koho: Pro ty, kdo už do AI píší dotazy a chtějí z ní dostat hotový dokument, prezentaci nebo tabulku.
+- Co potřebujete: Placený tarif Claude nebo ChatGPT.
 - Doručování: next_workday
-- Perex: Deset lekcí, ve kterých z Claude nebo ChatGPT dostaneš hotový dokument, prezentaci, tabulku s grafem a rešerši se zdroji. Kurz je zdarma, potřebuješ ale placený tarif Claude nebo ChatGPT.
+- Perex: Deset lekcí, ve kterých z Claude nebo ChatGPT dostanete hotový dokument, prezentaci, tabulku s grafem a rešerši se zdroji. Kurz je zdarma, potřebujete ale placený tarif Claude nebo ChatGPT.
 
 ## Popis
 
-Psát do chatu už umíš. Tenhle kurz tě naučí dostat z AI **hotovou práci**: dokument, který můžeš poslat dál, prezentaci, tabulku s grafem, výukový materiál s testem a rešerši s dohledatelnými zdroji.
+Psát do chatu už umíte. Tenhle kurz vás naučí dostat z AI **hotovou práci**: dokument, který můžete poslat dál, prezentaci, tabulku s grafem, výukový materiál s testem a rešerši s dohledatelnými zdroji.
 
-Většinu lekcí si vyzkoušíš na skutečných datech, hlavně na rozpočtu hlavního města Prahy. Cvičné soubory dostaneš ke stažení. Postupy ukazujeme vedle sebe v **Claude** i v **ChatGPT**, vybereš si nástroj, který používáš.
+Většinu lekcí si vyzkoušíte na skutečných datech, hlavně na rozpočtu hlavního města Prahy. Cvičné soubory dostanete ke stažení. Postupy ukazujeme vedle sebe v **Claude** i v **ChatGPT**, vyberete si nástroj, který používáte.
 
-## Co si odneseš
+## Co si odnesete
 
-- projekt s podklady a pokyny, do kterého se vracíš,
+- projekt s podklady a pokyny, do kterého se vracíte,
 - jednostránkové shrnutí dlouhého dokumentu s odkazy na strany,
 - dokument a prezentaci připravené ke sdílení,
 - tabulku s grafem z otevřených dat a postup, jak čísla zkontrolovat,
 - pracovní list a test s klíčem,
 - rešerši se zdroji a tři ověřená tvrzení,
-- vlastní opakovatelné zadání pro práci, kterou děláš pořád dokola.
+- vlastní opakovatelné zadání pro práci, kterou děláte pořád dokola.
 
-## Co budeš potřebovat
+## Co budete potřebovat
 
-- **Placený tarif** Claude (Pro a vyšší) nebo ChatGPT (Plus a vyšší). S bezplatným účtem většinu lekcí neprojdeš.
+- **Placený tarif** Claude (Pro a vyšší) nebo ChatGPT (Plus a vyšší). S bezplatným účtem většinu lekcí neprojdete.
 - Počítač. Na telefonu se dá číst, cvičení se ale dělají pohodlněji u počítače.
 
 ## Pro koho kurz je
 
 Pro lidi z kanceláří, učitele a živnostníky, kteří AI používají na dotazy a chtějí s ní dělat celé kusy práce. Každá lekce má krátkou část s tipy pro každou z těch tří skupin.
 
-Lekce chodí každý pracovní den ráno. Na konci tě čeká test a certifikát.
+Lekce chodí každý pracovní den ráno. Na konci vás čeká test a certifikát.
 
 ## Uvítací e-mail
 
-Vítej v kurzu **Od chatu k hotovým výstupům**.
+Vítejte v kurzu **Od chatu k hotovým výstupům**.
 
-V deseti lekcích se naučíš dostat z Claude nebo ChatGPT hotový dokument, prezentaci, tabulku s grafem a rešerši. Pracovat budeme hlavně se skutečnými daty z rozpočtu hlavního města Prahy.
+V deseti lekcích se naučíte dostat z Claude nebo ChatGPT hotový dokument, prezentaci, tabulku s grafem a rešerši. Pracovat budeme hlavně se skutečnými daty z rozpočtu hlavního města Prahy.
 
-Než přijde první lekce, zkontroluj si dvě věci:
+Než přijde první lekce, zkontrolujte si dvě věci:
 
-- máš **placený tarif** Claude nebo ChatGPT a umíš se do něj přihlásit na počítači,
-- víš, kam si v počítači ukládáš stažené soubory. Od druhé lekce je budeš potřebovat.
+- máte **placený tarif** Claude nebo ChatGPT a umíte se do něj přihlásit na počítači,
+- víte, kam si v počítači ukládáte stažené soubory. Od druhé lekce je budete potřebovat.
 
 ## Závěrečný e-mail
 
-Máš za sebou všech deset lekcí kurzu **Od chatu k hotovým výstupům**. Gratulujeme.
+Máte za sebou všech deset lekcí kurzu **Od chatu k hotovým výstupům**. Gratulujeme.
 
-Zbývá závěrečný test: sedm otázek s výběrem odpovědi a dvě otevřené. Když získáš aspoň 70 %, vystavíme ti certifikát.
+Zbývá závěrečný test: sedm otázek s výběrem odpovědi a dvě otevřené. Když získáte aspoň 70 %, vystavíme vám certifikát.
 
-Chceš jít dál? Kurz **Claude jako pracovní agent** tě naučí svěřit Claude vícekrokovou práci s tvými soubory. Kurz **Bezpečně s AI v práci a ve škole** ti pomůže sepsat vlastní pravidla na jednu stranu.
+Chcete jít dál? Kurz **Claude jako pracovní agent** vás naučí svěřit Claude vícekrokovou práci s vašimi soubory. Kurz **Bezpečně s AI v práci a ve škole** vám pomůže sepsat vlastní pravidla na jednu stranu.

@@ -14,11 +14,11 @@
 ## Tělo e-mailu
 
 ```html
-<p>Ahoj. V uklizené složce máš tři tabulky rozpočtu pražského Magistrátu, každý rok zvlášť. Dnes z nich Claude udělá <strong>jeden sešit Excelu</strong> se sloučenými daty, přehledem, grafem a hlavně s listem kontrol.</p>
+<p>Dobrý den. V uklizené složce máte tři tabulky rozpočtu pražského Magistrátu, každý rok zvlášť. Dnes z nich Claude udělá <strong>jeden sešit Excelu</strong> se sloučenými daty, přehledem, grafem a hlavně s listem kontrol.</p>
 
 <p>Slučování tabulek je práce, kde agent ušetří nejvíc času a kde se zároveň nejsnáz ztratí pár řádků, aniž by si toho kdokoli všiml. Proto je dnešní lekce z poloviny o kontrole.</p>
 
-<h3><strong>1️⃣ Co se při slučování kazí</strong></h3>
+<h3><strong>1. Co se při slučování kazí</strong></h3>
 
 <ul>
   <li><p><strong>Ztracené nebo zdvojené řádky.</strong> Soubor se načte dvakrát, poslední řádek vypadne, prázdné řádky se započítají.</p></li>
@@ -27,19 +27,19 @@
   <li><p><strong>Míchání hrušek a jablek.</strong> Příjmy sečtené s výdaji, schválený rozpočet s upraveným.</p></li>
 </ul>
 
-<h3><strong>2️⃣ Kontrolní součet</strong></h3>
+<h3><strong>2. Kontrolní součet</strong></h3>
 
-<p>Obrana je jednoduchá a stará jako účetnictví: <strong>spočítej totéž před sloučením a po něm.</strong> Počet řádků v každém souboru a po sloučení. Součet sloupce v každém souboru a po sloučení. Když čísla sedí, nic se neztratilo ani nepřibylo. Když nesedí, víš to hned, ne za měsíc.</p>
+<p>Obrana je jednoduchá a stará jako účetnictví: <strong>spočítejte totéž před sloučením a po něm.</strong> Počet řádků v každém souboru a po sloučení. Součet sloupce v každém souboru a po sloučení. Když čísla sedí, nic se neztratilo ani nepřibylo. Když nesedí, víte to hned, ne za měsíc.</p>
 
-<p>Agent umí kontrolní součty udělat sám. Musíš mu to ale napsat do bodu Hotovo. A dvě čísla si pak ověříš proti hodnotám v téhle lekci.</p>
+<p>Agent umí kontrolní součty udělat sám. Musíte mu to ale napsat do bodu Hotovo. A dvě čísla si pak ověříte proti hodnotám v téhle lekci.</p>
 
-<h3><strong>3️⃣ List „Poznámky k datům“</strong></h3>
+<h3><strong>3. List „Poznámky k datům“</strong></h3>
 
-<p>Při práci s daty musí agent dělat rozhodnutí: co s prázdným sloupcem, co s řádkem bez položky, jak zaokrouhlit. Chceš je mít sepsaná. Proto do každé datové úlohy patří list, kam agent zapíše, co musel upravit a co předpokládal. Je to nejlepší místo, kde začít s kontrolou.</p>
+<p>Při práci s daty musí agent dělat rozhodnutí: co s prázdným sloupcem, co s řádkem bez položky, jak zaokrouhlit. Chcete je mít sepsaná. Proto do každé datové úlohy patří list, kam agent zapíše, co musel upravit a co předpokládal. Je to nejlepší místo, kde začít s kontrolou.</p>
 
-<h3><strong>✏️ Dnešní úkol: brief na sloučení</strong></h3>
+<h3><strong>Dnešní úkol: brief na sloučení</strong></h3>
 
-<p>V Claude Desktop připoj složku Kurz AI s povolenými úpravami. Pošli:</p>
+<p>V Claude Desktop připojte složku Kurz AI s povolenými úpravami. Pošlete:</p>
 
 <p><strong>„CÍL: Jeden sešit Excelu, ze kterého je vidět, jak se mění schválený rozpočet Magistrátu hl. m. Prahy v letech 2024 až 2026.<br>
 PODKLADY: tři tabulky rozpočtu MHMP (roky 2024, 2025, 2026) ve složce Kurz AI, podsložka Uklid - pracovni/rozpocet. Jsou to CSV se středníkem a středníkem navíc na konci řádku. Částky jsou v tisících Kč s desetinnou tečkou. Sloupec pol je položka: začíná-li 1 až 4, je to příjem, 5 a 6 výdaj, 8 financování. Originály neměň.<br>
@@ -52,11 +52,11 @@ HOTOVO: počty řádků i součty na listu Kontroly sedí mezi zdroji a listem D
 OMEZENÍ: nic nemaž, zdrojové soubory neměň, web nepoužívej. Řádky, které neumíš zařadit, nevyhazuj, označ je jako neurčeno.<br>
 Nejdřív mi napiš plán a počkej na souhlas. Na konci napiš, co jsi udělal, co jsi nemohl udělat a čím si nejsi jistý.“</strong></p>
 
-<p>Všimni si, kolik místa v briefu zabírá popis dat. Je to stejný popis jako v ZDROJE.txt. Agent by si ho mohl přečíst sám, ale u věcí, na kterých stojí správnost výpočtu, se nespoléhej na to, že si je najde.</p>
+<p>Všimněte si, kolik místa v briefu zabírá popis dat. Je to stejný popis jako v ZDROJE.txt. Agent by si ho mohl přečíst sám, ale u věcí, na kterých stojí správnost výpočtu, se nespoléhejte na to, že si je najde.</p>
 
-<h3><strong>✏️ Ověř dvě čísla sám/sama</strong></h3>
+<h3><strong>Ověřte dvě čísla sami</strong></h3>
 
-<p>Otevři hotový sešit a list Kontroly. Mělo by tam být:</p>
+<p>Otevřete hotový sešit a list Kontroly. Mělo by tam být:</p>
 
 <ul>
   <li><p><strong>Řádky:</strong> 2 204, 1 998 a 1 612, dohromady <strong>5 814</strong>. (Pokud agent počítá i řádek se záhlavím, bude u každého souboru o jeden víc. Na listu Data ale záhlaví smí být jen jednou.)</p></li>
@@ -64,24 +64,24 @@ Nejdřív mi napiš plán a počkej na souhlas. Na konci napiš, co jsi udělal,
   <li><p><strong>Doprava</strong> na listu Přehled: <strong>38,1 – 39,6 – 41,5 mld. Kč</strong>.</p></li>
 </ul>
 
-<p>Pak klikni na jedno číslo na listu Přehled. Je v buňce vzorec, nebo jen hodnota? A nakonec si v listu Data zapni filtr, vyber rok 2025 a oblast Doprava a podívej se dolů na součet označených buněk. Sedí s Přehledem?</p>
+<p>Pak klikněte na jedno číslo na listu Přehled. Je v buňce vzorec, nebo jen hodnota? A nakonec si v listu Data zapněte filtr, vyberte rok 2025 a oblast Doprava a podívejte se dolů na součet označených buněk. Sedí s Přehledem?</p>
 
-<p>Když něco nesedí, pošli agentovi konkrétní rozdíl: <strong>„Na listu Kontroly máš za rok 2025 výdaje X, správně je zhruba 113,5 mld. Kč. Najdi příčinu, oprav ji a napiš, co bylo špatně.“</strong></p>
+<p>Když něco nesedí, pošlete agentovi konkrétní rozdíl: <strong>„Na listu Kontroly máš za rok 2025 výdaje X, správně je zhruba 113,5 mld. Kč. Najdi příčinu, oprav ji a napiš, co bylo špatně.“</strong></p>
 
-<h3><strong>💼 Pro tvoji práci</strong></h3>
+<h3><strong>Pro vaši práci</strong></h3>
 
 <ul>
   <li><p><strong>Kancelář:</strong> měsíční exporty z jednoho systému do jedné roční tabulky. Kontrolní součet = součet obratu za každý měsíc.</p></li>
-  <li><p><strong>Učitelé:</strong> ze sady Statistiky spoj počty obyvatel obcí za roky 2024 a 2025 a nech spočítat změnu pro obce vašeho okresu. Pozor na řádky krajů a okresů mezi obcemi. Zdroj: ČSÚ.</p></li>
+  <li><p><strong>Učitelé:</strong> ze sady Statistiky spojte počty obyvatel obcí za roky 2024 a 2025 a nechte spočítat změnu pro obce vašeho okresu. Pozor na řádky krajů a okresů mezi obcemi. Zdroj: ČSÚ.</p></li>
   <li><p><strong>Živnostníci:</strong> čtvrtletní přehledy příjmů a výdajů do jedné roční tabulky s grafem po měsících.</p></li>
 </ul>
 
-<h3><strong>🔍 Kontrola výstupu</strong></h3>
+<h3><strong>Kontrola výstupu</strong></h3>
 
 <ul>
   <li><p><strong>List Kontroly:</strong> sedí počty řádků a součty? Dvě čísla ověřená proti lekci.</p></li>
-  <li><p><strong>Vzorce:</strong> jsou na Přehledu vzorce? Změň na listu Data jedno číslo a sleduj, jestli se Přehled přepočítá. Pak změnu vrať.</p></li>
-  <li><p><strong>Poznámky:</strong> co agent upravoval a předpokládal? Souhlasíš s tím?</p></li>
+  <li><p><strong>Vzorce:</strong> jsou na Přehledu vzorce? Změňte na listu Data jedno číslo a sledujte, jestli se Přehled přepočítá. Pak změnu vraťte.</p></li>
+  <li><p><strong>Poznámky:</strong> co agent upravoval a předpokládal? Souhlasíte s tím?</p></li>
   <li><p><strong>Zdroje:</strong> jsou původní CSV beze změny (stejné datum úpravy)?</p></li>
 </ul>
 
@@ -90,13 +90,13 @@ Nejdřív mi napiš plán a počkej na souhlas. Na konci napiš, co jsi udělal,
 <ul>
   <li><p>Při slučování se ztrácejí řádky a mění typy. Kontrolní součet před a po to odhalí.</p></li>
   <li><p>Popis dat (oddělovač, jednotky, význam sloupců) patří do briefu.</p></li>
-  <li><p>Chtěj vzorce místo hodnot a list s poznámkami k datům.</p></li>
-  <li><p>Dvě čísla vždy ověř proti něčemu, co agent nevyrobil.</p></li>
+  <li><p>Chtějte vzorce místo hodnot a list s poznámkami k datům.</p></li>
+  <li><p>Dvě čísla vždy ověřte proti něčemu, co agent nevyrobil.</p></li>
 </ul>
 
 <p>V další lekci ze sešitu a ze zprávy o plnění rozpočtu vznikne report: několikastránkový dokument s grafy, který Claude napíše z více souborů najednou.</p>
 
-<p>Až budou kontroly sedět, klikni pod e-mailem na <strong>Hotovo, chci další lekci</strong>.</p>
+<p>Až budou kontroly sedět, klikněte pod e-mailem na <strong>Hotovo, chci další lekci</strong>.</p>
 
-<p>— <strong>Tým Letní školy AI</strong><br>Patrick a Iva</p>
+<p>— <strong>Tým Školy AI</strong><br>Patrick a Andrea</p>
 ```

@@ -4,7 +4,7 @@ Sedm otázek s výběrem odpovědi (po 2 bodech) a dvě otevřené (po 5 bodech)
 
 Poznámky k zadání testu v adminu:
 
-- Hodnotitel (LLM) vidí u otevřené otázky **jen text otázky a odpověď**. Kritéria jsou proto přímo v zadání jako „V odpovědi uveď“.
+- Hodnotitel (LLM) vidí u otevřené otázky **jen text otázky a odpověď**. Kritéria jsou proto přímo v zadání jako „V odpovědi uveďte“.
 - Odpověď se před hodnocením ořízne na 2 000 znaků.
 - Správné odpovědi jsou rozložené: c, a, d, b, a, d, b.
 - JSON níže odpovídá typu `TestQuestion` (`src/lib/types.ts`). Do databáze se test dostává skriptem `scripts/import-courses.mjs`, který JSON před importem zkontroluje (id, možnosti, správná odpověď, body).
@@ -14,7 +14,7 @@ Poznámky k zadání testu v adminu:
 1. **Čím se úloha pro agenta liší od otázky v chatu?** Správně c). Lekce 1.
 2. **Proč se soubory pracovat na kopii?** Správně a). Lekce 3.
 3. **Co má agent udělat s duplicitními soubory?** Správně d). Lekce 3.
-4. **Po sloučení tří tabulek má výsledek o 40 řádků méně než zdroje dohromady. Co uděláš?** Správně b). Lekce 4.
+4. **Po sloučení tří tabulek má výsledek o 40 řádků méně než zdroje dohromady. Co uděláte?** Správně b). Lekce 4.
 5. **Kdy může prompt injection způsobit škodu?** Správně a). Lekce 8.
 6. **Co agent nemá dělat sám?** Správně d). Lekce 8.
 7. **Kterou úlohu neplánovat k samostatnému spouštění?** Správně b), protože odesílá bez kontroly člověka. Lekce 8 a 9.
@@ -101,7 +101,7 @@ Poznámky k zadání testu v adminu:
   {
     "id": "q4",
     "type": "multiple_choice",
-    "question": "Po sloučení tří tabulek má výsledná tabulka o 40 řádků méně, než kolik měly zdroje dohromady. Co uděláš?",
+    "question": "Po sloučení tří tabulek má výsledná tabulka o 40 řádků méně, než kolik měly zdroje dohromady. Co uděláte?",
     "options": [
       {
         "id": "a",
@@ -151,7 +151,7 @@ Poznámky k zadání testu v adminu:
   {
     "id": "q6",
     "type": "multiple_choice",
-    "question": "Kterou čtveřici činností nemá agent dělat sám, bez tvého potvrzení?",
+    "question": "Kterou čtveřici činností nemá agent dělat sám, bez vašeho potvrzení?",
     "options": [
       {
         "id": "a",
@@ -176,7 +176,7 @@ Poznámky k zadání testu v adminu:
   {
     "id": "q7",
     "type": "multiple_choice",
-    "question": "Kterou z těchto úloh bys NEMĚL/A naplánovat k pravidelnému samostatnému spouštění?",
+    "question": "Kterou z těchto úloh byste NEMĚLI naplánovat k pravidelnému samostatnému spouštění?",
     "options": [
       {
         "id": "a",
@@ -201,13 +201,13 @@ Poznámky k zadání testu v adminu:
   {
     "id": "q8",
     "type": "open_ended",
-    "question": "Ve složce máš pět tabulek s rozpočtem obce za pět let (CSV). Napiš brief pro agenta, který z nich udělá jednu souhrnnou tabulku v Excelu s grafem. V odpovědi uveď všech pět částí briefu: cíl, podklady, výstup (formát a kam uložit), kritérium hotovo (které se dá zkontrolovat, například kontrolní součty) a omezení (například neměnit originály, nic nemazat). Rozsah odpovědi do 1 500 znaků.",
+    "question": "Ve složce máte pět tabulek s rozpočtem obce za pět let (CSV). Napište brief pro agenta, který z nich udělá jednu souhrnnou tabulku v Excelu s grafem. V odpovědi uveďte všech pět částí briefu: cíl, podklady, výstup (formát a kam uložit), kritérium hotovo (které se dá zkontrolovat, například kontrolní součty) a omezení (například neměnit originály, nic nemazat). Rozsah odpovědi do 1 500 znaků.",
     "max_points": 5
   },
   {
     "id": "q9",
     "type": "open_ended",
-    "question": "Agent ti z podkladů ve složce připravil report pro vedení. Popiš, jak ho zkontroluješ, než ho odešleš. V odpovědi uveď aspoň čtyři konkrétní kontroly a u každé napiš, jak ji provedeš. Měly by mezi nimi být: ověření čísel proti zdroji, stopa tvrzení ke zdrojům, osobní nebo citlivé údaje a nevyžádané změny souborů ve složce. Rozsah odpovědi do 1 500 znaků.",
+    "question": "Agent vám z podkladů ve složce připravil report pro vedení. Popište, jak ho zkontrolujete, než ho odešlete. V odpovědi uveďte aspoň čtyři konkrétní kontroly a u každé napište, jak ji provedete. Měly by mezi nimi být: ověření čísel proti zdroji, stopa tvrzení ke zdrojům, osobní nebo citlivé údaje a nevyžádané změny souborů ve složce. Rozsah odpovědi do 1 500 znaků.",
     "max_points": 5
   }
 ]

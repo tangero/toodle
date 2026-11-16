@@ -4,7 +4,7 @@
 
 Poznámky k zadání testu v adminu:
 
-- Hodnotitel (LLM) vidí u otevřené otázky jen text otázky a odpověď. Kritéria jsou proto přímo v zadání jako „V odpovědi uveď“.
+- Hodnotitel (LLM) vidí u otevřené otázky jen text otázky a odpověď. Kritéria jsou proto přímo v zadání jako „V odpovědi uveďte“.
 - Odpověď se před hodnocením ořízne na 2 000 znaků.
 - Správné odpovědi jsou rozložené: b, d, a, c, b, d.
 - JSON níže odpovídá typu `TestQuestion` (`src/lib/types.ts`). Do databáze se test dostává skriptem `scripts/import-courses.mjs`, který JSON před importem zkontroluje (id, možnosti, správná odpověď, body).
@@ -50,7 +50,7 @@ Poznámky k zadání testu v adminu:
   {
     "id": "q2",
     "type": "multiple_choice",
-    "question": "Chceš, aby ti AI pomohla s odpovědí na e-mail, ve kterém jsou jména a adresa zákazníka. Jak postupovat?",
+    "question": "Chcete, aby vám AI pomohla s odpovědí na e-mail, ve kterém jsou jména a adresa zákazníka. Jak postupovat?",
     "options": [
       {
         "id": "a",
@@ -75,7 +75,7 @@ Poznámky k zadání testu v adminu:
   {
     "id": "q3",
     "type": "multiple_choice",
-    "question": "AI ti odpověděla s číslem paragrafu a názvem zákona. Jak zjistíš, jestli je to správně?",
+    "question": "AI vám odpověděla s číslem paragrafu a názvem zákona. Jak zjistíte, jestli je to správně?",
     "options": [
       {
         "id": "a",
@@ -150,7 +150,7 @@ Poznámky k zadání testu v adminu:
   {
     "id": "q6",
     "type": "multiple_choice",
-    "question": "AI ti přepsala kapitolu z cizí učebnice jinými slovy. Co platí?",
+    "question": "AI vám přepsala kapitolu z cizí učebnice jinými slovy. Co platí?",
     "options": [
       {
         "id": "a",
@@ -162,7 +162,7 @@ Poznámky k zadání testu v adminu:
       },
       {
         "id": "c",
-        "text": "Můžu ho šířit, pokud jsem za AI zaplatil/a."
+        "text": "Můžu ho šířit, pokud za AI platím."
       },
       {
         "id": "d",
@@ -175,7 +175,7 @@ Poznámky k zadání testu v adminu:
   {
     "id": "q7",
     "type": "open_ended",
-    "question": "Kolega ti řekne, že si chce ušetřit práci: nahraje do svého osobního účtu AI tabulku se jmény zaměstnanců a jejich platy a nechá si z ní udělat přehled pro vedení. Co mu poradíš? V odpovědi uveď: proč je to problém (osobní údaje a osobní účet), jak by šlo úkol udělat bezpečněji (anonymizace nebo firemní účet), na koho se má obrátit kvůli pravidlům organizace a co má zkontrolovat ve výsledném přehledu, než ho odevzdá. Rozsah odpovědi do 1 500 znaků.",
+    "question": "Kolega vám řekne, že si chce ušetřit práci: nahraje do svého osobního účtu AI tabulku se jmény zaměstnanců a jejich platy a nechá si z ní udělat přehled pro vedení. Co mu poradíte? V odpovědi uveďte: proč je to problém (osobní údaje a osobní účet), jak by šlo úkol udělat bezpečněji (anonymizace nebo firemní účet), na koho se má obrátit kvůli pravidlům organizace a co má zkontrolovat ve výsledném přehledu, než ho odevzdá. Rozsah odpovědi do 1 500 znaků.",
     "max_points": 6
   }
 ]
