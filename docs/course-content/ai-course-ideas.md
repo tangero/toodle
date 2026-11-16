@@ -2,6 +2,23 @@
 
 Tento dokument slouží jako zásobník kurzů pro Letní školu AI. Cílová skupina jsou lidé bez hlubších technických zkušeností, kteří chtějí AI používat prakticky v práci, domácnosti nebo při učení.
 
+## Stav k 12. 11. 2026
+
+Pokročilejší kurzy pro lidi, kteří už promptují, mají vlastní osnovy: `rada-od-promptu-k-praci.md` (kurzy A a B) a `rada-dalsi-kurzy.md` (návrh kurzů D až I). Jak se k nim mají nápady níže:
+
+| Nápad | Stav |
+|---|---|
+| 1. Obrázky s AI | stále kandidát, mimo řadu |
+| 2. ChatGPT pro kancelář | pokročilejší verzi nahrazuje návrh kurzu H (AI v kanceláři) |
+| 3. AI pro učení | stále kandidát pro začátečníky |
+| 4. AI pro rodiče a domácnost | stále kandidát pro začátečníky |
+| 5. AI pro živnostníky | pokročilejší verzi nahrazuje návrh kurzu G |
+| 6. Bezpečné používání AI | pokročilejší verzi nahrazuje návrh kurzu D |
+| 7. AI jako osobní asistent | z větší části pokrývají kurzy A a B (projekty, šablony, opakovaná zadání) |
+| 8. Vyhledávání a ověřování | pokročilejší verzi nahrazuje návrh kurzu I |
+| 9. Claude.ai pro začátečníky | stále kandidát, ale poznámka o Cowork je zastaralá |
+| 10. Claude Cowork pro začátečníky | nahrazuje kurz B. Cowork od 16. 9. 2026 není samostatný produkt, je součástí Claude |
+
 ## Principy kurzů
 
 - Každý kurz má být praktický a zaměřený na konkrétní situace.
