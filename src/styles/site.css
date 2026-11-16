@@ -82,6 +82,9 @@
 .site .btn-line:hover { background: var(--ink); color: #fff; }
 .site .btn-sm { font-size: 0.9375rem; padding: 0.5rem 0.875rem; }
 .site .btn[disabled] { opacity: 0.55; cursor: not-allowed; }
+/* Rovnocenné volby (odpovědi na srozumitelnost lekce): stejně široká tlačítka stejného vzhledu, žádné není zvýrazněné. */
+.site .answers { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: 0.75rem; }
+.site .answers .btn { width: 100%; height: 100%; text-align: center; }
 .site .more { display: inline-flex; align-items: center; min-height: 2.75rem; color: var(--accent); font-weight: 600; font-size: 0.9375rem; }
 .site a.card .more { min-height: 0; }
 .site .back { display: inline-flex; align-items: center; min-height: 2.75rem; font-family: var(--mono); font-size: 0.875rem; }
@@ -209,6 +212,7 @@
 .site .field .error-msg { display: none; font-size: 0.875rem; font-weight: 500; color: var(--err); }
 .site .field :is(input, textarea):user-invalid + .error-msg { display: block; }
 .site .field textarea { min-height: 7.5rem; resize: vertical; line-height: 1.5; }
+.site .field textarea.prompt-text { background: var(--fill); font-family: var(--mono); font-size: 0.875rem; line-height: 1.6; }
 
 /* Průběh kurzu */
 .site .meter { height: 0.5rem; border: 1px solid var(--ink); background: var(--surface); }
@@ -221,6 +225,8 @@
 .site .question { border: 1px solid var(--ink); background: var(--surface); padding: 1.125rem; margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 0.625rem; }
 .site .question > legend, .site .question > .q-title { font-weight: 600; font-size: 1.0625rem; line-height: 1.35; padding: 0; }
 .site .question > legend { float: left; width: 100%; }
+/* Skupina voleb bez rámečku (tlačítka odpovědí na stránce kurzu). */
+.site .question.plain { border: 0; background: none; padding: 0; }
 .site .question > legend + * { clear: both; }
 .site .question.good { border-color: var(--ok); }
 .site .question.bad { border-color: var(--err); }

@@ -11,7 +11,7 @@ import { sendEmail, logEmail, listUnsubscribeHeaders, isAlreadySentConflict } fr
 import { lessonEmail } from './email-templates/lesson';
 import { completionEmail } from './email-templates/completion';
 import { welcomeEmail } from './email-templates/welcome';
-import { createPromoOptOutToken, createUnsubscribeToken } from './unsubscribe';
+import { createFeedbackToken, createPromoOptOutToken, createUnsubscribeToken } from './unsubscribe';
 import { loadEventTips, type EventTip } from './events';
 import type { PromoData } from './email-templates/base';
 import { nextDeliverySlot, toSqlDateTime, formatPragueDateTime } from './time';
@@ -170,9 +170,14 @@ export async function deliverNextLesson(
   if (!claim.meta.changes) return { status: 'skipped', reason: 'zápis mezitím změnil jiný požadavek' };
 
   // 2. Odeslání
-  const unsubToken = await createUnsubscribeToken(row.id, env.JWT_SECRET);
   let resendId: string | null;
   try {
+    const unsubToken = await createUnsubscribeToken(row.id, env.JWT_SECRET);
+    // Otázka na srozumitelnost je v e-mailu jen u denních kurzů; u kurzů na potvrzení
+    // se odpovídá tlačítky na stránce kurzu.
+    const feedbackUrl = row.delivery_mode === 'next_workday'
+      ? `${env.APP_URL}/srozumitelnost/${await createFeedbackToken(row.id, lesson.position, env.JWT_SECRET)}`
+      : undefined;
     const result = await sendEmail(env, {
       to: row.user_email,
       subject: `Lekce ${lesson.position}: ${lesson.title} — ${row.course_title}`,
@@ -187,6 +192,7 @@ export async function deliverNextLesson(
         enrollmentId: row.id,
         appUrl: env.APP_URL,
         unsubscribeToken: unsubToken,
+        feedbackUrl,
         promo,
       }),
       tags: [{ name: 'type', value: 'lesson' }],

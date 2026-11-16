@@ -43,6 +43,8 @@ export interface Lesson {
   title: string;
   content_md: string;
   reading_minutes: number;
+  /** Verze těla lekce, roste při změně content_md. */
+  version: number;
 }
 
 export interface Enrollment {

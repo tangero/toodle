@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS lessons (
   title TEXT NOT NULL,
   content_md TEXT NOT NULL DEFAULT '',
   reading_minutes INTEGER NOT NULL DEFAULT 5,
+  -- Verze těla lekce, roste při změně content_md (import i admin).
+  version INTEGER NOT NULL DEFAULT 1,
   UNIQUE(course_id, position)
 );
 
@@ -164,6 +166,26 @@ CREATE TABLE IF NOT EXISTS course_ratings (
   publish_consent INTEGER NOT NULL DEFAULT 0 CHECK (publish_consent IN (0, 1)),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Zpětná vazba na srozumitelnost lekce (jedna na zápis a lekci, nová odpověď starou přepíše).
+-- answer: 1 = rozuměl jsem, 2 = něco mi nesedělo, 3 = nerozuměl jsem.
+-- sections_json: označené části lekce, [{"n": pořadí, "title": název}].
+-- resent_version: verze lekce, kterou jsme čtenáři poslali po přepisu (jinak NULL).
+CREATE TABLE IF NOT EXISTS lesson_feedback (
+  id TEXT PRIMARY KEY,
+  enrollment_id TEXT NOT NULL REFERENCES enrollments(id),
+  lesson_id TEXT NOT NULL REFERENCES lessons(id),
+  lesson_version INTEGER NOT NULL DEFAULT 1,
+  answer INTEGER NOT NULL CHECK (answer IN (1, 2, 3)),
+  sections_json TEXT NOT NULL DEFAULT '[]',
+  comment TEXT NOT NULL DEFAULT '',
+  resent_version INTEGER,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(enrollment_id, lesson_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_lesson_feedback_lesson ON lesson_feedback(lesson_id, lesson_version);
 
 -- Magic links (token = SHA-256 hash, ne samotný token)
 CREATE TABLE IF NOT EXISTS magic_links (

@@ -1,0 +1,232 @@
+---
+/**
+ * Zpětná vazba na srozumitelnost jedné lekce. Odkaz s podepsaným tokenem (zápis + pozice
+ * lekce) je pod lekcí v e-mailu u kurzů doručovaných každý pracovní den; u kurzů na
+ * potvrzení sem po odpovědi 2 a 3 přesměruje stránka kurzu. Přihlášení není potřeba.
+ *
+ * GET nic nezapisuje (odkazy z e-mailů otevírají i skenery pošty): jen předvybere odpověď
+ * z parametru `odpoved` a zapíše ji až POST na /api/feedback/[token]/answer. Po uložení
+ * stránka poděkuje, u odpovědí 2 a 3 nabídne dobrovolné upřesnění a u odpovědi 3 zadání
+ * pro ChatGPT nebo Claude. Formuláře fungují bez JavaScriptu, skript jen kopíruje do schránky.
+ */
+import SiteLayout from '@layouts/SiteLayout.astro';
+import { verifyFeedbackToken } from '@lib/unsubscribe';
+import {
+  FEEDBACK_ANSWERS, FEEDBACK_COMMENT_MAX, FEEDBACK_LABELS,
+  buildHelpPrompt, parseFeedbackAnswer, parseSectionsJson,
+} from '@lib/feedback';
+import { loadFeedbackContext, sectionsOf } from '@lib/feedback-store';
+import { env } from '@lib/env';
+
+/** Kolik zadání pro AI nejvýš ukážeme, když čtenář označí víc částí. */
+const MAX_PROMPTS = 3;
+
+const { token = '' } = Astro.params;
+const stav = Astro.url.searchParams.get('stav') ?? '';
+const from = Astro.url.searchParams.get('z') ?? '';
+
+const target = await verifyFeedbackToken(token, env.JWT_SECRET);
+const ctx = target ? await loadFeedbackContext(env.DB, target.enrollmentId, target.lessonPosition) : null;
+
+const errors: Record<string, string> = {
+  odpoved: 'Vyberte prosím jednu z odpovědí.',
+  text: `Připomínka může mít nejvýš ${FEEDBACK_COMMENT_MAX} znaků.`,
+  limit: 'Odeslali jste příliš mnoho požadavků za sebou. Zkuste to prosím za minutu.',
+  chyba: 'Odpověď se nepodařilo uložit. Zkuste to prosím znovu.',
+  'bez-odpovedi': 'Nejdřív prosím vyberte odpověď. Upřesnění k ní připojíme potom.',
+};
+
+// Výsledek (poděkování, upřesnění, pomoc) se ukazuje jen k odpovědi, která je opravdu uložená.
+const answered = !!ctx && ctx.answer !== null && ['ulozeno', 'upresneno', 'text'].includes(stav);
+const error = ctx && (!answered || stav === 'text') ? errors[stav] : undefined;
+
+const preselected = ctx ? parseFeedbackAnswer(Astro.url.searchParams.get('odpoved')) ?? ctx.answer : null;
+
+const sections = answered && ctx && ctx.answer !== 1 ? sectionsOf(ctx.contentMd) : [];
+const marked = new Set(ctx ? parseSectionsJson(ctx.sectionsJson).map((s) => s.n) : []);
+const markedSections = sections.filter((s) => marked.has(s.n));
+const prompts = answered && ctx && ctx.answer === 3
+  ? markedSections.length > 0
+    ? markedSections.slice(0, MAX_PROMPTS).map((s) => ({ label: s.title, text: buildHelpPrompt(ctx.lessonTitle, s) }))
+    : [{ label: '', text: buildHelpPrompt(ctx.lessonTitle) }]
+  : [];
+
+const pagePath = `/srozumitelnost/${token}`;
+const coursePath = ctx ? `/profil/kurz/${ctx.enrollmentId}` : '/profil';
+
+if (!ctx) Astro.response.status = 404;
+// Adresa obsahuje osobní token, do vyhledávačů nepatří.
+Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+---
+
+<SiteLayout title="Srozumitelnost lekce">
+  <div class="wrap">
+    {!ctx && (
+      <>
+        <header class="page-head">
+          <h1>Odkaz není platný</h1>
+          <p class="lead">
+            Odkaz se nepodařilo ověřit. Otevřete ho prosím znovu přímo z e-mailu s lekcí.
+            Pokud to nepomůže, napište nám na <a href="mailto:patrick@zandl.cz">patrick@zandl.cz</a>.
+          </p>
+        </header>
+        <div class="page-body narrow">
+          <p class="actions"><a class="btn" href="/">Zpět na hlavní stránku</a></p>
+        </div>
+      </>
+    )}
+
+    {ctx && !answered && (
+      <>
+        <header class="page-head">
+          <h1>Jak srozumitelná byla lekce?</h1>
+          <p class="lead">Lekce {ctx.lessonPosition}: {ctx.lessonTitle}. Kurz {ctx.courseTitle}.</p>
+        </header>
+        <div class="page-body narrow">
+          {error && (
+            <div class="note err" role="alert">
+              <strong>{error}</strong>
+            </div>
+          )}
+          {ctx.answer !== null && !error && (
+            <div class="note">
+              <p>K této lekci už jste odpověděli. Odesláním formuláře dřívější odpověď přepíšete.</p>
+            </div>
+          )}
+          <form method="post" action={`/api/feedback/${token}/answer`} class="form">
+            <fieldset class="question">
+              <legend>Vaše odpověď</legend>
+              <p class="hint">Odpověď uložíme, až ji potvrdíte tlačítkem.</p>
+              <div class="choices">
+                {FEEDBACK_ANSWERS.map((value) => (
+                  <label class="choice">
+                    <input type="radio" name="answer" value={value} required checked={preselected === value} />
+                    <span>{FEEDBACK_LABELS[value]}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <p class="actions">
+              <button type="submit" class="btn">Potvrdit odpověď</button>
+            </p>
+          </form>
+        </div>
+      </>
+    )}
+
+    {ctx && answered && ctx.answer !== null && (
+      <>
+        <header class="page-head">
+          <h1>Děkujeme za odpověď</h1>
+          <p class="lead">Lekce {ctx.lessonPosition}: {ctx.lessonTitle}. Kurz {ctx.courseTitle}.</p>
+        </header>
+        <div class="page-body narrow">
+          <div class="stack">
+            <div class="note ok" role="status">
+              <strong>Uloženo: {FEEDBACK_LABELS[ctx.answer]}.</strong>
+              {stav === 'upresneno' && <p>Upřesnění jsme uložili. Pomůže nám lekci vylepšit.</p>}
+              {from === 'lekce' && <p>Další lekce vám právě odešla e-mailem.</p>}
+              {from === 'test' && <p>Kurz máte dočtený. Závěrečný test na vás čeká pod tlačítkem níže.</p>}
+            </div>
+            {error && (
+              <div class="note err" role="alert">
+                <strong>{error}</strong>
+              </div>
+            )}
+          </div>
+
+          {ctx.answer !== 1 && (
+            <section>
+              <h2>Chcete nám to upřesnit?</h2>
+              <p class="muted">
+                Je to dobrovolné. Když stránku zavřete, vaše odpověď zůstane uložená.
+              </p>
+              <form method="post" action={`/api/feedback/${token}/detail`} class="form">
+                {from && <input type="hidden" name="z" value={from} />}
+                {sections.length > 0 && (
+                  <fieldset class="question">
+                    <legend>Které části lekce se to týká?</legend>
+                    <p class="hint">Můžete označit víc částí.</p>
+                    <div class="choices">
+                      {sections.map((section) => (
+                        <label class="choice">
+                          <input type="checkbox" name="sections" value={section.n} checked={marked.has(section.n)} />
+                          <span>{section.title}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                )}
+                <div class="field">
+                  <label for="comment">Co přesně nebylo jasné? (nepovinné)</label>
+                  <textarea id="comment" name="comment" rows="3" maxlength={FEEDBACK_COMMENT_MAX} aria-describedby="comment-hint">{ctx.comment}</textarea>
+                  <span class="hint" id="comment-hint">Stačí jedna věta, nejvýš {FEEDBACK_COMMENT_MAX} znaků.</span>
+                </div>
+                <p class="actions">
+                  <button type="submit" class="btn">Odeslat upřesnění</button>
+                </p>
+              </form>
+            </section>
+          )}
+
+          {ctx.answer === 3 && (
+            <section id="pomoc">
+              <h2>Pomoc hned teď</h2>
+              <p class="muted">
+                Zkopírujte si zadání a vložte ho do ChatGPT nebo Claude. Vysvětlí vám látku jinými slovy.
+                {markedSections.length === 0 && sections.length > 0 && ' Když výše označíte část lekce a odešlete upřesnění, doplníme do zadání její text.'}
+              </p>
+              {prompts.map((prompt, i) => (
+                <div class="field">
+                  <label for={`prompt-${i}`}>
+                    {prompt.label ? `Zadání k části „${prompt.label}“` : 'Zadání pro ChatGPT nebo Claude'}
+                  </label>
+                  <textarea id={`prompt-${i}`} class="prompt-text" rows="8" readonly>{prompt.text}</textarea>
+                  <div class="actions">
+                    <button type="button" class="btn btn-line" data-copy={`prompt-${i}`} hidden>Zkopírovat</button>
+                    <span class="hint" role="status"></span>
+                  </div>
+                </div>
+              ))}
+              {markedSections.length > MAX_PROMPTS && (
+                <p class="hint">Zadání ukazujeme k prvním {MAX_PROMPTS} označeným částem.</p>
+              )}
+              <p>Když tuhle lekci přepíšeme, pošleme vám novou verzi.</p>
+            </section>
+          )}
+
+          <p class="actions">
+            {from === 'test' && <a class="btn" href={`/test/${ctx.enrollmentId}`}>Přejít na závěrečný test</a>}
+            {(from === 'lekce' || from === 'kurz') && <a class="btn" href={coursePath}>Zpět na kurz</a>}
+            <a href={pagePath}>Změnit odpověď</a>
+          </p>
+        </div>
+      </>
+    )}
+  </div>
+
+  <script>
+    // Kopírování zadání do schránky. Bez JavaScriptu zůstane tlačítko skryté a text jde označit ručně.
+    let lastMessage = '';
+    document.querySelectorAll<HTMLButtonElement>('button[data-copy]').forEach((button) => {
+      button.hidden = false;
+      button.addEventListener('click', async () => {
+        const field = document.getElementById(button.dataset.copy ?? '') as HTMLTextAreaElement | null;
+        const status = button.nextElementSibling;
+        if (!field) return;
+        let message = 'Zkopírováno.';
+        try {
+          await navigator.clipboard.writeText(field.value);
+        } catch {
+          field.focus();
+          field.select();
+          message = 'Kopírování se nepovedlo. Text je označený, zkopírujte ho prosím ručně.';
+        }
+        // Čtečky stejnou zprávu podruhé nepřečtou, nezlomitelná mezera ji odliší.
+        if (message === lastMessage) message += ' ';
+        lastMessage = message;
+        if (status) status.textContent = message;
+      });
+    });
+  </script>
+</SiteLayout>

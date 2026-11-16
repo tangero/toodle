@@ -7,6 +7,10 @@
  *   od začátku a odkazy v už odeslaných e-mailech musí dál platit.
  * - `promo`:  odhlášení nabídek dalšího vzdělávání, id = uživatel. Zpráva `promo:<id>`.
  * - `rating`: hodnocení kurzu, id = zápis. Zpráva `rating:<id>`.
+ *
+ * Čtvrtý účel, zpětná vazba na srozumitelnost lekce, nese vedle zápisu i pozici lekce.
+ * Token má proto tvar `<id zápisu>.<pozice>.<podpis hex>` a podepisuje se zpráva
+ * `feedback:<id zápisu>:<pozice>` (viz createFeedbackToken níže).
  */
 export type TokenPurpose = 'course' | 'promo' | 'rating';
 
@@ -65,6 +69,46 @@ export function createRatingToken(enrollmentId: string, jwtSecret: string): Prom
 
 export function verifyRatingToken(token: string, jwtSecret: string): Promise<string | null> {
   return verifySignedToken('rating', token, jwtSecret);
+}
+
+/** Pozice lekce v tokenu: jen kanonický zápis celého čísla 1 až 999 (žádné „01“, „1e1“ ani „0“). */
+const POSITION_RE = /^[1-9]\d{0,2}$/;
+
+async function hmacHex(message: string, secret: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw', encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(message));
+  return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Odkaz na zpětnou vazbu ke srozumitelnosti jedné lekce (id zápisu + pozice lekce).
+ * Tečka mezi id a pozicí zaručuje, že token neprojde ověřením ostatních účelů:
+ * ty berou jako id vše před poslední tečkou a tečku v id nepovolují.
+ */
+export async function createFeedbackToken(enrollmentId: string, lessonPosition: number, jwtSecret: string): Promise<string> {
+  const position = String(lessonPosition);
+  if (!ID_RE.test(enrollmentId) || !POSITION_RE.test(position)) {
+    throw new Error('Neplatné id zápisu nebo pozice lekce pro token zpětné vazby.');
+  }
+  const sig = await hmacHex(`feedback:${enrollmentId}:${position}`, jwtSecret);
+  return `${enrollmentId}.${position}.${sig}`;
+}
+
+export async function verifyFeedbackToken(
+  token: string,
+  jwtSecret: string,
+): Promise<{ enrollmentId: string; lessonPosition: number } | null> {
+  if (typeof token !== 'string' || token.length > MAX_TOKEN_LENGTH) return null;
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [enrollmentId, position] = parts;
+  if (!ID_RE.test(enrollmentId) || !POSITION_RE.test(position)) return null;
+  const expected = await createFeedbackToken(enrollmentId, Number(position), jwtSecret);
+  return timingSafeEqual(expected, token) ? { enrollmentId, lessonPosition: Number(position) } : null;
 }
 
 function timingSafeEqual(a: string, b: string): boolean {

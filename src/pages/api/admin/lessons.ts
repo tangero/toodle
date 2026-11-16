@@ -73,8 +73,11 @@ export const PUT: APIRoute = async ({ request, locals }) => {
     );
   }
   statements.push(
-    db.prepare(`UPDATE lessons SET title = ?, content_md = ?, reading_minutes = ? WHERE id = ?`)
-      .bind(String(title), String(content_md ?? ''), Number(reading_minutes ?? 5), id),
+    // Změna těla zvedá verzi lekce (k verzi se váže zpětná vazba na srozumitelnost).
+    db.prepare(
+      `UPDATE lessons SET title = ?, version = CASE WHEN content_md <> ? THEN version + 1 ELSE version END,
+       content_md = ?, reading_minutes = ? WHERE id = ?`,
+    ).bind(String(title), String(content_md ?? ''), String(content_md ?? ''), Number(reading_minutes ?? 5), id),
   );
   await db.batch(statements);
 
@@ -100,6 +103,8 @@ export const DELETE: APIRoute = async ({ request, locals }) => {
   await db.batch([
     // email_log.lesson_id odkazuje na lekci (FK) – historii odeslání zachováme bez vazby.
     db.prepare(`UPDATE email_log SET lesson_id = NULL WHERE lesson_id = ?`).bind(id),
+    // Zpětná vazba ke smazané lekci nemá k čemu patřit (a cizí klíč by mazání zablokoval).
+    db.prepare(`DELETE FROM lesson_feedback WHERE lesson_id = ?`).bind(id),
     db.prepare(`DELETE FROM lessons WHERE id = ?`).bind(id),
     // Přečíslování ve dvou krocích, aby UPDATE nenarazil na UNIQUE(course_id, position).
     db.prepare(`UPDATE lessons SET position = -position WHERE course_id = ? AND position > ?`).bind(lesson.course_id, lesson.position),

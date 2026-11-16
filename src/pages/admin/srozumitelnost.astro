@@ -1,0 +1,215 @@
+---
+/**
+ * Přehled zpětné vazby na srozumitelnost lekcí (tabulka lesson_feedback).
+ * Kurzy na potvrzení a kurzy doručované každý pracovní den se vyhodnocují zvlášť:
+ * u prvních odpovídá skoro každý, u druhých jen ti, kdo se rozhodnou kliknout.
+ * Čísla se počítají jen z odpovědí k aktuální verzi lekce, po přepisu se měří znovu.
+ * Připomínky píše uživatel: vypisují se jen jako `{text}`, nikdy přes set:html.
+ */
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { getAll } from '@lib/db';
+import { FEEDBACK_LABELS, REWRITE_THRESHOLDS, needsRewrite, parseSectionsJson } from '@lib/feedback';
+import type { DeliveryMode } from '@lib/types';
+import { env } from '@lib/env';
+
+/** Kolik nejčastěji označených částí a posledních připomínek se u lekce vypíše. */
+const TOP_SECTIONS = 3;
+const LAST_COMMENTS = 5;
+
+const lessons = await getAll<{
+  course_id: string; course_title: string; delivery_mode: DeliveryMode;
+  lesson_id: string; position: number; title: string; version: number;
+}>(
+  env.DB,
+  `SELECT c.id as course_id, c.title as course_title, c.delivery_mode,
+          l.id as lesson_id, l.position, l.title, l.version
+   FROM lessons l
+   JOIN courses c ON c.id = l.course_id
+   WHERE c.status != 'archived'
+   ORDER BY c.sort_order, c.title, l.position`,
+);
+
+const stats = await getAll<{ lesson_id: string; total: number; a1: number; a2: number; a3: number; older: number }>(
+  env.DB,
+  `SELECT f.lesson_id,
+          SUM(CASE WHEN f.lesson_version = l.version THEN 1 ELSE 0 END) as total,
+          SUM(CASE WHEN f.lesson_version = l.version AND f.answer = 1 THEN 1 ELSE 0 END) as a1,
+          SUM(CASE WHEN f.lesson_version = l.version AND f.answer = 2 THEN 1 ELSE 0 END) as a2,
+          SUM(CASE WHEN f.lesson_version = l.version AND f.answer = 3 THEN 1 ELSE 0 END) as a3,
+          SUM(CASE WHEN f.lesson_version <> l.version THEN 1 ELSE 0 END) as older
+   FROM lesson_feedback f
+   JOIN lessons l ON l.id = f.lesson_id
+   GROUP BY f.lesson_id`,
+);
+
+const details = await getAll<{ lesson_id: string; answer: number; sections_json: string; comment: string; updated_at: string }>(
+  env.DB,
+  `SELECT f.lesson_id, f.answer, f.sections_json, f.comment, f.updated_at
+   FROM lesson_feedback f
+   JOIN lessons l ON l.id = f.lesson_id
+   WHERE f.lesson_version = l.version AND (f.comment <> '' OR f.sections_json <> '[]')
+   ORDER BY f.updated_at DESC
+   LIMIT 3000`,
+);
+
+// Signál, který už máme: po které lekci čtenáři kurz odhlašují.
+const dropOffs = await getAll<{ course_id: string; position: number; count: number }>(
+  env.DB,
+  `SELECT course_id, current_lesson - 1 as position, COUNT(*) as count
+   FROM enrollments
+   WHERE status = 'cancelled' AND current_lesson > 1
+   GROUP BY course_id, current_lesson`,
+);
+
+const statsByLesson = new Map(stats.map((s) => [s.lesson_id, s]));
+const dropByLesson = new Map(dropOffs.map((d) => [`${d.course_id}:${d.position}`, d.count]));
+
+const sectionCounts = new Map<string, Map<string, number>>();
+const commentsByLesson = new Map<string, { answer: number; comment: string; updated_at: string }[]>();
+for (const row of details) {
+  const counts = sectionCounts.get(row.lesson_id) ?? new Map<string, number>();
+  for (const section of parseSectionsJson(row.sections_json)) {
+    counts.set(section.title, (counts.get(section.title) ?? 0) + 1);
+  }
+  sectionCounts.set(row.lesson_id, counts);
+  if (row.comment) {
+    const list = commentsByLesson.get(row.lesson_id) ?? [];
+    if (list.length < LAST_COMMENTS) list.push(row);
+    commentsByLesson.set(row.lesson_id, list);
+  }
+}
+
+const rows = lessons.map((lesson) => {
+  const s = statsByLesson.get(lesson.lesson_id);
+  const total = s?.total ?? 0;
+  const a3 = s?.a3 ?? 0;
+  return {
+    ...lesson,
+    total,
+    a1: s?.a1 ?? 0,
+    a2: s?.a2 ?? 0,
+    a3,
+    older: s?.older ?? 0,
+    share3: total > 0 ? a3 / total : null,
+    rewrite: needsRewrite(lesson.delivery_mode, total, a3),
+    dropOff: dropByLesson.get(`${lesson.course_id}:${lesson.position}`) ?? 0,
+    topSections: [...(sectionCounts.get(lesson.lesson_id) ?? [])].sort((a, b) => b[1] - a[1]).slice(0, TOP_SECTIONS),
+    comments: commentsByLesson.get(lesson.lesson_id) ?? [],
+  };
+});
+
+const groups: { mode: DeliveryMode; title: string; note: string }[] = [
+  { mode: 'on_click', title: 'Kurzy na potvrzení', note: 'Odpovídá skoro každý čtenář, protože odpověď zároveň posílá další lekci.' },
+  { mode: 'next_workday', title: 'Kurzy doručované každý pracovní den', note: 'Odpovídají jen ti, kdo se rozhodnou kliknout na odkaz v e-mailu, čísla jsou proto přísnější.' },
+];
+
+const coursesOf = (mode: DeliveryMode) => {
+  const map = new Map<string, { title: string; rows: typeof rows }>();
+  for (const row of rows.filter((r) => r.delivery_mode === mode)) {
+    const course = map.get(row.course_id) ?? { title: row.course_title, rows: [] };
+    course.rows.push(row);
+    map.set(row.course_id, course);
+  }
+  return [...map.values()];
+};
+
+const percent = (value: number | null) => (value === null ? '–' : `${Math.round(value * 100)} %`);
+const formatDate = (value: string) => value.slice(0, 10).split('-').reverse().map(Number).join('. ');
+const th = 'px-3 py-3 font-medium text-gray-700';
+---
+
+<AdminLayout title="Srozumitelnost lekcí">
+  <p class="mb-6 max-w-3xl text-sm text-gray-600">
+    Odpovědi čtenářů na otázku, jak srozumitelná byla lekce: 1 = {FEEDBACK_LABELS[1]}, 2 = {FEEDBACK_LABELS[2]},
+    3 = {FEEDBACK_LABELS[3]}. Počítají se jen odpovědi k aktuální verzi lekce.
+  </p>
+
+  {groups.map((group) => {
+    const threshold = REWRITE_THRESHOLDS[group.mode];
+    const courses = coursesOf(group.mode);
+    return (
+      <section class="mb-10">
+        <h2 class="mb-1 text-lg font-bold text-gray-900">{group.title}</h2>
+        <p class="mb-4 max-w-3xl text-sm text-gray-600">
+          {group.note} Lekce se označí „k přepisu“, když má aspoň {threshold.minAnswers} odpovědí
+          a odpověď 3 tvoří aspoň {Math.round(threshold.minShare * 100)} % z nich.
+        </p>
+
+        {courses.length === 0 && <p class="text-sm text-gray-500">Žádný kurz v tomto režimu.</p>}
+
+        {courses.map((course) => (
+          <div class="mb-6 overflow-x-auto rounded-xl border border-gray-200 bg-white">
+            <table class="w-full text-sm">
+              <caption class="border-b border-gray-200 bg-gray-50 px-3 py-3 text-left font-semibold text-gray-900">{course.title}</caption>
+              <thead class="border-b border-gray-200 bg-gray-50">
+                <tr>
+                  <th scope="col" class={`${th} text-left`}>Lekce</th>
+                  <th scope="col" class={`${th} text-right`}>Odpovědí</th>
+                  <th scope="col" class={`${th} text-right`}>1</th>
+                  <th scope="col" class={`${th} text-right`}>2</th>
+                  <th scope="col" class={`${th} text-right`}>3</th>
+                  <th scope="col" class={`${th} text-right`}>Podíl 3</th>
+                  <th scope="col" class={`${th} text-right`}>Odhlášení po lekci</th>
+                  <th scope="col" class={`${th} text-left`}>Stav</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                {course.rows.map((row) => (
+                  <>
+                    <tr class="align-top">
+                      <th scope="row" class="px-3 py-3 text-left font-normal text-gray-900">
+                        {row.position}. {row.title}
+                        <span class="block text-xs text-gray-500">
+                          verze {row.version}{row.older > 0 && `, ke starším verzím ${row.older} odpovědí`}
+                        </span>
+                      </th>
+                      <td class="px-3 py-3 text-right text-gray-900">{row.total}</td>
+                      <td class="px-3 py-3 text-right text-gray-700">{row.a1}</td>
+                      <td class="px-3 py-3 text-right text-gray-700">{row.a2}</td>
+                      <td class="px-3 py-3 text-right text-gray-700">{row.a3}</td>
+                      <td class="px-3 py-3 text-right font-medium text-gray-900">{percent(row.share3)}</td>
+                      <td class="px-3 py-3 text-right text-gray-700">{row.dropOff}</td>
+                      <td class="px-3 py-3 whitespace-nowrap">
+                        {row.rewrite
+                          ? <span class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">k přepisu</span>
+                          : row.total > 0 && row.total < threshold.minAnswers
+                            ? <span class="text-xs text-gray-500">málo odpovědí</span>
+                            : row.total > 0 ? <span class="text-xs text-gray-500">v pořádku</span> : null}
+                      </td>
+                    </tr>
+                    {(row.topSections.length > 0 || row.comments.length > 0) && (
+                      <tr class="bg-gray-50">
+                        <td colspan="8" class="px-3 py-3 text-gray-700">
+                          {row.topSections.length > 0 && (
+                            <div class="mb-2">
+                              <span class="font-medium text-gray-900">Nejčastěji označené části:</span>
+                              <ul class="mt-1 list-disc pl-5">
+                                {row.topSections.map(([title, count]) => <li>{title} ({count}×)</li>)}
+                              </ul>
+                            </div>
+                          )}
+                          {row.comments.length > 0 && (
+                            <div>
+                              <span class="font-medium text-gray-900">Poslední připomínky:</span>
+                              <ul class="mt-1 list-disc pl-5">
+                                {row.comments.map((c) => (
+                                  <li class="break-words whitespace-pre-wrap">
+                                    <span class="text-xs text-gray-500">{formatDate(c.updated_at)}, odpověď {c.answer}:</span> {c.comment}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </section>
+    );
+  })}
+</AdminLayout>
