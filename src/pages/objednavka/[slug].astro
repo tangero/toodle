@@ -28,6 +28,11 @@ if (user) {
 }
 
 const free = course.price_czk === 0;
+
+// Čekající zápis do bezplatného kurzu (potvrzovací odkaz propadl nebo se ztratil): přihlášený
+// uživatel dostane formulář znovu a odesláním kurz spustí, API ho aktivuje bez dalšího e-mailu.
+const resumesPending = !!existingEnrollment && existingEnrollment.status === 'pending' && free;
+if (resumesPending) existingEnrollment = null;
 const submitLabel = free ? 'Zapsat se zdarma' : `Objednat za ${priceLabel(course.price_czk)}`;
 ---
 
@@ -58,6 +63,9 @@ const submitLabel = free ? 'Zapsat se zdarma' : `Objednat za ${priceLabel(course
         </div>
       ) : (
         <div class="stack">
+          {resumesPending && (
+            <p class="note">Zápis do tohoto kurzu jste ještě nepotvrdili. Tlačítkem níže ho potvrdíte a kurz se spustí.</p>
+          )}
           <form id="order-form" class="form" method="post">
             <input type="hidden" id="course-slug" name="slug" value={course.slug} />
             <input type="hidden" id="course-id" name="course_id" value={course.id} />
