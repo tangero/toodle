@@ -44,16 +44,17 @@ const stats = await getAll<{ lesson_id: string; total: number; a1: number; a2: n
 );
 
 // Četnosti označených částí se počítají v databázi ze všech odpovědí k aktuální verzi.
-const sectionRows = await getAll<{ lesson_id: string; title: string; count: number }>(
+// Alias nesmí být `title`: GROUP BY by místo něj vzal sloupec lessons.title.
+const sectionRows = await getAll<{ lesson_id: string; section_title: string; count: number }>(
   env.DB,
-  `SELECT f.lesson_id, json_extract(j.value, '$.title') as title, COUNT(*) as count
+  `SELECT f.lesson_id, json_extract(j.value, '$.title') as section_title, COUNT(*) as count
    FROM lesson_feedback f
    JOIN lessons l ON l.id = f.lesson_id,
         json_each(CASE WHEN json_valid(f.sections_json) AND json_type(f.sections_json) = 'array'
                        THEN f.sections_json ELSE '[]' END) j
    WHERE f.lesson_version = l.version AND json_type(j.value, '$.title') = 'text'
-   GROUP BY f.lesson_id, title
-   ORDER BY count DESC, title`,
+   GROUP BY f.lesson_id, section_title
+   ORDER BY count DESC, section_title`,
 );
 
 // Poslední připomínky se omezují pro každou lekci zvlášť.
@@ -121,7 +122,7 @@ const confirmByLesson = new Map(confirmTimes.map((c) => [c.lesson_id, c]));
 const sectionsByLesson = new Map<string, [string, number][]>();
 for (const row of sectionRows) {
   const list = sectionsByLesson.get(row.lesson_id) ?? [];
-  if (list.length < TOP_SECTIONS) list.push([row.title, row.count]);
+  if (list.length < TOP_SECTIONS) list.push([row.section_title, row.count]);
   sectionsByLesson.set(row.lesson_id, list);
 }
 const commentsByLesson = new Map<string, typeof commentRows>();
