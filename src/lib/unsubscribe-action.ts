@@ -15,11 +15,22 @@ export async function cancelEnrollmentByToken(token: string): Promise<Unsubscrib
   );
   if (!enrollment) return 'invalid';
   if (enrollment.status === 'cancelled') return 'already';
-  if (enrollment.status === 'completed') return 'completed';
+  if (enrollment.status === 'completed') {
+    // Kurz už doběhl, není co rušit. Čtenář ale dal najevo, že další zprávy nechce:
+    // žádost o hodnocení označíme jako vyřízenou, aby ji cron za tři dny neposlal.
+    await run(
+      env.DB,
+      `UPDATE enrollments SET rating_requested_at = ? WHERE id = ? AND rating_requested_at IS NULL`,
+      toSqlDateTime(new Date()),
+      enrollmentId,
+    );
+    return 'completed';
+  }
 
   await run(
     env.DB,
-    `UPDATE enrollments SET status = 'cancelled', next_send_at = NULL WHERE id = ?`,
+    `UPDATE enrollments SET status = 'cancelled', next_send_at = NULL,
+       rating_requested_at = COALESCE(rating_requested_at, datetime('now')) WHERE id = ?`,
     enrollmentId,
   );
   await logAudit(env.DB, 'unsubscribe', 'enrollment.cancelled', enrollmentId);

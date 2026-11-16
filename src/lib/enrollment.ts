@@ -197,7 +197,9 @@ export async function deliverNextLesson(
       }),
       tags: [{ name: 'type', value: 'lesson' }],
       headers: listUnsubscribeHeaders(env.APP_URL, unsubToken),
-      idempotencyKey: `lesson-${row.id}-${row.run_no}-${lesson.position}`,
+      // Stabilní id lekce, ne pozice: po smazání lekce se pozice přečíslují a stejný klíč
+      // by Resend do 24 hodin vyhodnotil jako už odeslanou zprávu.
+      idempotencyKey: `lesson-${row.id}-${row.run_no}-${lesson.id}`,
     });
     resendId = result.id;
   } catch (err) {

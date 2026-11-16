@@ -98,6 +98,11 @@ const doneError = doneErrors[Astro.url.searchParams.get('chyba') ?? ''];
         <div class="note">
           <p><strong>Zápis čeká na potvrzení e-mailu.</strong></p>
           <p>Otevřete potvrzovací e-mail a klikněte v něm na odkaz. Lekce začnou chodit hned potom.</p>
+          {course.price_czk === 0 && (
+            <p class="actions">
+              <a class="btn btn-line" href={`/objednavka/${course.slug}`}>Potvrdit zápis tady</a>
+            </p>
+          )}
         </div>
       )}
 
