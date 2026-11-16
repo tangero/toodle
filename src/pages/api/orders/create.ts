@@ -68,7 +68,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   // Čekající zápis nepřihlášeného uživatele: pošleme potvrzovací odkaz znovu.
   if (existing && existing.status === 'pending' && !loggedIn && course.price_czk === 0) {
-    const sent = await sendConfirmation(user, course, existing.id);
+    let sent: boolean;
+    try {
+      sent = await sendConfirmation(user, course, existing.id);
+    } catch (err) {
+      if (err instanceof ConfirmationEmailError) return emailFailed();
+      throw err;
+    }
     if (!sent) return tooManyRequests();
     return json({ ok: true, free: true, status: 'pending', resent: true, enrollmentId: existing.id });
   }
@@ -112,7 +118,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
       await logAudit(env.DB, user.id, 'enrollment.create', enrollmentId, { course: course.slug, type: 'free' });
       return json({ ok: true, free: true, status: 'active', enrollmentId });
     }
-    const sent = await sendConfirmation(user, course, enrollmentId);
+    let sent: boolean;
+    try {
+      sent = await sendConfirmation(user, course, enrollmentId);
+    } catch (err) {
+      if (err instanceof ConfirmationEmailError) return emailFailed();
+      throw err;
+    }
     await logAudit(env.DB, user.id, 'enrollment.create', enrollmentId, { course: course.slug, type: 'free', pending: true });
     if (!sent) return tooManyRequests();
     return json({ ok: true, free: true, status: 'pending', enrollmentId });
@@ -132,19 +144,33 @@ export const POST: APIRoute = async ({ request, locals }) => {
   return json({ ok: true, type: 'paid', vs, amount: course.price_czk, orderId });
 };
 
+/** Potvrzovací e-mail se nepodařilo odeslat; handler z toho udělá srozumitelnou odpověď 502. */
+class ConfirmationEmailError extends Error {}
+
 /** Pošle potvrzovací odkaz (double opt-in). false = překročen limit odkazů za hodinu. */
 async function sendConfirmation(user: User, course: Course, enrollmentId: string): Promise<boolean> {
   if ((await countRecentMagicLinks(env.DB, user.id)) >= MAX_LINKS_PER_HOUR) return false;
   const token = await createMagicLink(env.DB, user.id, CONFIRM_LINK_TTL_MINUTES, enrollmentId);
   const next = `/profil/kurz/${enrollmentId}`;
   const url = `${env.APP_URL}/prihlaseni/potvrzeni?typ=zapis&token=${token}&next=${encodeURIComponent(next)}`;
-  await sendEmail(env, {
-    to: user.email,
-    subject: `Potvrďte zápis do kurzu ${course.title}`,
-    html: verificationEmail(url, user.name, course.title, env.APP_URL),
-    tags: [{ name: 'type', value: 'verification' }],
-  });
+  try {
+    await sendEmail(env, {
+      to: user.email,
+      subject: `Potvrďte zápis do kurzu ${course.title}`,
+      html: verificationEmail(url, user.name, course.title, env.APP_URL),
+      tags: [{ name: 'type', value: 'verification' }],
+    });
+  } catch (err) {
+    // Typicky neověřená odesílací doména nebo výpadek Resendu. Zápis zůstává čekající,
+    // další pokus pošle odkaz znovu.
+    console.error(`Confirmation email failed for ${enrollmentId}:`, err);
+    throw new ConfirmationEmailError();
+  }
   return true;
+}
+
+function emailFailed() {
+  return json({ error: 'Potvrzovací e-mail se teď nepodařilo odeslat. Zkuste to prosím za chvíli znovu.' }, 502);
 }
 
 function json(data: unknown, status = 200) {
