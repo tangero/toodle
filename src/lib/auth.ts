@@ -32,6 +32,8 @@ export async function createMagicLink(
   db: D1Database,
   userId: string,
   ttlMinutes: number = LOGIN_LINK_TTL_MINUTES,
+  /** Potvrzovací odkaz zápisu: id zápisu, který smí odkaz aktivovat. Běžné přihlášení ho nemá. */
+  enrollmentId: string | null = null,
 ): Promise<string> {
   const token = generateToken();
   const now = new Date();
@@ -39,11 +41,12 @@ export async function createMagicLink(
 
   await run(
     db,
-    `INSERT INTO magic_links (token, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)`,
+    `INSERT INTO magic_links (token, user_id, expires_at, created_at, enrollment_id) VALUES (?, ?, ?, ?, ?)`,
     await hashToken(token),
     userId,
     expiresAt,
     toSqlDateTime(now),
+    enrollmentId,
   );
 
   return token;
@@ -59,11 +62,17 @@ export async function countRecentMagicLinks(db: D1Database, userId: string): Pro
   return row?.count ?? 0;
 }
 
-/** Jednorázově spotřebuje token. Vrací userId, nebo null (neplatný, použitý, prošlý). */
+export interface VerifiedLink {
+  userId: string;
+  /** Zápis, který odkaz potvrzuje; null u běžného přihlášení. */
+  enrollmentId: string | null;
+}
+
+/** Jednorázově spotřebuje token. Vrací uživatele a případný potvrzovaný zápis, nebo null (neplatný, použitý, prošlý). */
 export async function verifyMagicLink(
   db: D1Database,
   token: string,
-): Promise<string | null> {
+): Promise<VerifiedLink | null> {
   if (!/^[0-9a-f]{64}$/.test(token)) return null;
   const hash = await hashToken(token);
 
@@ -76,12 +85,12 @@ export async function verifyMagicLink(
   );
   if (!result.meta.changes) return null;
 
-  const link = await getOne<Pick<MagicLink, 'user_id'>>(
+  const link = await getOne<{ user_id: string; enrollment_id: string | null }>(
     db,
-    `SELECT user_id FROM magic_links WHERE token = ?`,
+    `SELECT user_id, enrollment_id FROM magic_links WHERE token = ?`,
     hash,
   );
-  return link?.user_id ?? null;
+  return link ? { userId: link.user_id, enrollmentId: link.enrollment_id } : null;
 }
 
 // --- JWT Sessions (using Web Crypto HMAC-SHA256) ---

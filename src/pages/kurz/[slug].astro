@@ -24,6 +24,13 @@ const lessons = await getAll<Lesson>(
   course.id,
 );
 
+// Odkaz na ukázku dáváme jen tehdy, když má první lekce nějaký text.
+const sample = await getOne<{ id: string }>(
+  env.DB,
+  `SELECT id FROM lessons WHERE course_id = ? AND position = 1 AND trim(content_md) != ''`,
+  course.id,
+);
+
 const descriptionHtml = renderMarkdown(course.description_md);
 const totalMinutes = lessons.reduce((sum, lesson) => sum + (lesson.reading_minutes || 0), 0);
 const free = course.price_czk === 0;
@@ -61,6 +68,7 @@ const free = course.price_czk === 0;
           <a class="btn btn-accent" href={`/objednavka/${course.slug}`}>
             {free ? 'Zapsat se zdarma' : `Objednat za ${priceLabel(course.price_czk)}`}
           </a>
+          {sample && <a class="more" href={`/kurz/${course.slug}/ukazka`}>Přečíst ukázkovou lekci</a>}
           <p class="mono">Píše {course.author_name}. Po potvrzení e-mailu vám pošleme první lekci.</p>
         </div>
       </aside>

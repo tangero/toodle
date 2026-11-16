@@ -6,12 +6,14 @@
  * proto na jednom místě.
  */
 import type { AppEnv } from './env';
-import { getAll, getOne, run } from './db';
-import { sendEmail, logEmail, listUnsubscribeHeaders } from './email';
+import { getOne, run } from './db';
+import { sendEmail, logEmail, listUnsubscribeHeaders, isAlreadySentConflict } from './email';
 import { lessonEmail } from './email-templates/lesson';
 import { completionEmail } from './email-templates/completion';
 import { welcomeEmail } from './email-templates/welcome';
-import { createUnsubscribeToken } from './unsubscribe';
+import { createPromoOptOutToken, createUnsubscribeToken } from './unsubscribe';
+import { loadEventTips, type EventTip } from './events';
+import type { PromoData } from './email-templates/base';
 import { nextDeliverySlot, toSqlDateTime, formatPragueDateTime } from './time';
 import { logAudit } from './audit';
 
@@ -20,25 +22,56 @@ export interface DeliveryRow {
   status: string;
   current_lesson: number;
   next_send_at: string | null;
+  /** Číslo průchodu kurzem (roste při opakovaném zápisu); součást Idempotency-Key e-mailů. */
+  run_no: number;
   course_id: string;
   course_title: string;
   lesson_count: number;
   delivery_mode: 'on_click' | 'next_workday';
   completion_email_md: string;
+  user_id: string;
   user_email: string;
   user_name: string;
+  /** Kdy uživatel odhlásil nabídky dalšího vzdělávání. NULL = nabídky chce. */
+  promo_opt_out_at: string | null;
 }
 
 export const DELIVERY_SELECT = `
-  SELECT e.id, e.status, e.current_lesson, e.next_send_at,
+  SELECT e.id, e.status, e.current_lesson, e.next_send_at, e.run_no,
          c.id as course_id, c.title as course_title, c.lesson_count, c.delivery_mode, c.completion_email_md,
-         u.email as user_email, u.name as user_name
+         u.id as user_id, u.email as user_email, u.name as user_name, u.promo_opt_out_at
   FROM enrollments e
   JOIN courses c ON c.id = e.course_id
   JOIN users u ON u.id = e.user_id AND u.deleted_at IS NULL`;
 
 export async function loadDeliveryRow(env: AppEnv, enrollmentId: string): Promise<DeliveryRow | null> {
   return getOne<DeliveryRow>(env.DB, `${DELIVERY_SELECT} WHERE e.id = ?`, enrollmentId);
+}
+
+/**
+ * Akce pro blok „Další naše AI vzdělávání“, sdílené mezi e-maily jednoho požadavku
+ * nebo běhu cronu. `eventTips` se naplní při první potřebě (nebo ho volající dodá předem)
+ * a další e-maily už zdroj nevolají.
+ */
+export interface PromoContext {
+  eventTips?: EventTip[];
+}
+
+/**
+ * Podklady pro blok nabídek v e-mailu daného příjemce, nebo undefined, když ho dostat nemá:
+ * nabídky odhlásil, nebo není co nabídnout. Načtení akcí nikdy nevyhodí výjimku
+ * (`loadEventTips` při chybě i po vypršení časového limitu vrací prázdné pole).
+ */
+export async function resolvePromo(
+  env: AppEnv,
+  row: Pick<DeliveryRow, 'user_id' | 'promo_opt_out_at'>,
+  ctx: PromoContext,
+): Promise<PromoData | undefined> {
+  if (row.promo_opt_out_at) return undefined;
+  ctx.eventTips ??= await loadEventTips(2, 'skola-ai-email');
+  if (ctx.eventTips.length === 0) return undefined;
+  const token = await createPromoOptOutToken(row.user_id, env.JWT_SECRET);
+  return { tips: ctx.eventTips, optOutUrl: `${env.APP_URL}/odhlaseni-nabidek/${token}` };
 }
 
 interface LessonRow {
@@ -54,6 +87,9 @@ export type DeliveryResult =
   | { status: 'completed' }
   | { status: 'skipped'; reason: string };
 
+/** Jak dlouho drží zámek odesílání (sending_at), než ho další požadavek smí převzít. */
+const SENDING_LOCK_MINUTES = 10;
+
 /** Stavy, ze kterých lze doručit další lekci. `stalled` = po připomínce, zápis pokračuje. */
 const DELIVERABLE = new Set(['active', 'stalled']);
 
@@ -61,15 +97,21 @@ const DELIVERABLE = new Set(['active', 'stalled']);
  * Doručí lekci `current_lesson` a posune zápis dál.
  *
  * Pořadí kroků je zvolené kvůli spolehlivosti:
- * 1. Zápis se nejdřív „zarezervuje“ podmíněným UPDATE (current_lesson musí sedět) –
- *    souběžný cron nebo dvojklik tak lekci nepošle dvakrát.
- * 2. Pak se odešle e-mail s Idempotency-Key.
- * 3. Když odeslání selže, rezervace se vrátí, aby lekci zkusil poslat další běh.
+ * 1. Zápis se nejdřív „zarezervuje“ podmíněným UPDATE (current_lesson a stav musí sedět)
+ *    a zamkne se sloupcem sending_at. Souběžný cron, dvojklik nebo druhá karta tak lekci
+ *    nepošle dvakrát ani nepošle další lekci, dokud tahle čeká na Resend.
+ * 2. Pak se odešle e-mail s Idempotency-Key (obsahuje číslo průchodu kurzem).
+ * 3. Když odeslání selže, rezervace se vrátí, aby lekci zkusil poslat další běh. Pokud
+ *    uživatel mezitím kurz pozastavil nebo zrušil, jeho rozhodnutí zůstává.
+ * 4. Po odeslání se zámek uvolní.
+ *
+ * Blok nabídek: akce se berou z `opts.promo` (cron je načte jednou na běh), jinak se
+ * načtou tady. Příjemci, kteří nabídky odhlásili, je nedostanou a zdroj se kvůli nim nevolá.
  */
 export async function deliverNextLesson(
   env: AppEnv,
   row: DeliveryRow,
-  opts: { now?: Date; lessonCache?: Map<string, LessonRow | null> } = {},
+  opts: { now?: Date; lessonCache?: Map<string, LessonRow | null>; promo?: PromoContext } = {},
 ): Promise<DeliveryResult> {
   const now = opts.now ?? new Date();
   if (!DELIVERABLE.has(row.status)) return { status: 'skipped', reason: `stav ${row.status}` };
@@ -103,17 +145,23 @@ export async function deliverNextLesson(
     ? toSqlDateTime(nextDeliverySlot(now, { afterToday: true }))
     : null;
 
-  // 1. Rezervace
+  // Nabídky se načítají před rezervací, aby mezi rezervací a odesláním nebylo volání cizího webu.
+  const promo = await resolvePromo(env, row, opts.promo ?? {});
+
+  // 1. Rezervace a zámek odesílání
+  const claimedStatus = isLast ? 'completed' : 'active';
   const claim = await run(
     env.DB,
     `UPDATE enrollments
      SET current_lesson = current_lesson + 1,
          next_send_at = ?,
          status = ?,
-         completed_at = ?
-     WHERE id = ? AND current_lesson = ? AND status = ?`,
+         completed_at = ?,
+         sending_at = datetime('now')
+     WHERE id = ? AND current_lesson = ? AND status = ?
+       AND (sending_at IS NULL OR datetime(sending_at) < datetime('now', '-${SENDING_LOCK_MINUTES} minutes'))`,
     nextSendAt,
-    isLast ? 'completed' : 'active',
+    claimedStatus,
     isLast ? toSqlDateTime(now) : null,
     row.id,
     row.current_lesson,
@@ -123,13 +171,12 @@ export async function deliverNextLesson(
 
   // 2. Odeslání
   const unsubToken = await createUnsubscribeToken(row.id, env.JWT_SECRET);
-  let resendId: string;
+  let resendId: string | null;
   try {
     const result = await sendEmail(env, {
       to: row.user_email,
       subject: `Lekce ${lesson.position}: ${lesson.title} — ${row.course_title}`,
       html: lessonEmail({
-        userName: row.user_name,
         courseTitle: row.course_title,
         lessonTitle: lesson.title,
         lessonPosition: lesson.position,
@@ -140,26 +187,44 @@ export async function deliverNextLesson(
         enrollmentId: row.id,
         appUrl: env.APP_URL,
         unsubscribeToken: unsubToken,
+        promo,
       }),
       tags: [{ name: 'type', value: 'lesson' }],
       headers: listUnsubscribeHeaders(env.APP_URL, unsubToken),
-      idempotencyKey: `lesson-${row.id}-${lesson.position}`,
+      idempotencyKey: `lesson-${row.id}-${row.run_no}-${lesson.position}`,
     });
     resendId = result.id;
   } catch (err) {
-    // 3. Vrácení rezervace
-    await run(
-      env.DB,
-      `UPDATE enrollments SET current_lesson = ?, next_send_at = ?, status = ?, completed_at = NULL
-       WHERE id = ? AND current_lesson = ?`,
-      row.current_lesson,
-      row.next_send_at,
-      row.status,
-      row.id,
-      row.current_lesson + 1,
-    );
-    throw err;
+    if (!isAlreadySentConflict(err)) {
+      // 3. Vrácení rezervace
+      // Stav a termín vracíme jen tehdy, když je mezitím nezměnil uživatel (pozastavení, odhlášení).
+      await run(
+        env.DB,
+        `UPDATE enrollments
+         SET current_lesson = ?,
+             next_send_at = CASE WHEN status = ? THEN ? ELSE next_send_at END,
+             completed_at = CASE WHEN status = ? THEN NULL ELSE completed_at END,
+             status = CASE WHEN status = ? THEN ? ELSE status END,
+             sending_at = NULL
+         WHERE id = ? AND current_lesson = ?`,
+        row.current_lesson,
+        claimedStatus, row.next_send_at,
+        claimedStatus,
+        claimedStatus, row.status,
+        row.id,
+        row.current_lesson + 1,
+      );
+      throw err;
+    }
+    // Lekce už odešla při dřívějším pokusu (odpověď se k nám nedostala) a tělo se mezitím
+    // změnilo, typicky blok nabídek. Rezervaci nevracíme, jinak by se lekce zasekla
+    // a po 24 h, až klíč vyprší, přišla podruhé.
+    console.warn(`Lesson ${lesson.position} for ${row.id} was already accepted by Resend, continuing.`);
+    resendId = null;
   }
+
+  // 4. Uvolnění zámku (i když lekci přijal Resend už při dřívějším pokusu).
+  await run(env.DB, `UPDATE enrollments SET sending_at = NULL WHERE id = ?`, row.id);
 
   await logEmail(env, { enrollmentId: row.id, lessonId: lesson.id, template: 'lesson', resendId });
 
@@ -167,10 +232,17 @@ export async function deliverNextLesson(
     try {
       const { id } = await sendEmail(env, {
         to: row.user_email,
-        subject: `Dokončili jste kurz ${row.course_title}! 🎓`,
-        html: completionEmail(row.user_name, row.course_title, row.completion_email_md, row.id, env.APP_URL),
+        subject: `Dokončili jste kurz ${row.course_title}`,
+        html: completionEmail({
+          userName: row.user_name,
+          courseTitle: row.course_title,
+          completionMd: row.completion_email_md,
+          enrollmentId: row.id,
+          appUrl: env.APP_URL,
+          promo,
+        }),
         tags: [{ name: 'type', value: 'completion' }],
-        idempotencyKey: `completion-${row.id}`,
+        idempotencyKey: `completion-${row.id}-${row.run_no}`,
       });
       await logEmail(env, { enrollmentId: row.id, template: 'completion', resendId: id });
     } catch (err) {
@@ -191,6 +263,7 @@ export async function activateEnrollment(
   env: AppEnv,
   enrollmentId: string,
   now: Date = new Date(),
+  promoCtx: PromoContext = {},
 ): Promise<boolean> {
   const row = await loadDeliveryRow(env, enrollmentId);
   if (!row || row.status !== 'pending') return false;
@@ -216,9 +289,16 @@ export async function activateEnrollment(
     const { id } = await sendEmail(env, {
       to: row.user_email,
       subject: `Vítejte v kurzu ${row.course_title}`,
-      html: welcomeEmail(row.user_name, row.course_title, course?.welcome_email_md ?? '', firstLessonInfo),
+      html: welcomeEmail({
+        name: row.user_name,
+        courseTitle: row.course_title,
+        welcomeMd: course?.welcome_email_md ?? '',
+        firstLessonInfo,
+        appUrl: env.APP_URL,
+        promo: await resolvePromo(env, row, promoCtx),
+      }),
       tags: [{ name: 'type', value: 'welcome' }],
-      idempotencyKey: `welcome-${enrollmentId}-${toSqlDateTime(now).slice(0, 10)}`,
+      idempotencyKey: `welcome-${enrollmentId}-${row.run_no}-${toSqlDateTime(now).slice(0, 10)}`,
     });
     await logEmail(env, { enrollmentId, template: 'welcome', resendId: id });
   } catch (err) {
@@ -229,7 +309,7 @@ export async function activateEnrollment(
 
   if (row.delivery_mode === 'on_click') {
     try {
-      await deliverNextLesson(env, { ...row, status: 'active', next_send_at: toSqlDateTime(firstSlot) }, { now });
+      await deliverNextLesson(env, { ...row, status: 'active', next_send_at: toSqlDateTime(firstSlot) }, { now, promo: promoCtx });
     } catch (err) {
       // next_send_at zůstává „teď“ → lekci doručí nejbližší běh cronu.
       console.error(`First lesson delivery failed for ${enrollmentId}:`, err);
@@ -238,17 +318,18 @@ export async function activateEnrollment(
   return true;
 }
 
-/** Po ověření e-mailu aktivuje všechny čekající zápisy uživatele do bezplatných kurzů. */
-export async function activatePendingFreeEnrollments(env: AppEnv, userId: string): Promise<number> {
-  const pending = await getAll<{ id: string }>(
+/**
+ * Aktivuje jeden zápis potvrzený odkazem z e-mailu. Zápis musí patřit danému uživateli,
+ * čekat na potvrzení a být do bezplatného kurzu (placené aktivuje až spárovaná platba).
+ */
+export async function activateConfirmedEnrollment(env: AppEnv, userId: string, enrollmentId: string): Promise<boolean> {
+  const pending = await getOne<{ id: string }>(
     env.DB,
     `SELECT e.id FROM enrollments e JOIN courses c ON c.id = e.course_id
-     WHERE e.user_id = ? AND e.status = 'pending' AND c.price_czk = 0`,
+     WHERE e.id = ? AND e.user_id = ? AND e.status = 'pending' AND c.price_czk = 0`,
+    enrollmentId,
     userId,
   );
-  let count = 0;
-  for (const { id } of pending) {
-    if (await activateEnrollment(env, id)) count++;
-  }
-  return count;
+  if (!pending) return false;
+  return activateEnrollment(env, pending.id);
 }

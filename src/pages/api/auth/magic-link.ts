@@ -39,8 +39,8 @@ export const POST: APIRoute = async ({ request }) => {
   const url = `${env.APP_URL}/prihlaseni/potvrzeni?token=${token}&next=${encodeURIComponent(next)}`;
   await sendEmail(env, {
     to: email,
-    subject: 'Přihlášení do Letní školy AI',
-    html: magicLinkEmail(url),
+    subject: 'Přihlášení do Školy AI',
+    html: magicLinkEmail(url, env.APP_URL),
     tags: [{ name: 'type', value: 'magic-link' }],
   });
 

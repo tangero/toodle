@@ -1,6 +1,6 @@
 ---
 import SiteLayout from '@layouts/SiteLayout.astro';
-import { getAll } from '@lib/db';
+import { getAll, getOne } from '@lib/db';
 import type { Course } from '@lib/types';
 import { env } from '@lib/env';
 import { loadEventTips } from '@lib/events';
@@ -16,6 +16,15 @@ const [courses, events] = await Promise.all([
 
 // První kurz v katalogu je doporučený pro začátečníky, druhý pro ty, kdo už AI používají.
 const [first, second] = courses;
+
+// Ukázku odkazujeme jen tehdy, když má první kurz napsanou první lekci.
+const sample = first
+  ? await getOne<{ id: string }>(
+      env.DB,
+      `SELECT id FROM lessons WHERE course_id = ? AND position = 1 AND trim(content_md) != ''`,
+      first.id,
+    )
+  : null;
 ---
 
 <SiteLayout
@@ -75,6 +84,9 @@ const [first, second] = courses;
           Krátký výklad, jedno zadání ke zkopírování a kontrola výsledku. Úryvek je z kurzu
           Bezpečně s AI v práci a ve škole.
         </p>
+        {first && sample && (
+          <p><a class="more" href={`/kurz/${first.slug}/ukazka`}>Přečíst celou ukázkovou lekci kurzu {first.title}</a></p>
+        )}
       </div>
       <div class="main box">
         <p class="box-head">Lekce 6 z 6 · 6 minut čtení</p>
@@ -98,22 +110,39 @@ const [first, second] = courses;
 
   <section class="wrap sec" id="autor">
     <h2>Kurzy píše Patrick Zandl</h2>
-    <p class="measure">
-      Internetový podnikatel, novinář a spisovatel. V roce 1997 spoluzaložil Mobil.cz, v roce 2006
-      Stream.cz a v letech 2008 až 2012 vedl Lupa.cz. Napsal osm knih, mimo jiné Mýty a naděje
-      digitálního světa.
-    </p>
-    <p class="measure">
-      Dnes se věnuje hlavně využití AI ve firemní praxi: radí firmám a vede workshopy pod značkami
-      AI ve firmách a Vibecoding.cz. Škola AI nabízí stejnou zkušenost zdarma každému, kdo se chce
-      AI naučit používat.
-    </p>
-    <ul class="links">
-      <li><a href="https://cs.wikipedia.org/wiki/Patrick_Zandl">Wikipedie</a></li>
-      <li><a href="https://www.linkedin.com/in/patrickzandl">LinkedIn</a></li>
-      <li><a href="https://www.aivefirmach.cz/">AI ve firmách</a></li>
-      <li><a href="https://www.vibecoding.cz/">Vibecoding.cz</a></li>
-    </ul>
+    <div class="split">
+      <figure class="portrait small">
+        <img
+          src="/img/patrick-zandl-450.jpg"
+          srcset="/img/patrick-zandl-450.jpg 375w, /img/patrick-zandl.jpg 750w"
+          sizes="11rem"
+          width="375"
+          height="450"
+          alt="Patrick Zandl"
+          loading="lazy"
+          decoding="async"
+        />
+      </figure>
+      <div class="main stack">
+        <p class="measure">
+          Internetový podnikatel, novinář a spisovatel. V roce 1997 spoluzaložil Mobil.cz, v roce 2006
+          Stream.cz a v letech 2008 až 2012 vedl Lupa.cz. Napsal osm knih, mimo jiné Mýty a naděje
+          digitálního světa.
+        </p>
+        <p class="measure">
+          Dnes se věnuje hlavně využití AI ve firemní praxi: radí firmám a vede workshopy pod značkami
+          AI ve firmách a Vibecoding.cz. Škola AI nabízí stejnou zkušenost zdarma každému, kdo se chce
+          AI naučit používat.
+        </p>
+        <p><a class="more" href="/o-autorovi">Více o autorovi</a></p>
+        <ul class="links">
+          <li><a href="https://cs.wikipedia.org/wiki/Patrick_Zandl">Wikipedie</a></li>
+          <li><a href="https://www.linkedin.com/in/patrickzandl">LinkedIn</a></li>
+          <li><a href="https://www.aivefirmach.cz/">AI ve firmách</a></li>
+          <li><a href="https://www.vibecoding.cz/">Vibecoding.cz</a></li>
+        </ul>
+      </div>
+    </div>
   </section>
 
   {events.length > 0 && (

@@ -38,7 +38,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   await sendEmail(env, {
     to: env.ADMIN_EMAIL,
-    subject: `Letní škola AI — přehled za ${new Date().toLocaleDateString('cs-CZ')}`,
+    subject: `Škola AI: přehled za ${new Date().toLocaleDateString('cs-CZ')}`,
     html,
     tags: [{ name: 'type', value: 'admin-digest' }],
   });

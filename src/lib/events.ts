@@ -11,21 +11,47 @@ export interface EventTip {
   url: string;
 }
 
-const SOURCE_URL = 'https://www.vibecoding.cz/api/event-tips?source=skola-ai';
+const SOURCE_ENDPOINT = 'https://www.vibecoding.cz/api/event-tips';
+/**
+ * Kde se nabídka zobrazí. Vibecoding.cz zná Školu AI jako jeden zdroj `skola-ai` (kódovník UTM):
+ * v e-mailech jde o medium `email`, které odkazům dává sám, na webu o `referral`, které
+ * si přepisujeme tady (řádek kódovníku „náš jiný web“).
+ */
+export type EventSource = 'skola-ai' | 'skola-ai-email';
 const ALLOWED_PREFIX = 'https://www.vibecoding.cz/';
 const TIMEOUT_MS = 2500;
 const CACHE_SECONDS = 3600;
 
-export async function loadEventTips(limit = 2): Promise<EventTip[]> {
+/** Adresa zdroje akcí. Web i e-maily čtou stejnou adresu, takže sdílejí i cache. */
+export function eventTipsUrl(): string {
+  return `${SOURCE_ENDPOINT}?source=skola-ai`;
+}
+
+/** Odkaz z webu Školy AI: stejná kampaň, ale medium `referral` a bez údajů o vydání e-mailu. */
+export function asWebReferral(url: string): string {
   try {
-    const response = await fetch(SOURCE_URL, {
+    const parsed = new URL(url);
+    parsed.searchParams.set('utm_source', 'skola-ai');
+    parsed.searchParams.set('utm_medium', 'referral');
+    parsed.searchParams.delete('utm_content');
+    parsed.searchParams.delete('utm_term');
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
+export async function loadEventTips(limit = 2, source: EventSource = 'skola-ai'): Promise<EventTip[]> {
+  try {
+    const response = await fetch(eventTipsUrl(), {
       signal: AbortSignal.timeout(TIMEOUT_MS),
       // Cloudflare: sdílená cache odpovědi, aby se zdroj nevolal při každém zobrazení titulky.
       cf: { cacheTtl: CACHE_SECONDS, cacheEverything: true },
     } as RequestInit);
     if (!response.ok) return [];
     const data = (await response.json()) as { items?: unknown };
-    return parseEventTips(data.items).slice(0, limit);
+    const tips = parseEventTips(data.items).slice(0, limit);
+    return source === 'skola-ai' ? tips.map((tip) => ({ ...tip, url: asWebReferral(tip.url) })) : tips;
   } catch {
     return [];
   }

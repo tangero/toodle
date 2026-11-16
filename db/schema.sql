@@ -1,4 +1,4 @@
--- Letní škola AI - D1 Schema
+-- Škola AI - D1 Schema
 -- All IDs are TEXT (ULID). Timestamps compared in SQL use SQLite format 'YYYY-MM-DD HH:MM:SS' (UTC).
 -- Tento soubor odpovídá stavu po všech migracích v db/migrations/.
 
@@ -9,7 +9,9 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   verified_at TEXT,
-  deleted_at TEXT
+  deleted_at TEXT,
+  -- Odhlášení nabídek dalšího vzdělávání v e-mailech. NULL = nabídky chce.
+  promo_opt_out_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
@@ -61,12 +63,17 @@ CREATE TABLE IF NOT EXISTS enrollments (
   started_at TEXT,
   completed_at TEXT,
   score INTEGER,
+  -- Kdy odešla žádost o hodnocení kurzu (jednou, tři dny po dokončení).
+  rating_requested_at TEXT,
+  run_no INTEGER NOT NULL DEFAULT 1,
+  sending_at TEXT,
   UNIQUE(user_id, course_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_enrollments_user ON enrollments(user_id);
 CREATE INDEX IF NOT EXISTS idx_enrollments_status_send ON enrollments(status, next_send_at);
 CREATE INDEX IF NOT EXISTS idx_enrollments_course ON enrollments(course_id, current_lesson);
+CREATE INDEX IF NOT EXISTS idx_enrollments_rating_request ON enrollments(status, rating_requested_at);
 
 -- Orders
 CREATE TABLE IF NOT EXISTS orders (
@@ -148,13 +155,24 @@ CREATE TABLE IF NOT EXISTS certificates (
 
 CREATE INDEX IF NOT EXISTS idx_certificates_public ON certificates(public_id);
 
+-- Hodnocení kurzu (jedno na zápis, opakované odeslání ho přepíše)
+CREATE TABLE IF NOT EXISTS course_ratings (
+  id TEXT PRIMARY KEY,
+  enrollment_id TEXT NOT NULL UNIQUE REFERENCES enrollments(id),
+  score INTEGER NOT NULL CHECK (score BETWEEN 1 AND 5),
+  comment TEXT NOT NULL DEFAULT '',
+  publish_consent INTEGER NOT NULL DEFAULT 0 CHECK (publish_consent IN (0, 1)),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Magic links (token = SHA-256 hash, ne samotný token)
 CREATE TABLE IF NOT EXISTS magic_links (
   token TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id),
   expires_at TEXT NOT NULL,
   used_at TEXT,
-  created_at TEXT
+  created_at TEXT,
+  enrollment_id TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_magic_links_user_created ON magic_links(user_id, created_at);

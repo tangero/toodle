@@ -13,14 +13,18 @@ describe('escapeHtml', () => {
 describe('e-mailové šablony neposílají HTML ze vstupu', () => {
   const evil = '<a href="https://phish.example">Klikněte</a>';
   it('potvrzovací e-mail', () => {
-    const html = verificationEmail('https://skola.example/x', evil, 'Kurz');
+    const html = verificationEmail('https://skola.example/x', evil, 'Kurz', 'https://skola.example');
     expect(html).not.toContain('<a href="https://phish.example">');
     expect(html).toContain('&lt;a href=&quot;https://phish.example&quot;&gt;');
   });
   it('uvítací e-mail a lekce', () => {
-    expect(welcomeEmail(evil, evil, '')).not.toContain('<a href="https://phish');
+    const welcome = welcomeEmail({
+      name: evil, courseTitle: evil, welcomeMd: '', firstLessonInfo: evil, appUrl: 'https://skola.example',
+    });
+    expect(welcome).not.toContain('<a href="https://phish');
+    expect(welcome).toContain('&lt;a href=&quot;https://phish.example&quot;&gt;');
     const lesson = lessonEmail({
-      userName: evil, courseTitle: evil, lessonTitle: evil, lessonPosition: 1, totalLessons: 2,
+      courseTitle: evil, lessonTitle: evil, lessonPosition: 1, totalLessons: 2,
       contentMd: 'Obsah', readingMinutes: 5, deliveryMode: 'next_workday', enrollmentId: 'e1',
       appUrl: 'https://skola.example', unsubscribeToken: 't',
     });

@@ -1,0 +1,68 @@
+---
+import SiteLayout from '@layouts/SiteLayout.astro';
+---
+
+<SiteLayout
+  title="O autorovi"
+  description="Kurzy Školy AI píše Patrick Zandl, internetový podnikatel, novinář a spisovatel. Věnuje se využití AI ve firemní praxi."
+>
+  <div class="wrap">
+    <a class="back" href="/">← Zpět na hlavní stránku</a>
+
+    <header class="page-head">
+      <p class="mono">O autorovi</p>
+      <h1>Patrick Zandl</h1>
+      <p class="lead">Internetový podnikatel, novinář a spisovatel.</p>
+    </header>
+
+    <div class="page-body">
+      <div class="split">
+        <figure class="portrait">
+          <img
+            src="/img/patrick-zandl-450.jpg"
+            srcset="/img/patrick-zandl-450.jpg 375w, /img/patrick-zandl.jpg 750w"
+            sizes="(min-width: 26rem) 22rem, calc(100vw - 2.5rem)"
+            width="750"
+            height="900"
+            alt="Patrick Zandl"
+          />
+        </figure>
+
+        <div class="main stack">
+          <p class="measure">
+            Dnes píše blog Marigold.cz a věnuje se využití AI ve firemní praxi: radí firmám a vede
+            workshopy pod značkami AI ve firmách a Vibecoding.cz. Škola AI nabízí stejnou zkušenost
+            zdarma každému, kdo se chce AI naučit používat.
+          </p>
+          <ul class="years">
+            <li><span class="y">1997</span><span class="t">Spoluzaložil zpravodajský server Mobil.cz a dlouho ho vedl jako šéfredaktor.</span></li>
+            <li><span class="y">1998</span><span class="t">S Ondřejem Neffem a Ivem Lukačovičem stál u akce Internet proti monopolu, která vedla k tarifu Internet 99.</span></li>
+            <li><span class="y">2006</span><span class="t">Spoluzaložil internetovou televizi Stream.cz.</span></li>
+            <li><span class="y">2008–2012</span><span class="t">Šéfredaktor Lupa.cz.</span></li>
+            <li><span class="y">2020</span><span class="t">Člen iniciativy COVID19CZ, ze které vzešla aplikace eRouška.</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <section>
+        <h2>Knihy</h2>
+        <p class="measure">
+          Napsal osm titulů, mimo jiné Apple: cesta k mobilům (2012) a Mýty a naděje digitálního světa (2022).
+        </p>
+      </section>
+
+      <section>
+        <h2>Kde ho najdete</h2>
+        <ul class="links">
+          <li><a href="https://www.marigold.cz/">Blog Marigold.cz</a></li>
+          <li><a href="https://www.aivefirmach.cz/">AI ve firmách</a></li>
+          <li><a href="https://www.vibecoding.cz/">Vibecoding.cz</a></li>
+          <li><a href="https://www.linkedin.com/in/patrickzandl">LinkedIn</a></li>
+          <li><a href="https://cs.wikipedia.org/wiki/Patrick_Zandl">Wikipedie</a></li>
+        </ul>
+      </section>
+
+      <p class="actions"><a class="btn btn-accent" href="/#kurzy">Vybrat si kurz</a></p>
+    </div>
+  </div>
+</SiteLayout>

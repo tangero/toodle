@@ -1,14 +1,19 @@
 ---
-import PublicLayout from '@layouts/PublicLayout.astro';
+import SiteLayout from '@layouts/SiteLayout.astro';
 ---
 
-<PublicLayout title="Stránka nenalezena">
-  <div class="py-24 text-center">
-    <p class="text-6xl font-bold text-gray-200">404</p>
-    <h1 class="mt-4 text-2xl font-bold text-gray-900">Stránka nenalezena</h1>
-    <p class="mt-2 text-gray-600">Tato stránka neexistuje nebo byla přesunuta.</p>
-    <a href="/" class="mt-6 inline-block rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700">
-      Zpět na hlavní stránku
-    </a>
+<SiteLayout title="Stránka nenalezena">
+  <div class="wrap">
+    <header class="page-head">
+      <p class="mono">Chyba 404</p>
+      <h1>Stránku jsme nenašli</h1>
+      <p class="lead">Adresa neexistuje, nebo jsme stránku přesunuli. Zkuste to z hlavní stránky.</p>
+    </header>
+    <div class="page-body">
+      <p class="actions">
+        <a class="btn" href="/">Zpět na hlavní stránku</a>
+        <a class="btn btn-line" href="/#kurzy">Přehled kurzů</a>
+      </p>
+    </div>
   </div>
-</PublicLayout>
+</SiteLayout>

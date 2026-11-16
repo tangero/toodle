@@ -11,7 +11,7 @@ export const GET: APIRoute = async ({ locals }) => {
     `SELECT slug FROM courses WHERE status = 'published' ORDER BY created_at DESC`,
   );
 
-  const staticPages = ['', '/prihlaseni'];
+  const staticPages = ['', '/o-autorovi', '/ochrana-osobnich-udaju', '/prihlaseni'];
   const coursePages = courses.map((c) => `/kurz/${c.slug}`);
   const allPages = [...staticPages, ...coursePages];
 

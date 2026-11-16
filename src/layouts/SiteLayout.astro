@@ -1,7 +1,6 @@
 ---
 /**
- * Layout veřejného webu v novém vzhledu (styly v src/styles/site.css, scope .site).
- * Stránky ve starém vzhledu zatím používají PublicLayout.astro.
+ * Layout veřejného webu (styly v src/styles/site.css, scope .site).
  */
 import BaseLayout from './BaseLayout.astro';
 
@@ -25,8 +24,8 @@ const path = Astro.url.pathname;
         <a class="brand" href="/">Škola AI</a>
         <nav class="nav" aria-label="Hlavní navigace">
           <ul>
-            <li><a href="/#kurzy">Kurzy</a></li>
-            <li><a href="/#autor">O autorovi</a></li>
+            <li><a href="/#kurzy" aria-current={path.startsWith('/kurz/') ? 'page' : undefined}>Kurzy</a></li>
+            <li><a href="/o-autorovi" aria-current={path === '/o-autorovi' ? 'page' : undefined}>O autorovi</a></li>
             <li>
               {user
                 ? <a class="nav-btn" href="/profil" aria-current={path.startsWith('/profil') ? 'page' : undefined}>Můj profil</a>
@@ -49,6 +48,7 @@ const path = Astro.url.pathname;
         </div>
         <nav aria-label="Patička">
           <ul>
+            <li><a href="/ochrana-osobnich-udaju" aria-current={path === '/ochrana-osobnich-udaju' ? 'page' : undefined}>Zásady zpracování osobních údajů</a></li>
             <li><a href="mailto:patrick@zandl.cz">patrick@zandl.cz</a></li>
             <li><a href="https://www.aivefirmach.cz/">AI ve firmách</a></li>
             <li><a href="https://www.vibecoding.cz/">Vibecoding.cz</a></li>

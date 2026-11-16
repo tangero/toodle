@@ -1,17 +1,21 @@
-import { baseTemplate } from './base';
+import { baseTemplate, button, P } from './base';
 import { escapeHtml } from '../escape';
 
-export function certificateEmail(name: string, courseTitle: string, score: number, certificateUrl: string): string {
+export function certificateEmail(
+  name: string,
+  courseTitle: string,
+  score: number,
+  certificateUrl: string,
+  appUrl: string,
+): string {
   return baseTemplate(
-    `Váš certifikát — ${courseTitle}`,
+    `Váš certifikát: ${courseTitle}`,
     `
-    <p>Ahoj ${escapeHtml(name)},</p>
-    <p>gratulujeme! Závěrečný test kurzu <strong>${escapeHtml(courseTitle)}</strong> jste splnili s výsledkem ${score} %.</p>
-    <div style="text-align: center; margin: 32px 0;">
-      <a href="${escapeHtml(certificateUrl)}" style="background-color: #16a34a; color: #ffffff; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block;">
-        Zobrazit certifikát
-      </a>
-    </div>
+    <p style="${P}">Dobrý den, ${escapeHtml(name)},</p>
+    <p style="${P}">gratulujeme. Závěrečný test kurzu <strong>${escapeHtml(courseTitle)}</strong> jste splnili s výsledkem ${score} %.</p>
+    <p style="${P}">Certifikát si můžete zobrazit, stáhnout jako PDF a kdokoli si jeho pravost ověří přes QR kód.</p>
+    ${button(certificateUrl, 'Zobrazit certifikát')}
     `,
+    { appUrl },
   );
 }

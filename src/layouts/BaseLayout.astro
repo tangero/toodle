@@ -6,7 +6,7 @@ interface Props {
   description?: string;
 }
 
-const { title, description = 'Drip email kurzy o AI — naučte se AI krok za krokem' } = Astro.props;
+const { title, description = 'E-mailové kurzy o AI. Naučte se s AI pracovat krok za krokem, jedna krátká lekce denně.' } = Astro.props;
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 ---
 
@@ -21,7 +21,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <meta name="generator" content={Astro.generator} />
     <title>{title} | Škola AI</title>
   </head>
-  <body class="min-h-screen antialiased" style="background:#fff7ef;">
+  <body class="min-h-screen antialiased">
     <slot />
   </body>
 </html>

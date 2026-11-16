@@ -53,7 +53,7 @@ export async function evaluateOpenEndedAnswers(
         Authorization: `Bearer ${openRouterApiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': 'https://skola.aivefirmach.cz',
-        'X-Title': 'Letni skola AI',
+        'X-Title': 'Skola AI',
       },
       body: JSON.stringify({
         model,

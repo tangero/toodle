@@ -1,0 +1,87 @@
+---
+/**
+ * Odhlášení nabídek dalšího vzdělávání (blok „Další naše AI vzdělávání“ v e-mailech).
+ * GET jen zobrazí potvrzení: odkaz z e-mailu otevírají i bezpečnostní skenery pošty,
+ * které by jinak nabídky potichu odhlásily. Odhlásí až POST z tlačítka.
+ * Zápisů do kurzů se odhlášení netýká, lekce chodí dál.
+ */
+import SiteLayout from '@layouts/SiteLayout.astro';
+import { optOutPromoByToken, promoOptOutState } from '@lib/unsubscribe-action';
+
+const { token = '' } = Astro.params;
+
+const status = Astro.request.method === 'POST'
+  ? await optOutPromoByToken(token)
+  : await promoOptOutState(token);
+
+if (status === 'invalid') Astro.response.status = 404;
+// Adresa obsahuje osobní token, do vyhledávačů nepatří.
+Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+---
+
+<SiteLayout title="Odhlášení nabídek">
+  <div class="wrap">
+    {status === 'confirm' && (
+      <>
+        <header class="page-head">
+          <h1>Nechcete dostávat nabídky?</h1>
+          <p class="lead">
+            Pod lekcemi vám přestaneme posílat tipy na naše další AI vzdělávání.
+            Lekce kurzů, do kterých jste zapsáni, vám budou chodit dál.
+          </p>
+        </header>
+        <div class="page-body narrow">
+          <form method="post" class="form">
+            <p class="actions">
+              <button type="submit" class="btn">Ano, nabídky neposílat</button>
+              <a href="/">Ne, nic neměnit</a>
+            </p>
+          </form>
+        </div>
+      </>
+    )}
+
+    {status === 'ok' && (
+      <>
+        <header class="page-head">
+          <h1>Nabídky jsme vypnuli</h1>
+          <p class="lead">Tipy na další vzdělávání už vám do e-mailů vkládat nebudeme.</p>
+        </header>
+        <div class="page-body narrow">
+          <div class="note ok" role="status">
+            <strong>Lekce chodí dál.</strong>
+            <p>Na kurzech, do kterých jste zapsáni, se nic nemění.</p>
+          </div>
+          <p class="actions"><a class="btn" href="/">Zpět na hlavní stránku</a></p>
+        </div>
+      </>
+    )}
+
+    {status === 'already' && (
+      <>
+        <header class="page-head">
+          <h1>Nabídky už máte vypnuté</h1>
+          <p class="lead">Tipy na další vzdělávání vám do e-mailů nevkládáme. Lekce kurzů chodí dál.</p>
+        </header>
+        <div class="page-body narrow">
+          <p class="actions"><a class="btn" href="/">Zpět na hlavní stránku</a></p>
+        </div>
+      </>
+    )}
+
+    {status === 'invalid' && (
+      <>
+        <header class="page-head">
+          <h1>Odkaz není platný</h1>
+          <p class="lead">
+            Odkaz pro odhlášení nabídek se nepodařilo ověřit. Otevřete ho prosím znovu přímo z e-mailu,
+            nebo nám napište na <a href="mailto:patrick@zandl.cz">patrick@zandl.cz</a> a nabídky vám vypneme ručně.
+          </p>
+        </header>
+        <div class="page-body narrow">
+          <p class="actions"><a class="btn" href="/">Zpět na hlavní stránku</a></p>
+        </div>
+      </>
+    )}
+  </div>
+</SiteLayout>

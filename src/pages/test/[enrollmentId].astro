@@ -1,5 +1,5 @@
 ---
-import PublicLayout from '@layouts/PublicLayout.astro';
+import SiteLayout from '@layouts/SiteLayout.astro';
 import { getOne } from '@lib/db';
 import TestForm from '@components/TestForm';
 import type { Enrollment, Course, Test, TestQuestion } from '@lib/types';
@@ -38,21 +38,23 @@ const questions: TestQuestion[] = allQuestions.map(({ id, type, question, option
 }));
 ---
 
-<PublicLayout title={`Test — ${course.title}`}>
-  <div class="mx-auto max-w-2xl py-8">
-    <a href={`/profil/kurz/${enrollmentId}`} class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět</a>
+<SiteLayout title={`Závěrečný test: ${course.title}`}>
+  <div class="wrap">
+    <a class="back" href={`/profil/kurz/${enrollmentId}`}>← Zpět na kurz</a>
 
-    <h1 class="mt-4 text-2xl font-bold text-gray-900">Závěrečný test</h1>
-    <p class="mt-1 text-gray-600">{course.title}</p>
-    <p class="mt-1 text-sm text-gray-500">{questions.length} otázek · Pro udělení certifikátu potřebujete alespoň 70 %</p>
+    <header class="page-head">
+      <p class="mono">Závěrečný test</p>
+      <h1>{course.title}</h1>
+      <p class="mono">Počet otázek: {questions.length} · k certifikátu potřebujete alespoň 70 %</p>
+    </header>
 
-    {previousScore !== null && (
-      <div class="mt-3 rounded-lg bg-blue-50 border border-blue-200 p-3 text-sm text-blue-800">
-        Váš předchozí výsledek: <strong>{previousScore} %</strong>. Můžete test opakovat pro lepší skóre.
-      </div>
-    )}
+    <div class="page-body measure">
+      {previousScore !== null && (
+        <div class="note">
+          <p>Váš předchozí výsledek je <strong>{previousScore} %</strong>. Test můžete zopakovat a skóre si zlepšit.</p>
+        </div>
+      )}
 
-    <div class="mt-8">
       <TestForm
         client:load
         enrollmentId={enrollmentId!}
@@ -60,4 +62,4 @@ const questions: TestQuestion[] = allQuestions.map(({ id, type, question, option
       />
     </div>
   </div>
-</PublicLayout>
+</SiteLayout>

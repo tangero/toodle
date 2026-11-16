@@ -142,9 +142,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
       try {
         const { id } = await sendEmail(env, {
           to: userRow?.email ?? user.email,
-          subject: `Váš certifikát — ${courseRow?.title ?? ''}`,
+          subject: `Váš certifikát: ${courseRow?.title ?? ''}`,
           html: certificateEmail(userRow?.name ?? user.name, courseRow?.title ?? '', score,
-            `${env.APP_URL}/certifikat/${certificatePublicId}`),
+            `${env.APP_URL}/certifikat/${certificatePublicId}`, env.APP_URL),
           tags: [{ name: 'type', value: 'certificate' }],
         });
         await logEmail(env, { enrollmentId, template: 'certificate', resendId: id });
@@ -155,7 +155,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
 
   // Nejlepší skóre (issueCertificate ho nastavuje sám; tady pro neúspěšné / nezlepšené pokusy).
-  if (!certificatePublicId && (previousBest === null || score > previousBest)) {
+  // Když vydání certifikátu selhalo, skóre nezvyšujeme: další pokus se stejným výsledkem by jinak
+  // nesplnil podmínku „lepší než dosud“ a lepší certifikát by už nešel získat.
+  if (!certificatePublicId && !certificateError && (previousBest === null || score > previousBest)) {
     await run(env.DB, `UPDATE enrollments SET score = ? WHERE id = ?`, score, enrollmentId);
   }
 

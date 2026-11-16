@@ -13,3 +13,17 @@ export function deliveryLabel(mode: string): string {
 export function priceLabel(czk: number): string {
   return czk === 0 ? 'Zdarma' : `${czk.toLocaleString('cs-CZ')} Kč`;
 }
+
+/** Stav zápisu, jak ho vidí student v profilu. */
+const ENROLLMENT_STATUS_LABELS: Record<string, string> = {
+  pending: 'Čeká na potvrzení e-mailu',
+  active: 'Aktivní',
+  paused: 'Pozastaveno',
+  stalled: 'Neaktivní',
+  completed: 'Dokončeno',
+  cancelled: 'Zrušeno',
+};
+
+export function enrollmentStatusLabel(status: string): string {
+  return ENROLLMENT_STATUS_LABELS[status] ?? status;
+}

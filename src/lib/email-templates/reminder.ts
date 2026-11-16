@@ -1,4 +1,4 @@
-import { baseTemplate } from './base';
+import { baseTemplate, button, courseUnsubscribeLine, P } from './base';
 import { escapeHtml } from '../escape';
 
 export function reminderEmail(
@@ -12,22 +12,15 @@ export function reminderEmail(
   return baseTemplate(
     `Pokračujte v kurzu ${courseTitle}`,
     `
-    <p>Ahoj ${escapeHtml(userName)},</p>
-    <p>
-      Zdá se, že jste na chvíli přestali číst kurz <strong>${escapeHtml(courseTitle)}</strong>.
-      Pokračujete u lekce č. ${lessonPosition} — ještě vás čeká zajímavé učení!
+    <p style="${P}">Dobrý den, ${escapeHtml(userName)},</p>
+    <p style="${P}">
+      v kurzu <strong>${escapeHtml(courseTitle)}</strong> jste se zastavili u lekce ${lessonPosition}.
+      Další lekci vám pošleme, jakmile si o ni řeknete tlačítkem na stránce kurzu.
     </p>
-    <div style="text-align: center; margin: 32px 0;">
-      <a href="${appUrl}/profil/kurz/${enrollmentId}"
-         style="background-color: #2563eb; color: #ffffff; padding: 12px 32px; border-radius: 8px;
-                text-decoration: none; font-weight: 600; display: inline-block;">
-        Pokračovat v kurzu
-      </a>
-    </div>
-    <p style="color: #6b7280; font-size: 13px; text-align: center;">
-      Pokud o kurz nemáte zájem, můžete se
-      <a href="${appUrl}/odhlaseni/${unsubscribeToken}" style="color: #6b7280;">odhlásit</a>.
-    </p>
+    ${button(`${appUrl}/profil/kurz/${enrollmentId}`, 'Pokračovat v kurzu')}
+    <p style="${P}">Pokud o kurz už nemáte zájem, můžete se z něj odkazem níže odhlásit.</p>
+    ${courseUnsubscribeLine(appUrl, unsubscribeToken)}
     `,
+    { appUrl },
   );
 }

@@ -1,60 +1,94 @@
 ---
-import PublicLayout from '@layouts/PublicLayout.astro';
+import SiteLayout from '@layouts/SiteLayout.astro';
+
+import { getOne } from '@lib/db';
+import { env } from '@lib/env';
 
 const user = Astro.locals.user!;
+const promo = await getOne<{ promo_opt_out_at: string | null }>(
+  env.DB, `SELECT promo_opt_out_at FROM users WHERE id = ?`, user.id,
+);
+const promoOn = !promo?.promo_opt_out_at;
+const promoSaved = Astro.url.searchParams.get('nabidky') === 'ulozeno';
 ---
 
-<PublicLayout title="Nastavení">
-  <div class="mx-auto max-w-2xl py-8">
-    <h1 class="text-2xl font-bold text-gray-900">Nastavení účtu</h1>
+<SiteLayout title="Nastavení účtu">
+  <div class="wrap">
+    <a class="back" href="/profil">← Zpět na profil</a>
 
-    <section class="mt-8 rounded-lg border border-gray-200 p-6">
-      <h2 class="text-lg font-semibold text-gray-900">Osobní údaje</h2>
-      <dl class="mt-4 space-y-3">
-        <div>
-          <dt class="text-sm text-gray-500">Jméno</dt>
-          <dd class="text-gray-900">{user.name}</dd>
-        </div>
-        <div>
-          <dt class="text-sm text-gray-500">Email</dt>
-          <dd class="text-gray-900">{user.email}</dd>
-        </div>
-      </dl>
-    </section>
+    <header class="page-head">
+      <h1>Nastavení účtu</h1>
+    </header>
 
-    <section class="mt-6 rounded-lg border border-gray-200 p-6">
-      <h2 class="text-lg font-semibold text-gray-900">Ochrana osobních údajů (GDPR)</h2>
-      <p class="mt-2 text-sm text-gray-600">
-        Máte právo na export a smazání svých údajů.
-      </p>
-      <div class="mt-4 flex gap-3">
-        <a
-          href="/api/gdpr/export"
-          class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-        >
-          Exportovat data
-        </a>
-        <button
-          id="delete-account"
-          class="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
-        >
-          Smazat účet
-        </button>
-      </div>
-    </section>
+    <div class="page-body">
+      <section>
+        <h2>Osobní údaje</h2>
+        <dl class="facts text">
+          <div><dt>Jméno</dt><dd>{user.name}</dd></div>
+          <div><dt>E-mail</dt><dd>{user.email}</dd></div>
+        </dl>
+      </section>
+
+      <section>
+        <h2>Nabídky dalšího vzdělávání</h2>
+        <p class="measure muted">
+          {promoOn
+            ? 'Pod lekcemi vám posíláme krátkou nabídku našich nejbližších akcí. Lekce chodí dál, i když ji vypnete.'
+            : 'Nabídky našich akcí máte vypnuté. Lekce vám chodí bez nich.'}
+        </p>
+        {promoSaved && <p class="note ok narrow" role="status">Nastavení je uložené.</p>}
+        <form method="post" action="/api/profile/promo" class="actions">
+          <input type="hidden" name="nabidky" value={promoOn ? 'ne' : 'ano'} />
+          <button type="submit" class="btn btn-line">{promoOn ? 'Vypnout nabídky' : 'Zapnout nabídky'}</button>
+        </form>
+      </section>
+
+      <section>
+        <h2>Vaše data</h2>
+        <p class="measure muted">
+          Svoje údaje si můžete stáhnout, nebo účet i se všemi daty smazat. Smazání nejde vrátit zpět:
+          přijdete o zápisy do kurzů, výsledky testů i certifikáty. Podrobnosti najdete
+          v <a href="/ochrana-osobnich-udaju">zásadách zpracování osobních údajů</a>.
+        </p>
+        <div class="actions">
+          <a class="btn btn-line" href="/api/gdpr/export">Stáhnout moje data</a>
+          <button type="button" id="delete-account" class="btn btn-danger">Smazat účet</button>
+        </div>
+        <div aria-live="polite">
+          <p id="delete-msg" class="note err narrow" hidden></p>
+        </div>
+      </section>
+    </div>
   </div>
 
   <script>
-    document.getElementById('delete-account')?.addEventListener('click', async () => {
-      if (!confirm('Opravdu chcete smazat svůj účet? Tato akce je nevratná.')) return;
-      if (!confirm('Potvrzujete smazání účtu a všech vašich dat?')) return;
+    const msg = document.getElementById('delete-msg');
 
-      const res = await fetch('/api/gdpr/delete', { method: 'POST' });
-      if (res.ok) {
+    document.getElementById('delete-account')?.addEventListener('click', async (e) => {
+      if (!confirm('Opravdu chcete smazat svůj účet? Smazání nejde vrátit zpět.')) return;
+      if (!confirm('Potvrzujete smazání účtu a všech svých dat?')) return;
+
+      const btn = e.currentTarget as HTMLButtonElement;
+      btn.disabled = true;
+      if (msg) msg.hidden = true;
+
+      let ok = false;
+      try {
+        const res = await fetch('/api/gdpr/delete', { method: 'POST' });
+        ok = res.ok;
+      } catch {
+        ok = false;
+      }
+
+      if (ok) {
         window.location.href = '/?deleted=1';
-      } else {
-        alert('Nastala chyba při mazání účtu.');
+        return;
+      }
+      btn.disabled = false;
+      if (msg) {
+        msg.textContent = 'Účet se nepodařilo smazat. Zkuste to znovu, nebo napište na patrick@zandl.cz.';
+        msg.hidden = false;
       }
     });
   </script>
-</PublicLayout>
+</SiteLayout>

@@ -1,0 +1,131 @@
+---
+/**
+ * Hodnocení kurzu. Odkaz s podepsaným tokenem zápisu chodí e-mailem tři dny po dokončení
+ * kurzu (cron reminders), přihlášení není potřeba. Formulář se odesílá na
+ * /api/ratings/[token], který přesměruje zpět s parametrem `stav`.
+ */
+import SiteLayout from '@layouts/SiteLayout.astro';
+import { getOne } from '@lib/db';
+import { verifyRatingToken } from '@lib/unsubscribe';
+import { RATING_COMMENT_MAX, RATING_LABELS } from '@lib/ratings';
+import { env } from '@lib/env';
+
+const { token = '' } = Astro.params;
+const stav = Astro.url.searchParams.get('stav') ?? '';
+
+const enrollmentId = await verifyRatingToken(token, env.JWT_SECRET);
+const row = enrollmentId
+  ? await getOne<{ course_title: string; score: number | null; comment: string | null; publish_consent: number | null }>(
+      env.DB,
+      `SELECT c.title as course_title, r.score, r.comment, r.publish_consent
+       FROM enrollments e
+       JOIN users u ON u.id = e.user_id AND u.deleted_at IS NULL
+       JOIN courses c ON c.id = e.course_id
+       LEFT JOIN course_ratings r ON r.enrollment_id = e.id
+       WHERE e.id = ?`,
+      enrollmentId,
+    )
+  : null;
+
+const saved = !!row && stav === 'ulozeno' && row.score !== null;
+const errors: Record<string, string> = {
+  znamka: 'Vyberte prosím známku od 1 do 5.',
+  text: `Text hodnocení může mít nejvýš ${RATING_COMMENT_MAX.toLocaleString('cs-CZ')} znaků.`,
+  limit: 'Odeslali jste příliš mnoho požadavků za sebou. Zkuste to prosím za minutu.',
+  chyba: 'Hodnocení se nepodařilo uložit. Zkuste to prosím znovu.',
+};
+const error = row && !saved ? errors[stav] : undefined;
+const scores = [5, 4, 3, 2, 1];
+
+if (!row) Astro.response.status = 404;
+// Adresa obsahuje osobní token, do vyhledávačů nepatří.
+Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+---
+
+<SiteLayout title="Hodnocení kurzu">
+  <div class="wrap">
+    {!row && (
+      <>
+        <header class="page-head">
+          <h1>Odkaz není platný</h1>
+          <p class="lead">
+            Odkaz na hodnocení se nepodařilo ověřit. Otevřete ho prosím znovu přímo z e-mailu.
+            Pokud to nepomůže, napište nám na <a href="mailto:patrick@zandl.cz">patrick@zandl.cz</a>.
+          </p>
+        </header>
+        <div class="page-body narrow">
+          <p class="actions"><a class="btn" href="/">Zpět na hlavní stránku</a></p>
+        </div>
+      </>
+    )}
+
+    {row && saved && (
+      <>
+        <header class="page-head">
+          <h1>Děkujeme za hodnocení</h1>
+          <p class="lead">Vaše hodnocení kurzu {row.course_title} jsme uložili. Pomůže nám kurz vylepšit.</p>
+        </header>
+        <div class="page-body narrow">
+          <div class="note ok" role="status">
+            <strong>Uloženo: známka {row.score} z 5.</strong>
+            <p>Pokud si to rozmyslíte, můžete hodnocení přes stejný odkaz kdykoli upravit.</p>
+          </div>
+          <p class="actions">
+            <a class="btn" href="/#kurzy">Podívat se na další kurzy</a>
+            <a href={`/hodnoceni/${token}`}>Upravit hodnocení</a>
+          </p>
+        </div>
+      </>
+    )}
+
+    {row && !saved && (
+      <>
+        <header class="page-head">
+          <h1>Jak se vám kurz líbil?</h1>
+          <p class="lead">Kurz {row.course_title}. Stačí známka, text je nepovinný.</p>
+        </header>
+        <div class="page-body narrow">
+          {error && (
+            <div class="note err" role="alert">
+              <strong>{error}</strong>
+            </div>
+          )}
+          {row.score !== null && !error && (
+            <div class="note">
+              <p>Tento kurz už jste hodnotili. Odesláním formuláře dřívější hodnocení přepíšete.</p>
+            </div>
+          )}
+          <form method="post" action={`/api/ratings/${token}`} class="form">
+            <fieldset class="question">
+              <legend>Jakou známku byste kurzu dali?</legend>
+              <p class="hint">5 je nejlepší, 1 nejhorší.</p>
+              <div class="choices">
+                {scores.map((value) => (
+                  <label class="choice">
+                    <input type="radio" name="score" value={value} required checked={row.score === value} />
+                    <span>{value} – {RATING_LABELS[value]}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <div class="field">
+              <label for="comment">Co vám pomohlo a co chybělo? (nepovinné)</label>
+              <textarea id="comment" name="comment" rows="6" maxlength={RATING_COMMENT_MAX} aria-describedby="comment-hint">{row.comment ?? ''}</textarea>
+              <span class="hint" id="comment-hint">Nejvýš {RATING_COMMENT_MAX.toLocaleString('cs-CZ')} znaků.</span>
+            </div>
+
+            <label class="choice">
+              <input type="checkbox" name="publish_consent" value="on" checked={row.publish_consent === 1} />
+              <span>Souhlasím se zveřejněním hodnocení pod křestním jménem</span>
+            </label>
+
+            <p class="actions">
+              <button type="submit" class="btn">Odeslat hodnocení</button>
+            </p>
+          </form>
+        </div>
+      </>
+    )}
+  </div>
+</SiteLayout>

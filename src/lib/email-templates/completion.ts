@@ -1,38 +1,33 @@
-import { baseTemplate } from './base';
+import { baseTemplate, button, promoSection, styleProse, P, SIGNATURE, type PromoData } from './base';
 import { renderMarkdown } from '../markdown';
 import { escapeHtml } from '../escape';
 
-export function completionEmail(
-  userName: string,
-  courseTitle: string,
-  completionMd: string,
-  enrollmentId: string,
-  appUrl: string,
-): string {
-  const content = completionMd
-    ? renderMarkdown(completionMd)
-    : `<p>Skvělá práce! Právě jste dokončili celý kurz <strong>${escapeHtml(courseTitle)}</strong>.</p>`;
+interface CompletionEmailParams {
+  userName: string;
+  courseTitle: string;
+  /** Závěrečný text kurzu z adminu (Markdown). Prázdný = výchozí věta. */
+  completionMd: string;
+  enrollmentId: string;
+  appUrl: string;
+  /** Nabídka dalšího vzdělávání. Chybí u příjemců, kteří ji odhlásili, a když není co nabídnout. */
+  promo?: PromoData;
+}
+
+export function completionEmail(p: CompletionEmailParams): string {
+  const content = p.completionMd
+    ? styleProse(renderMarkdown(p.completionMd))
+    : `<p style="${P}">právě jste dokončili celý kurz <strong>${escapeHtml(p.courseTitle)}</strong>. Gratulujeme.</p>
+       <p style="${P}">Zbývá poslední krok: závěrečný test. Když ho splníte, vystavíme vám certifikát.</p>`;
 
   return baseTemplate(
-    `Dokončili jste kurz ${courseTitle}!`,
+    `Dokončili jste kurz ${p.courseTitle}`,
     `
-    <div style="text-align: center; margin-bottom: 24px;">
-      <div style="display: inline-flex; align-items: center; justify-content: center;
-                  width: 64px; height: 64px; border-radius: 50%; background: #dcfce7;">
-        <span style="font-size: 28px;">🎓</span>
-      </div>
-    </div>
-
-    <p>Ahoj ${escapeHtml(userName)},</p>
+    <p style="${P}">Dobrý den, ${escapeHtml(p.userName)},</p>
     ${content}
-
-    <div style="text-align: center; margin: 32px 0;">
-      <a href="${appUrl}/profil/kurz/${enrollmentId}"
-         style="background-color: #16a34a; color: #ffffff; padding: 12px 32px; border-radius: 8px;
-                text-decoration: none; font-weight: 600; display: inline-block;">
-        Složit závěrečný test a získat certifikát
-      </a>
-    </div>
+    ${button(`${p.appUrl}/profil/kurz/${p.enrollmentId}`, 'Složit závěrečný test')}
+    ${SIGNATURE}
+    ${promoSection(p.promo)}
     `,
+    { appUrl: p.appUrl },
   );
 }

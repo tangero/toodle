@@ -21,6 +21,23 @@ interface SendEmailResult {
 
 const RESEND_TIMEOUT_MS = 15_000;
 
+/** Chyba vrácená Resendem – nese stavový kód, aby šlo rozlišit kolizi Idempotency-Key. */
+export class EmailSendError extends Error {
+  constructor(public readonly status: number, public readonly body: string) {
+    super(`Resend API error: ${status} ${body}`);
+    this.name = 'EmailSendError';
+  }
+}
+
+/**
+ * Resend odmítl požadavek, protože pod stejným Idempotency-Key už během 24 h přijal
+ * e-mail s jiným obsahem (409 invalid_idempotent_request). Znamená to, že původní e-mail
+ * odešel; liší se jen tělo – typicky blok nabídek, který se mezi pokusy změnil.
+ */
+export function isAlreadySentConflict(err: unknown): boolean {
+  return err instanceof EmailSendError && err.status === 409 && err.body.includes('invalid_idempotent_request');
+}
+
 export async function sendEmail(
   env: AppEnv,
   params: SendEmailParams,
@@ -53,8 +70,7 @@ export async function sendEmail(
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Resend API error: ${response.status} ${error}`);
+    throw new EmailSendError(response.status, await response.text());
   }
 
   const data = (await response.json()) as { id: string };
@@ -64,7 +80,7 @@ export async function sendEmail(
 /** Záznam do email_log – kvůli párování webhooků (doručeno, bounce, stížnost). */
 export async function logEmail(
   env: AppEnv,
-  entry: { enrollmentId: string | null; lessonId?: string | null; template: string; resendId: string },
+  entry: { enrollmentId: string | null; lessonId?: string | null; template: string; resendId: string | null },
 ): Promise<void> {
   await run(
     env.DB,

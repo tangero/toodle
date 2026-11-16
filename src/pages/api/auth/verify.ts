@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { verifyMagicLink, createSession, setSessionCookie, markUserVerified } from '@lib/auth';
-import { activatePendingFreeEnrollments } from '@lib/enrollment';
+import { activateConfirmedEnrollment } from '@lib/enrollment';
 import { safeRedirectPath } from '@lib/escape';
 import { env } from '@lib/env';
 
@@ -13,20 +13,23 @@ export const GET: APIRoute = async ({ url, redirect }) => {
   return redirect(`/prihlaseni/potvrzeni?token=${encodeURIComponent(token)}`, 302);
 };
 
-/** POST z potvrzovací stránky: spotřebuje token, ověří e-mail, aktivuje zápisy a přihlásí. */
+/** POST z potvrzovací stránky: spotřebuje token, ověří e-mail, aktivuje potvrzovaný zápis a přihlásí. */
 export const POST: APIRoute = async ({ request }) => {
   const form = await request.formData().catch(() => null);
   const token = String(form?.get('token') ?? '');
   const next = safeRedirectPath(form?.get('next'));
 
-  const userId = token ? await verifyMagicLink(env.DB, token) : null;
-  if (!userId) {
+  const link = token ? await verifyMagicLink(env.DB, token) : null;
+  if (!link) {
     return new Response(null, { status: 303, headers: { Location: '/prihlaseni?error=invalid-token' } });
   }
 
-  // Kliknutí na odkaz z e-mailu prokazuje vlastnictví adresy → ověřit a spustit čekající kurzy.
+  // Kliknutí na odkaz z e-mailu prokazuje vlastnictví adresy. Spustí se jen kurz, který odkaz
+  // potvrzuje. Běžné přihlášení žádný čekající zápis nespouští: pod cizím e-mailem ho mohl
+  // veřejným formulářem založit kdokoli.
+  const { userId, enrollmentId } = link;
   await markUserVerified(env.DB, userId);
-  await activatePendingFreeEnrollments(env, userId);
+  if (enrollmentId) await activateConfirmedEnrollment(env, userId, enrollmentId);
 
   const sessionToken = await createSession(userId, env.JWT_SECRET);
   return new Response(null, {

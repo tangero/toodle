@@ -73,6 +73,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ ok: true, free: true, status: 'pending', resent: true, enrollmentId: existing.id });
   }
 
+  // Přihlášený uživatel s čekajícím zápisem (vznikl dřív bez přihlášení): přihlášení už vlastnictví
+  // adresy prokázalo, bezplatný kurz spustíme hned.
+  if (existing && existing.status === 'pending' && loggedIn && course.price_czk === 0) {
+    await activateEnrollment(env, existing.id);
+    await logAudit(env.DB, user.id, 'enrollment.create', existing.id, { course: course.slug, type: 'free', resumed: true });
+    return json({ ok: true, free: true, status: 'active', enrollmentId: existing.id });
+  }
+
   if (existing && existing.status !== 'cancelled') {
     return json({ error: 'Na tento kurz jste již zapsáni.', enrollmentId: loggedIn ? existing.id : undefined }, 409);
   }
@@ -84,7 +92,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     await run(
       env.DB,
       `UPDATE enrollments SET status = 'pending', current_lesson = 1, next_send_at = NULL,
-       started_at = NULL, completed_at = NULL, score = NULL WHERE id = ? AND status = 'cancelled'`,
+       started_at = NULL, completed_at = NULL, score = NULL, sending_at = NULL,
+       run_no = run_no + 1 WHERE id = ? AND status = 'cancelled'`,
       enrollmentId,
     );
   } else {
@@ -126,13 +135,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
 /** Pošle potvrzovací odkaz (double opt-in). false = překročen limit odkazů za hodinu. */
 async function sendConfirmation(user: User, course: Course, enrollmentId: string): Promise<boolean> {
   if ((await countRecentMagicLinks(env.DB, user.id)) >= MAX_LINKS_PER_HOUR) return false;
-  const token = await createMagicLink(env.DB, user.id, CONFIRM_LINK_TTL_MINUTES);
+  const token = await createMagicLink(env.DB, user.id, CONFIRM_LINK_TTL_MINUTES, enrollmentId);
   const next = `/profil/kurz/${enrollmentId}`;
   const url = `${env.APP_URL}/prihlaseni/potvrzeni?typ=zapis&token=${token}&next=${encodeURIComponent(next)}`;
   await sendEmail(env, {
     to: user.email,
     subject: `Potvrďte zápis do kurzu ${course.title}`,
-    html: verificationEmail(url, user.name, course.title),
+    html: verificationEmail(url, user.name, course.title, env.APP_URL),
     tags: [{ name: 'type', value: 'verification' }],
   });
   return true;

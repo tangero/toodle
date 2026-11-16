@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { getAll } from '@lib/db';
-import { DELIVERY_SELECT, deliverNextLesson, type DeliveryRow } from '@lib/enrollment';
+import { DELIVERY_SELECT, deliverNextLesson, type DeliveryRow, type PromoContext } from '@lib/enrollment';
+import { loadEventTips } from '@lib/events';
 import { isCronAuthorized } from '@lib/cron';
 import { env } from '@lib/env';
 
@@ -26,10 +27,15 @@ export const POST: APIRoute = async ({ request }) => {
 
   const results = { due: due.length, sent: 0, completed: 0, skipped: 0, errors: 0 };
   const lessonCache = new Map();
+  // Akce do bloku nabídek se načtou jednou na celý běh. Když zdroj neodpoví, vrátí prázdné
+  // pole (nejdéle po 2,5 s) a lekce odejdou bez nabídek.
+  const promo: PromoContext = due.some((row) => !row.promo_opt_out_at)
+    ? { eventTips: await loadEventTips(2, 'skola-ai-email') }
+    : { eventTips: [] };
 
   for (const row of due) {
     try {
-      const result = await deliverNextLesson(env, row, { lessonCache });
+      const result = await deliverNextLesson(env, row, { lessonCache, promo });
       if (result.status === 'sent') {
         results.sent++;
         if (result.completed) results.completed++;

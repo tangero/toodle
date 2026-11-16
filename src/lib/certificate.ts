@@ -83,7 +83,7 @@ export async function generateCertificatePdf(params: CertificateParams): Promise
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
   pdfDoc.setTitle(`Certifikát – ${courseTitle}`);
-  pdfDoc.setAuthor('Letní škola AI');
+  pdfDoc.setAuthor('Škola AI');
 
   const page = pdfDoc.addPage([841.89, 595.28]); // A4 landscape
   const { width, height } = page.getSize();
@@ -105,7 +105,7 @@ export async function generateCertificatePdf(params: CertificateParams): Promise
   page.drawRectangle({ x: m + 8, y: m + 8, width: width - 2 * (m + 8), height: height - 2 * (m + 8), borderColor: gold, borderWidth: 1 });
 
   drawCentered(page, 'CERTIFIKÁT O ABSOLVOVÁNÍ', { y: height - 120, size: 28, font: fontBold, color: navy, maxWidth });
-  drawCentered(page, 'Letní škola AI', { y: height - 150, size: 16, font: fontReg, color: gold, maxWidth });
+  drawCentered(page, 'Škola AI', { y: height - 150, size: 16, font: fontReg, color: gold, maxWidth });
   page.drawLine({ start: { x: 100, y: height - 165 }, end: { x: width - 100, y: height - 165 }, thickness: 1, color: rgb(0.9, 0.9, 0.9) });
 
   drawCentered(page, 'Tímto se potvrzuje, že', { y: height - 200, size: 14, font: fontReg, color: gray, maxWidth });

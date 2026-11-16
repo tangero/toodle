@@ -49,7 +49,14 @@ export const DELETE: APIRoute = async ({ request, locals }) => {
   if (!id) return json({ error: 'ID je povinné' }, 400);
 
   // Stejné mazání jako GDPR – jinak by e-mail zůstal obsazený a člověk se nemohl znovu zapsat.
-  const deleted = await deleteUserData(env, id);
+  let deleted: boolean;
+  try {
+    deleted = await deleteUserData(env, id);
+  } catch (err) {
+    // Typicky selhalo mazání PDF certifikátu v R2; data zůstala celá a mazání jde zopakovat.
+    console.error(`Admin delete failed for ${id}:`, err);
+    return json({ error: 'Smazání se nepodařilo, zkuste to prosím znovu.' }, 500);
+  }
   if (!deleted) return json({ error: 'Uživatel nenalezen' }, 404);
   await logAudit(env.DB, user.id, 'user.delete', id);
   return json({ ok: true });
