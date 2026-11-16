@@ -4,6 +4,7 @@ import { getOne, getAll } from '@lib/db';
 import type { Enrollment, Course, Lesson, Certificate } from '@lib/types';
 import { env } from '@lib/env';
 import { enrollmentStatusLabel } from '@lib/labels';
+import { FEEDBACK_ANSWERS, FEEDBACK_LABELS, FEEDBACK_NEXT_LABELS, type FeedbackAnswer } from '@lib/feedback';
 
 const { id } = Astro.params;
 const user = Astro.locals.user!;
@@ -49,6 +50,35 @@ const hasTest = !!(await getOne<{ id: string }>(
 
 const canContinue = (enrollment.status === 'active' || enrollment.status === 'stalled') && course.delivery_mode === 'on_click';
 const canPause = ['active', 'stalled', 'paused'].includes(enrollment.status);
+
+// Zpětná vazba na srozumitelnost (jen kurzy na potvrzení). `current_lesson` ukazuje na lekci,
+// která se pošle příště, takže právě dočtená lekce má pozici o jednu nižší.
+const readPosition = enrollment.current_lesson - 1;
+const readLesson = lessons.find((lesson) => lesson.position === readPosition);
+// U poslední lekce (kurz je už dokončený) se na srozumitelnost ptáme, dokud čtenář neodpoví.
+const lastLessonAnswered = course.delivery_mode === 'on_click' && enrollment.status === 'completed' && readLesson
+  ? !!(await getOne<{ id: string }>(
+      env.DB, `SELECT id FROM lesson_feedback WHERE enrollment_id = ? AND lesson_id = ?`, enrollment.id, readLesson.id,
+    ))
+  : true;
+const askLastLesson = !lastLessonAnswered && enrollment.score === null && !certificate;
+const askFeedback = (canContinue && !!readLesson) || askLastLesson;
+
+const TEST_LABELS: Record<FeedbackAnswer, string> = {
+  1: 'Rozuměl jsem, přejít k testu',
+  2: 'Něco mi nesedělo, přejít k testu',
+  3: FEEDBACK_LABELS[3],
+};
+const answerLabels = !askLastLesson ? FEEDBACK_NEXT_LABELS : hasTest ? TEST_LABELS : FEEDBACK_LABELS;
+
+// Chyby po odeslání formuláře bez JavaScriptu (endpoint přesměruje zpět s parametrem).
+const doneErrors: Record<string, string> = {
+  'odesila-se': 'Lekce se právě odesílá, zkuste to za chvíli.',
+  odeslani: 'Lekci se nepodařilo odeslat. Zkuste to prosím za chvíli.',
+  odpoved: 'Odpověď se nepodařilo rozpoznat. Zkuste to prosím znovu.',
+  stav: 'Kurz teď není aktivní, další lekci poslat nejde.',
+};
+const doneError = doneErrors[Astro.url.searchParams.get('chyba') ?? ''];
 ---
 
 <SiteLayout title={course.title}>
@@ -84,9 +114,9 @@ const canPause = ['active', 'stalled', 'paused'].includes(enrollment.status);
           {enrollment.score !== null && (
             <p>Nejlepší výsledek testu: <strong>{enrollment.score} %</strong></p>
           )}
-          {(hasTest || certificate) && (
+          {((hasTest && !askLastLesson) || certificate) && (
             <div class="actions">
-              {hasTest && !certificate && (
+              {hasTest && !certificate && !askLastLesson && (
                 <a class="btn" href={`/test/${enrollment.id}`}>
                   {enrollment.score === null ? 'Složit závěrečný test' : 'Zkusit test znovu'}
                 </a>
@@ -120,12 +150,30 @@ const canPause = ['active', 'stalled', 'paused'].includes(enrollment.status);
         </ol>
       </section>
 
-      {(canContinue || canPause) && (
+      {(canContinue || canPause || askFeedback) && (
         <div class="stack">
+          {/* Tři odpovědi mají stejný vzhled a stálé pořadí. Žádná není zvýrazněná a žádná postup neblokuje. */}
+          {askFeedback && readLesson && (
+            <form method="post" action={`/api/enrollments/${enrollment.id}/done`} id="feedback-form" data-enrollment-id={enrollment.id}>
+              <fieldset class="question plain">
+                <legend>Jak srozumitelná byla lekce {readLesson.position}?</legend>
+                <p class="hint">
+                  {askLastLesson
+                    ? (hasTest ? 'Odpověď uložíme a přejdete k závěrečnému testu.' : 'Odpověď nám pomůže lekci vylepšit.')
+                    : 'Jedním kliknutím odpovíte a zároveň vám pošleme další lekci. Odejde vždy, ať odpovíte jakkoli.'}
+                </p>
+                <div class="answers">
+                  {FEEDBACK_ANSWERS.map((answer) => (
+                    <button type="submit" name="answer" value={answer} class="btn">{answerLabels[answer]}</button>
+                  ))}
+                </div>
+              </fieldset>
+            </form>
+          )}
           <div class="actions">
-            {canContinue && (
-              <button type="button" id="mark-done" class="btn btn-accent" data-enrollment-id={enrollment.id}>
-                Mám přečteno, pošlete další lekci
+            {canContinue && !readLesson && (
+              <button type="button" id="mark-done" class="btn" data-enrollment-id={enrollment.id}>
+                Pošlete mi další lekci
               </button>
             )}
             {canPause && (
@@ -135,7 +183,7 @@ const canPause = ['active', 'stalled', 'paused'].includes(enrollment.status);
             )}
           </div>
           <div aria-live="polite">
-            <p id="done-msg" class="note err" hidden></p>
+            <p id="done-msg" class="note err" hidden={!doneError}>{doneError}</p>
           </div>
         </div>
       )}
@@ -149,6 +197,38 @@ const canPause = ['active', 'stalled', 'paused'].includes(enrollment.status);
       msg.textContent = text;
       msg.hidden = false;
     };
+
+    // Odpověď na srozumitelnost: jedno kliknutí zapíše odpověď a pošle další lekci.
+    // Bez JavaScriptu se formulář odešle běžně a server přesměruje.
+    const feedbackForm = document.getElementById('feedback-form') as HTMLFormElement | null;
+    feedbackForm?.addEventListener('submit', async (e) => {
+      const btn = (e as SubmitEvent).submitter as HTMLButtonElement | null;
+      if (!btn) return;
+      e.preventDefault();
+      const buttons = Array.from(feedbackForm.querySelectorAll<HTMLButtonElement>('button[name="answer"]'));
+      const label = btn.textContent;
+      buttons.forEach((b) => { b.disabled = true; });
+      btn.textContent = 'Odesílám…';
+      if (msg) msg.hidden = true;
+      try {
+        const res = await fetch(`/api/enrollments/${feedbackForm.dataset.enrollmentId}/done`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ answer: Number(btn.value) }),
+        });
+        const data = await res.json().catch(() => ({})) as { error?: string; next?: string };
+        if (res.ok) {
+          if (data.next && data.next !== window.location.pathname) window.location.assign(data.next);
+          else window.location.assign(window.location.pathname);
+          return;
+        }
+        showMsg(data.error ?? 'Další lekci se nepodařilo odeslat. Zkuste to prosím znovu.');
+      } catch {
+        showMsg('Další lekci se nepodařilo odeslat. Zkontrolujte připojení k internetu a zkuste to znovu.');
+      }
+      buttons.forEach((b) => { b.disabled = false; });
+      btn.textContent = label;
+    });
 
     document.getElementById('mark-done')?.addEventListener('click', async (e) => {
       const btn = e.currentTarget as HTMLButtonElement;

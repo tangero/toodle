@@ -5,7 +5,7 @@ import { getAll, getOne } from './db';
  * Smazání uživatele podle GDPR (volá ho uživatel i admin).
  *
  * - Osobní data průběhu (zápisy, e-mailový log, testy, certifikáty, hodnocení kurzů,
- *   přihlašovací odkazy) se mažou.
+ *   zpětná vazba k lekcím, přihlašovací odkazy) se mažou.
  * - Objednávky zůstávají kvůli účetnictví, jen se odpojí od smazaného zápisu.
  * - Řádek uživatele se anonymizuje unikátním e-mailem (sloupec email je UNIQUE),
  *   takže se člověk může později znovu registrovat stejnou adresou.
@@ -39,6 +39,7 @@ export async function deleteUserData(env: AppEnv, userId: string): Promise<boole
     db.prepare(`DELETE FROM test_attempts WHERE enrollment_id IN (${userEnrollments})`).bind(userId),
     db.prepare(`DELETE FROM certificates WHERE enrollment_id IN (${userEnrollments})`).bind(userId),
     db.prepare(`DELETE FROM course_ratings WHERE enrollment_id IN (${userEnrollments})`).bind(userId),
+    db.prepare(`DELETE FROM lesson_feedback WHERE enrollment_id IN (${userEnrollments})`).bind(userId),
     db.prepare(`DELETE FROM enrollments WHERE user_id = ?`).bind(userId),
     db.prepare(`DELETE FROM magic_links WHERE user_id = ?`).bind(userId),
     db.prepare(`UPDATE audit_log SET actor = 'deleted-user' WHERE actor = ?`).bind(user.email),

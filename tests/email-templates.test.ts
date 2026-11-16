@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { baseTemplate, promoBlock, styleProse } from '@lib/email-templates/base';
-import { lessonEmail } from '@lib/email-templates/lesson';
+import { feedbackBlock, lessonEmail } from '@lib/email-templates/lesson';
 import { welcomeEmail } from '@lib/email-templates/welcome';
 import { completionEmail } from '@lib/email-templates/completion';
 import { reminderEmail } from '@lib/email-templates/reminder';
@@ -158,7 +158,7 @@ describe('šablony e-mailů', () => {
   it('texty šablon jsou bez emoji, vykřičníků, tykání a staré značky', () => {
     const all = [
       lessonEmail({ ...lessonBase, deliveryMode: 'on_click', promo }),
-      lessonEmail({ ...lessonBase, lessonPosition: 5, deliveryMode: 'next_workday' }),
+      lessonEmail({ ...lessonBase, lessonPosition: 5, deliveryMode: 'next_workday', feedbackUrl: `${APP}/srozumitelnost/E1.5.sig` }),
       welcomeEmail({ name: 'Jana', courseTitle: 'Kurz', welcomeMd: '', firstLessonInfo: 'První lekce přijde zítra.', appUrl: APP, promo }),
       completionEmail({ userName: 'Jana', courseTitle: 'Kurz', completionMd: '', enrollmentId: 'E1', appUrl: APP, promo }),
       magicLinkEmail(`${APP}/x`, APP),
@@ -179,6 +179,30 @@ describe('šablony e-mailů', () => {
       expect(text).not.toMatch(/Letní|Ahoj/);
       expect(html).toContain('Škola AI');
     }
+  });
+
+  it('otázka na srozumitelnost je jen u denních kurzů, pod lekcí a nad nabídkami', () => {
+    const feedbackUrl = `${APP}/srozumitelnost/E1.2.sig`;
+    const html = lessonEmail({ ...lessonBase, deliveryMode: 'next_workday', feedbackUrl, promo });
+    expect(html).toContain('Jak srozumitelná byla dnešní lekce?');
+    for (const answer of [1, 2, 3]) expect(html).toContain(`href="${feedbackUrl}?odpoved=${answer}"`);
+    expect(html.indexOf('Obsah lekce.')).toBeLessThan(html.indexOf('Jak srozumitelná'));
+    expect(html.indexOf('Jak srozumitelná')).toBeLessThan(html.indexOf(HEADING));
+    expect(html.indexOf('?odpoved=1')).toBeLessThan(html.indexOf('?odpoved=2'));
+    expect(html.indexOf('?odpoved=2')).toBeLessThan(html.indexOf('?odpoved=3'));
+
+    expect(lessonEmail({ ...lessonBase, deliveryMode: 'on_click', feedbackUrl })).not.toContain('Jak srozumitelná');
+    expect(lessonEmail({ ...lessonBase, deliveryMode: 'next_workday' })).not.toContain('Jak srozumitelná');
+  });
+
+  it('tři odpovědi na srozumitelnost mají stejný vzhled a adresa se escapuje', () => {
+    const html = feedbackBlock(`${APP}/srozumitelnost/E1.2.sig"><script>`);
+    expect(html).not.toContain('<script>');
+    const styles = [...html.matchAll(/<a href="[^"]*\?odpoved=[123]" style="([^"]*)">([^<]+)<\/a>/g)];
+    expect(styles.map((m) => m[2])).toEqual([
+      'Rozuměl jsem', 'Něco mi nesedělo', 'Nerozuměl jsem, potřebuji to vysvětlit lépe',
+    ]);
+    expect(new Set(styles.map((m) => m[1])).size).toBe(1);
   });
 
   it('žádost o hodnocení vede na formulář s tokenem', () => {

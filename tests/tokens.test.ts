@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  createPromoOptOutToken, createRatingToken, createUnsubscribeToken,
-  verifyPromoOptOutToken, verifyRatingToken, verifyUnsubscribeToken,
+  createFeedbackToken, createPromoOptOutToken, createRatingToken, createUnsubscribeToken,
+  verifyFeedbackToken, verifyPromoOptOutToken, verifyRatingToken, verifyUnsubscribeToken,
 } from '@lib/unsubscribe';
 
 const SECRET = 'test-secret';
@@ -57,5 +57,65 @@ describe('podepsané tokeny z e-mailů', () => {
   it('token podepsaný jiným klíčem neprojde', async () => {
     const token = await createRatingToken(ID, 'jiny-klic');
     expect(await verifyRatingToken(token, SECRET)).toBeNull();
+  });
+
+  describe('zpětná vazba na srozumitelnost lekce', () => {
+    it('ověří svůj token a vrátí zápis i pozici lekce', async () => {
+      const token = await createFeedbackToken(ID, 3, SECRET);
+      expect(token.startsWith(`${ID}.3.`)).toBe(true);
+      expect(await verifyFeedbackToken(token, SECRET)).toEqual({ enrollmentId: ID, lessonPosition: 3 });
+    });
+
+    it('token zpětné vazby neprojde ověřením ostatních účelů', async () => {
+      const feedback = await createFeedbackToken(ID, 1, SECRET);
+      expect(await verifyUnsubscribeToken(feedback, SECRET)).toBeNull();
+      expect(await verifyPromoOptOutToken(feedback, SECRET)).toBeNull();
+      expect(await verifyRatingToken(feedback, SECRET)).toBeNull();
+    });
+
+    it('tokeny ostatních účelů neprojdou jako zpětná vazba', async () => {
+      const others = [
+        await createUnsubscribeToken(ID, SECRET),
+        await createPromoOptOutToken(ID, SECRET),
+        await createRatingToken(ID, SECRET),
+      ];
+      for (const token of others) {
+        expect(await verifyFeedbackToken(token, SECRET)).toBeNull();
+        // Ani s doplněnou pozicí: podpis je nad jinou zprávou.
+        const [id, sig] = token.split('.');
+        expect(await verifyFeedbackToken(`${id}.1.${sig}`, SECRET)).toBeNull();
+      }
+    });
+
+    it('podpis zpětné vazby nejde přebalit na token jiného účelu', async () => {
+      const feedback = await createFeedbackToken(ID, 2, SECRET);
+      const sig = feedback.slice(feedback.lastIndexOf('.') + 1);
+      for (const forged of [`${ID}.${sig}`, `feedback:${ID}:2.${sig}`, `${ID}:2.${sig}`, `${ID}.2.${sig}`]) {
+        expect(await verifyUnsubscribeToken(forged, SECRET)).toBeNull();
+        expect(await verifyPromoOptOutToken(forged, SECRET)).toBeNull();
+        expect(await verifyRatingToken(forged, SECRET)).toBeNull();
+      }
+    });
+
+    it('pozici lekce ani zápis v tokenu nejde zaměnit', async () => {
+      const token = await createFeedbackToken(ID, 2, SECRET);
+      const sig = token.slice(token.lastIndexOf('.') + 1);
+      expect(await verifyFeedbackToken(`${ID}.3.${sig}`, SECRET)).toBeNull();
+      expect(await verifyFeedbackToken(`01HZXK3V5N8Q2R7T9W4YB6C0DF.2.${sig}`, SECRET)).toBeNull();
+    });
+
+    it('odmítne nekanonickou pozici a poškozený token', async () => {
+      const token = await createFeedbackToken(ID, 2, SECRET);
+      const sig = token.slice(token.lastIndexOf('.') + 1);
+      for (const position of ['0', '02', '2.0', '1e1', '-2', '', ' 2', '1000', 'x']) {
+        expect(await verifyFeedbackToken(`${ID}.${position}.${sig}`, SECRET)).toBeNull();
+      }
+      expect(await verifyFeedbackToken(token.slice(0, -4), SECRET)).toBeNull();
+      expect(await verifyFeedbackToken('', SECRET)).toBeNull();
+      expect(await verifyFeedbackToken(`${'a'.repeat(300)}.1.abc`, SECRET)).toBeNull();
+      expect(await verifyFeedbackToken(await createFeedbackToken(ID, 2, 'jiny-klic'), SECRET)).toBeNull();
+      await expect(createFeedbackToken(ID, 0, SECRET)).rejects.toThrow();
+      await expect(createFeedbackToken(ID, 1.5, SECRET)).rejects.toThrow();
+    });
   });
 });

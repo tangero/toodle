@@ -16,7 +16,7 @@
  * SQL jde pouštět opakovaně. Kurz se páruje podle slugu, lekce podle (kurz, pozice), test podle
  * kurzu; existující řádky se přepíšou na místě, takže ID lekcí a vazby v email_log zůstávají.
  * Nový kurz vzniká jako 'draft'. Stav existujícího kurzu se nemění, publikuje se v adminu.
- * Lekce, které v souborech nejsou, skript nemaže.
+ * Lekce, které v souborech nejsou, skript nemaže. Když se změní tělo lekce, zvýší se lessons.version.
  */
 
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -75,7 +75,10 @@ for (const prefix of prefixes) {
     sql.push(
       `INSERT INTO lessons (id, course_id, position, title, content_md, reading_minutes) ` +
         `VALUES (${q(ulid())}, ${courseId}, ${lesson.position}, ${q(lesson.title)}, ${q(lesson.html)}, ${lesson.minutes}) ` +
-        `ON CONFLICT(course_id, position) DO UPDATE SET title = excluded.title, content_md = excluded.content_md, reading_minutes = excluded.reading_minutes;`,
+        // Verze lekce roste jen při změně těla; k verzi se váže zpětná vazba na srozumitelnost.
+        `ON CONFLICT(course_id, position) DO UPDATE SET title = excluded.title, ` +
+        `version = CASE WHEN lessons.content_md <> excluded.content_md THEN lessons.version + 1 ELSE lessons.version END, ` +
+        `content_md = excluded.content_md, reading_minutes = excluded.reading_minutes;`,
     );
   }
   if (questions) {
