@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Škola AI (`skola.aivefirmach.cz`) – platforma pro e-mailové kurzy s postupným doručováním lekcí. Uživatel si objedná kurz (zdarma nebo placený převodem), dostává lekce e-mailem, na konci vyplní test (otevřené otázky hodnotí LLM) a získá PDF certifikát s veřejně ověřitelným QR kódem. UI, texty, komentáře i dokumentace jsou česky. Značka je jen „Škola AI“ (dřívější „Letní škola AI“ se nepoužívá) a web, e-maily i lekce čtenáři **vykají**.
 
+**Na začátku session si přečti `docs/todo.md` → `## Kde jsme skončili` a navaž na první krok.** Rozhodnutí s důvody jsou v `docs/decisions.md`, záludnosti v `docs/gotchas.md`.
+
 Produktové požadavky: `docs/PRD.md`. Lokální vývoj: `LOCAL_DEVELOPMENT.md`. Stav před produkčním spuštěním: `DEPLOYMENT_CHECKLIST.md`.
 
 ## Příkazy
