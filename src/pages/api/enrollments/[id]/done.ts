@@ -13,6 +13,9 @@ import { env } from '@lib/env';
  * Volitelné pole `answer` (1 až 3, JSON nebo formulář) nese odpověď na srozumitelnost
  * právě dočtené lekce. Odpověď postup nikdy neblokuje: další lekce odejde i po „nerozuměl
  * jsem“ a i tehdy, když se odpověď nepodaří uložit. Volání bez pole funguje jako dřív.
+ * Pole `lesson` nese pozici lekce, ke které stránka otázku zobrazila. Když nesedí se
+ * skutečně dočtenou lekcí (stará karta prohlížeče), odpověď se nezapíše, aby neskončila
+ * u jiné lekce; další lekce odejde i tak.
  *
  * U dokončeného kurzu (poslední lekce už odešla) se s odpovědí jen zapíše zpětná vazba
  * k poslední lekci a čtenář pokračuje k testu.
@@ -45,13 +48,14 @@ export const POST: APIRoute = async ({ params, locals, request, redirect }) => {
 
   // Lekce, kterou čtenář právě dočetl. `current_lesson` ukazuje na lekci, která se pošle příště.
   const readPosition = row.current_lesson - 1;
+  const answer = input.lesson === null || input.lesson === readPosition ? input.answer : null;
 
   if (row.status === 'completed' && input.answer) {
-    const feedbackPath = await recordAnswer(id, readPosition, input.answer, user.id);
+    const feedbackPath = answer ? await recordAnswer(id, readPosition, answer, user.id) : null;
     const hasTest = !!(await getOne<{ id: string }>(
       env.DB, `SELECT id FROM tests WHERE course_id = ? AND questions_json != '[]'`, row.course_id,
     ));
-    const next = feedbackPath && input.answer !== 1
+    const next = feedbackPath && answer !== 1
       ? `${feedbackPath}?stav=ulozeno&z=${hasTest ? 'test' : 'kurz'}`
       : hasTest ? `/test/${encodeURIComponent(id)}` : coursePath;
     return done({ completed: true }, next);
@@ -59,8 +63,8 @@ export const POST: APIRoute = async ({ params, locals, request, redirect }) => {
 
   if (row.status !== 'active' && row.status !== 'stalled') return fail('Kurz není aktivní', 400, 'stav');
 
-  const feedbackPath = input.answer ? await recordAnswer(id, readPosition, input.answer, user.id) : null;
-  const next = feedbackPath && input.answer !== 1 ? `${feedbackPath}?stav=ulozeno&z=lekce` : coursePath;
+  const feedbackPath = answer ? await recordAnswer(id, readPosition, answer, user.id) : null;
+  const next = feedbackPath && answer !== 1 ? `${feedbackPath}?stav=ulozeno&z=lekce` : coursePath;
 
   try {
     const result = await deliverNextLesson(env, row);
@@ -107,23 +111,35 @@ async function recordAnswer(
 }
 
 /** Přečte volitelnou odpověď z těla. Prázdné nebo nečitelné tělo znamená volání bez odpovědi. */
-async function readInput(request: Request): Promise<{ answer: FeedbackAnswer | null; invalid: boolean; isForm: boolean }> {
+async function readInput(
+  request: Request,
+): Promise<{ answer: FeedbackAnswer | null; lesson: number | null; invalid: boolean; isForm: boolean }> {
   const type = request.headers.get('Content-Type') ?? '';
   const isForm = type.includes('application/x-www-form-urlencoded') || type.includes('multipart/form-data');
   let raw: unknown;
+  let rawLesson: unknown;
   try {
     if (isForm) {
-      raw = (await request.formData()).get('answer');
+      const form = await request.formData();
+      raw = form.get('answer');
+      rawLesson = form.get('lesson');
     } else {
       const text = await request.text();
-      raw = text.trim() ? (JSON.parse(text) as { answer?: unknown } | null)?.answer : undefined;
+      const body = text.trim() ? (JSON.parse(text) as { answer?: unknown; lesson?: unknown } | null) : null;
+      raw = body?.answer;
+      rawLesson = body?.lesson;
     }
   } catch {
     raw = undefined;
   }
-  if (raw === undefined || raw === null || raw === '') return { answer: null, invalid: false, isForm };
+  // Pozice lekce z formuláře; nečitelná hodnota (-1) nesedí s žádnou lekcí, takže se odpověď nezapíše.
+  const lessonText = typeof rawLesson === 'number' ? String(rawLesson) : rawLesson;
+  const lesson = lessonText === undefined || lessonText === null || lessonText === ''
+    ? null
+    : typeof lessonText === 'string' && /^[1-9]\d{0,2}$/.test(lessonText) ? Number(lessonText) : -1;
+  if (raw === undefined || raw === null || raw === '') return { answer: null, lesson, invalid: false, isForm };
   const answer = parseFeedbackAnswer(raw);
-  return { answer, invalid: answer === null, isForm };
+  return { answer, lesson, invalid: answer === null, isForm };
 }
 
 function json(data: unknown, status = 200) {
