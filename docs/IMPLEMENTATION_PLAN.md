@@ -21,7 +21,7 @@ cron pojede každou hodinu `0 * * * 1-5` a send-lessons si sám
 ověří, jestli je v Česku >= 7:00 a ještě neodesílal.
 
 ### A2. Konfigurace emailu
-- From: `patrick@skola.aivefirmach.cz`
+- From: `tereza@skola.aivefirmach.cz`
 - ADMIN_EMAIL: `patrick@zandl.cz`
 - Aktualizovat `wrangler.jsonc` vars MAIL_FROM
 

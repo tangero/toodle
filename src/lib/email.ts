@@ -61,6 +61,8 @@ export async function sendEmail(
     signal: AbortSignal.timeout(RESEND_TIMEOUT_MS),
     body: JSON.stringify({
       from: env.MAIL_FROM,
+      // Odpovědi čtenářů míří na stejnou schránku, ze které e-maily odcházejí (příjem je zapnutý v Resendu).
+      reply_to: replyAddress(env.MAIL_FROM),
       to: [params.to],
       subject: params.subject,
       html: params.html,
@@ -99,4 +101,10 @@ export function listUnsubscribeHeaders(appUrl: string, unsubscribeToken: string)
     'List-Unsubscribe': `<${appUrl}/api/unsubscribe/${unsubscribeToken}>`,
     'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
   };
+}
+
+/** Adresa z hlavičky „Jméno <adresa>“ (nebo holá adresa), pro Reply-To. */
+export function replyAddress(from: string): string {
+  const match = from.match(/<([^<>\s]+@[^<>\s]+)>/);
+  return (match ? match[1] : from).trim();
 }
