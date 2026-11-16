@@ -6,10 +6,11 @@ import { welcomeEmail } from '@lib/email-templates/welcome';
 import { logAudit } from '@lib/audit';
 
 import { env } from '@lib/env';
+import { isCronAuthorized } from '@lib/cron';
 
 export const POST: APIRoute = async ({ request }) => {
 
-  if (request.headers.get('X-Cron-Secret') !== env.CRON_SECRET) {
+  if (!isCronAuthorized(request)) {
     return new Response('Unauthorized', { status: 401 });
   }
 
@@ -53,7 +54,7 @@ export const POST: APIRoute = async ({ request }) => {
       // Notify admin about unmatched payment
       await sendEmail(env, {
         to: env.ADMIN_EMAIL,
-        subject: `⚠️ Nespárovaná platba ${tx.amount} Kč (VS: ${tx.variableSymbol})`,
+        subject: `Nespárovaná platba ${tx.amount} Kč (VS: ${tx.variableSymbol})`,
         html: `<p>Přijata platba ${tx.amount} Kč s VS ${tx.variableSymbol}, ale nebyla nalezena odpovídající objednávka.</p><p><a href="${env.APP_URL}/admin/platby">Zobrazit platby</a></p>`,
         tags: [{ name: 'type', value: 'admin-alert' }],
       });
@@ -86,14 +87,19 @@ export const POST: APIRoute = async ({ request }) => {
           await sendEmail(env, {
             to: userRow.email,
             subject: `Vítejte v kurzu ${courseRow.title}`,
-            html: welcomeEmail(userRow.name, courseRow.title, courseRow.welcome_email_md),
+            html: welcomeEmail({
+              name: userRow.name,
+              courseTitle: courseRow.title,
+              welcomeMd: courseRow.welcome_email_md,
+              appUrl: env.APP_URL,
+            }),
             tags: [{ name: 'type', value: 'welcome' }],
           });
         }
       } else if (newStatus !== 'paid') {
         await sendEmail(env, {
           to: env.ADMIN_EMAIL,
-          subject: `⚠️ Platba ${newStatus}: ${tx.amount} Kč (očekáváno ${order.amount_czk} Kč, VS: ${tx.variableSymbol})`,
+          subject: `Platba ${newStatus}: ${tx.amount} Kč (očekáváno ${order.amount_czk} Kč, VS: ${tx.variableSymbol})`,
           html: `<p>Platba pro objednávku VS ${tx.variableSymbol} je ${newStatus}.</p><p>Přijato: ${tx.amount} Kč, očekáváno: ${order.amount_czk} Kč.</p><p><a href="${env.APP_URL}/admin/platby">Zobrazit platby</a></p>`,
           tags: [{ name: 'type', value: 'admin-alert' }],
         });

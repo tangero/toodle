@@ -1,27 +1,7 @@
 import type { APIRoute } from 'astro';
-import { verifyMagicLink } from '@lib/auth';
-import { run } from '@lib/db';
-import { env } from "@lib/env";
 
-export const GET: APIRoute = async ({ request, locals, redirect }) => {
-
-  const url = new URL(request.url);
-  const token = url.searchParams.get('token');
-
-  if (!token) {
-    return redirect('/overeni?status=error');
-  }
-
-  const userId = await verifyMagicLink(env.DB, token);
-  if (!userId) {
-    return redirect('/overeni?status=invalid');
-  }
-
-  await run(
-    env.DB,
-    `UPDATE users SET verified_at = datetime('now') WHERE id = ? AND verified_at IS NULL`,
-    userId,
-  );
-
-  return redirect('/overeni?status=ok');
+/** Zpětná kompatibilita pro odkazy z dříve odeslaných e-mailů – vše řeší potvrzovací stránka. */
+export const GET: APIRoute = async ({ url, redirect }) => {
+  const token = url.searchParams.get('token') ?? '';
+  return redirect(`/prihlaseni/potvrzeni?typ=zapis&token=${encodeURIComponent(token)}`, 302);
 };

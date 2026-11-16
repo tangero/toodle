@@ -1,0 +1,18 @@
+Cvičná sada „Statistiky ČSÚ“ – Škola AI
+Zdroj všech souborů: Český statistický úřad (csu.gov.cz). Licence CC BY 4.0 – při použití uveďte „Zdroj: ČSÚ“.
+Soubory jsou převzaté beze změn.
+
+obyvatele-obci-2024.xlsx, obyvatele-obci-2025.xlsx
+  Počet obyvatel v obcích k 1. 1. 2024 a 1. 1. 2025
+  https://csu.gov.cz/produkty/pocet-obyvatel-v-obcich-9vln2prayv
+  https://csu.gov.cz/produkty/pocet-obyvatel-v-obcich-rlm0s92pwn
+  Pozor: hlavička má tři řádky, mezi obcemi jsou řádky krajů a okresů.
+
+inflace-isc-csu.csv
+  Indexy spotřebitelských cen podle skupin výdajů, 1/1995–12/2025
+  https://csu.gov.cz/produkty/indexy-spotrebitelskych-cen
+  Pozor: oddělovač je čárka (v českém Excelu se po otevření nerozdělí do sloupců), data jsou v „dlouhém“ formátu s kódy.
+
+mzdy-podle-odvetvi-csu.xlsx
+  Průměrná hrubá měsíční mzda podle odvětví, čtvrtletně 2000–2025
+  https://csu.gov.cz/produkty/pmz_cr

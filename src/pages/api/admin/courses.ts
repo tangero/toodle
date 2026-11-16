@@ -13,7 +13,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ error: 'Neplatný požadavek' }, 400);
   }
 
-  const { title, slug, perex, description_md, author_name, price_czk, delivery_mode } = body as Record<string, string>;
+  const { title, slug, perex, description_md, author_name, price_czk, delivery_mode,
+          audience, requirements, sort_order } = body as Record<string, string>;
   if (!title || !slug) return json({ error: 'Název a slug jsou povinné' }, 400);
 
   const existing = await getOne(env.DB, `SELECT id FROM courses WHERE slug = ?`, slug);
@@ -22,14 +23,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const id = generateId();
   await run(
     env.DB,
-    `INSERT INTO courses (id, slug, title, perex, description_md, author_name, price_czk, delivery_mode, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'draft')`,
+    `INSERT INTO courses (id, slug, title, perex, description_md, author_name, price_czk, delivery_mode, status,
+                          audience, requirements, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?)`,
     id, slug, title,
     perex ?? '',
     description_md ?? '',
     author_name ?? '',
     Number(price_czk ?? 0),
     delivery_mode ?? 'next_workday',
+    audience ?? '',
+    requirements ?? '',
+    sortOrder(sort_order),
   );
 
   await logAudit(env.DB, user.email, 'course.create', id, { title, slug });
@@ -48,7 +53,8 @@ export const PUT: APIRoute = async ({ request, locals }) => {
   }
 
   const { id, title, slug, perex, description_md, author_name, price_czk,
-          delivery_mode, status, welcome_email_md, completion_email_md } = body as Record<string, string>;
+          delivery_mode, status, welcome_email_md, completion_email_md,
+          audience, requirements, sort_order } = body as Record<string, string>;
   if (!id) return json({ error: 'ID je povinné' }, 400);
 
   const existing = await getOne(env.DB, `SELECT id FROM courses WHERE id = ?`, id);
@@ -57,7 +63,8 @@ export const PUT: APIRoute = async ({ request, locals }) => {
   await run(
     env.DB,
     `UPDATE courses SET title=?, slug=?, perex=?, description_md=?, author_name=?,
-     price_czk=?, delivery_mode=?, status=?, welcome_email_md=?, completion_email_md=?
+     price_czk=?, delivery_mode=?, status=?, welcome_email_md=?, completion_email_md=?,
+     audience=?, requirements=?, sort_order=?
      WHERE id=?`,
     title, slug,
     perex ?? '',
@@ -68,6 +75,9 @@ export const PUT: APIRoute = async ({ request, locals }) => {
     status ?? 'draft',
     welcome_email_md ?? '',
     completion_email_md ?? '',
+    audience ?? '',
+    requirements ?? '',
+    sortOrder(sort_order),
     id,
   );
 
@@ -88,6 +98,11 @@ export const DELETE: APIRoute = async ({ request, locals }) => {
   await logAudit(env.DB, user.email, 'course.archive', id);
   return json({ ok: true });
 };
+
+function sortOrder(value: unknown): number {
+  const n = Number(value);
+  return Number.isInteger(n) ? n : 100;
+}
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {

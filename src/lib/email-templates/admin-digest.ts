@@ -1,4 +1,4 @@
-import { baseTemplate } from './base';
+import { baseTemplate, button, infoBox, COLOR } from './base';
 
 interface DigestData {
   newEnrollments: number;
@@ -13,47 +13,35 @@ interface DigestData {
 
 export function adminDigestEmail(data: DigestData): string {
   return baseTemplate(
-    `Denní přehled — ${data.date}`,
+    `Denní přehled: ${data.date}`,
     `
-    <h3 style="color: #111827; margin: 0 0 16px;">Přehled za dnešek (${data.date})</h3>
+    <h1 style="margin:0 0 16px;font-size:20px;font-weight:600;line-height:1.25;color:${COLOR.ink};">Přehled za posledních 24 hodin (${data.date})</h1>
 
-    <table style="width: 100%; border-collapse: collapse;">
-      ${row('Nové enrollmenty', data.newEnrollments)}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:0 0 16px;">
+      ${row('Nové zápisy', data.newEnrollments)}
       ${row('Dokončené kurzy', data.completedEnrollments)}
       ${row('Zaplacené objednávky', data.paidOrders)}
-      ${row('Tržby dnes', `${data.revenue} Kč`)}
+      ${row('Tržby (24 h)', `${data.revenue} Kč`)}
     </table>
 
-    ${data.unmatchedPayments > 0 ? `
-    <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 12px; margin-top: 16px;">
-      <p style="margin: 0; color: #9a3412; font-size: 14px;">
-        ⚠️ <strong>${data.unmatchedPayments} nespárovaných plateb</strong> čeká na zpracování.
-      </p>
-    </div>
-    ` : ''}
+    ${data.unmatchedPayments > 0
+      ? infoBox(`<strong>Nespárované platby: ${data.unmatchedPayments}.</strong> Čekají na ruční zpracování.`)
+      : ''}
+    ${data.bouncedEmails > 0
+      ? infoBox(`<strong>Vrácené e-maily: ${data.bouncedEmails}.</strong>`)
+      : ''}
 
-    ${data.bouncedEmails > 0 ? `
-    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px; margin-top: 12px;">
-      <p style="margin: 0; color: #991b1b; font-size: 14px;">
-        📧 <strong>${data.bouncedEmails} vrácených emailů</strong> dnes.
-      </p>
-    </div>
-    ` : ''}
-
-    <div style="text-align: center; margin-top: 24px;">
-      <a href="${data.appUrl}/admin" style="background-color: #2563eb; color: #fff; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-size: 14px;">
-        Otevřít admin panel
-      </a>
-    </div>
+    ${button(`${data.appUrl}/admin`, 'Otevřít administraci')}
     `,
+    { appUrl: data.appUrl },
   );
 }
 
 function row(label: string, value: string | number) {
   return `
     <tr>
-      <td style="padding: 8px 0; color: #6b7280; font-size: 14px; border-bottom: 1px solid #f3f4f6;">${label}</td>
-      <td style="padding: 8px 0; font-weight: 600; color: #111827; text-align: right; border-bottom: 1px solid #f3f4f6;">${value}</td>
+      <td style="padding:9px 0;color:${COLOR.muted};font-size:14px;border-bottom:1px solid ${COLOR.line};">${label}</td>
+      <td style="padding:9px 0;font-weight:600;color:${COLOR.ink};font-size:15px;text-align:right;border-bottom:1px solid ${COLOR.line};">${value}</td>
     </tr>
   `;
 }

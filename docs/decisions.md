@@ -1,0 +1,48 @@
+# Rozhodnutí
+
+Rozhodnutí s důvodem. Novější nahoře. Pravidla, která z nich plynou pro kód, jsou v `CLAUDE.md`.
+
+## 2026-11-16 · Zpětná vazba na srozumitelnost lekcí
+
+- **Co:** u každé lekce tři stejně výrazné odpovědi (Rozuměl jsem · Něco mi nesedělo · Nerozuměl jsem, potřebuji to vysvětlit lépe). U kurzů na potvrzení jedno kliknutí zapíše odpověď a pošle další lekci; „nerozuměl jsem“ postup neblokuje. Po druhé a třetí odpovědi dobrovolné upřesnění (části lekce, jedna věta). Po třetí odpovědi okamžitá pomoc: zadání ke zkopírování do ChatGPT nebo Claude.
+- **Proč:** lekce vznikají s pomocí AI a je potřeba vidět, kterým pasážím lidé nerozumějí. Potvrzení přečtení je chvíle, kdy čtenář stejně kliká, takže odpoví skoro každý.
+- **Zamítnuto:** odkaz „nerozumím“ u každé části (zahltí e-mail, chybí kladné odpovědi pro srovnání); odpověď e-mailem jako hlavní cesta (málo odpovědí, nutné třídění); automatické vysvětlení psané naším modelem (další neověřený text od AI); blokování postupu při „nerozuměl jsem“ (lidé by klikali na první možnost).
+- **Přepis lekce** jen po schválení člověkem, nasazuje se běžným importem; fáze 2, nepostaveno.
+
+## 2026-11-16 · E-mail
+
+- **Odesílatel a odpovědi:** `Škola AI <tereza@skola.aivefirmach.cz>`, Reply-To tatáž adresa. V Resendu je na ní zapnutý příjem. Původně navržené Reply-To `patrick@zandl.cz` Patrick nahradil touto schránkou.
+- **DNS:** zóna `aivefirmach.cz` je na Cloudflare (převedena z Gransy 15.–16. 11. 2026, protože vlastní doménu Workeru jinak nejde nastavit). Záznamy Resendu jsou na `resend._domainkey.skola`, `send.skola`, `mail.skola` (bez proxy) a MX pro příjem na `skola`.
+- **DMARC:** `p=none`, hlášení na `dmarc@prijimackynaskolu.cz`; ta doména má povolení `aivefirmach.cz._report._dmarc`.
+
+## 2026-11-16 · Opravy logiky z code review
+
+- **Potvrzovací odkaz spustí jen svůj kurz**, běžné přihlášení nespouští nic. Důvod: čekající zápis může pod cizí adresou založit kdokoli veřejným formulářem. Důsledek: přihlášený čtenář s čekajícím zápisem ho potvrdí na stránce zápisu.
+- **Zámek odesílání** (`enrollments.sending_at`) a **číslo průchodu** (`run_no`) v klíčích proti dvojímu odeslání; klíč lekce používá id lekce, ne pozici.
+- **Mazání účtu** maže PDF certifikátů před řádky v databázi, aby soubor se jménem nezůstal bez záznamu.
+
+## 2026-11-16 · Mandát k autonomní stavbě
+
+- Commit, push, PR a nasazení na produkci s migracemi dělá Claude sám. Sloučení PR do `main` a změny ve `vibecoding-site` slučuje Patrick.
+- Zastavit se před: e-mailem skutečným čtenářům, mazáním produkčních dat, sloučením do Vibecoding.cz.
+- Publikace kurzů schválena po dokončení revize; provedena 16. 11. poté, co začaly odcházet e-maily.
+
+## 2026-11-16 · Obsah
+
+- **Vykání všude**, značka jen **Škola AI**, bez emoji, podpis „Tým Školy AI, Patrick a Andrea“. Pravidla: `docs/course-content/pravidla-psani-lekci.md`.
+- **První kurz se jmenuje Začínáme s ChatGPT** (slug zůstává `chatgpt-pro-zacatecniky`). Lekce 7–15 byly v produkci prázdné a jsou nově napsané.
+- **Lekce 13** staví na projektu s instrukcemi, protože OpenAI vlastní GPTs k 11. 12. 2026 ruší.
+- **Soubory v `docs/course-content/` jsou jediný zdroj lekcí.** Důvod: revize, vykání a opravy se dělají hromadně a musí jít porovnat se stavem v databázi.
+- **Právní podklad** pro tvrzení o datech a smlouvách: článek https://www.marigold.cz/item/smlouvy-ai-gdpr/ (ověřený právníkem). Autorské právo a AI Act jím pokryté nejsou.
+
+## 2026-11-16 · Redesign
+
+- **K čemu web je:** budovat důvěru a povědomí, aby si čtenář vzpomněl při zmínce o školení AI. Web je pro jednotlivce (zvědavý začátečník, člověk z kanceláře), firmy jako celek neoslovuje.
+- **Vzhled:** varianta C „Technická“ (IBM Plex Sans a Mono, černé linky, ostré rohy, jedna akcentní barva `#b93a0d`), vybraná ze tří návrhů. Zamítnuto: převzít vzhled aivefirmach.cz, zklidnit původní barevný styl. Bez tmavého režimu.
+- **Titulka:** jeden hlavní krok (zápis do doporučeného kurzu), katalog všech kurzů bez třídění s řádkem „pro koho“ a „co potřebujete“, ukázka lekce, autor, nejbližší akce, odběr novinek. Zamítnuto: třídění podle nástroje i rozcestník podle profese (kurzů je málo).
+- **Autor:** Patrick Zandl, s přiznaným propojením na AI ve firmách a Vibecoding.cz. Číslo účastníků se píše „kolem 10 000 lidí od roku 2025“, je to odhad.
+- **Nabídky:** sekce „Další naše AI vzdělávání“ se dvěma nejbližšími akcemi z propagačního systému Vibecoding.cz, pod každou lekcí, v uvítacím a závěrečném e-mailu a na webu. Nabízí se vše, co se právě propaguje. Bez zaškrtávacího pole při zápisu, s odhlášením zvlášť od kurzu.
+- **Novinky:** vlastní newsletter Škola AI nemá; odkazuje na `zandl.substack.com` a WhatsApp kanál. Newsletter Vibecoding.cz se nenabízí (příliš technický).
+- **Patička a právní texty** podle Vibecoding.cz (provozovatel Patrick Zandl, IČO 43943420).
+- **Kurzy zdarma;** placené „možná časem“.
+- Podklad: https://claude.ai/artifact/9go6sSt4QRn34VQEvjQvWA, návrhy vzhledu: https://claude.ai/artifact/TF6g5fWLTojW32kobUGQz1.

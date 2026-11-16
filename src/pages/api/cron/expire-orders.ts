@@ -3,17 +3,18 @@ import { getAll, run } from '@lib/db';
 import { logAudit } from '@lib/audit';
 
 import { env } from '@lib/env';
+import { isCronAuthorized } from '@lib/cron';
 
 export const POST: APIRoute = async ({ request }) => {
 
-  if (request.headers.get('X-Cron-Secret') !== env.CRON_SECRET) {
+  if (!isCronAuthorized(request)) {
     return new Response('Unauthorized', { status: 401 });
   }
 
   const expiredOrders = await getAll<{ id: string; enrollment_id: string | null }>(
     env.DB,
     `SELECT id, enrollment_id FROM orders
-     WHERE status = 'pending' AND expires_at < datetime('now')`,
+     WHERE status = 'pending' AND datetime(expires_at) < datetime('now')`,
   );
 
   let count = 0;

@@ -1,21 +1,34 @@
-import { baseTemplate } from './base';
+import { baseTemplate, infoBox, promoSection, styleProse, P, SIGNATURE, type PromoData } from './base';
 import { renderMarkdown } from '../markdown';
+import { escapeHtml } from '../escape';
 
-export function welcomeEmail(
-  name: string,
-  courseTitle: string,
-  welcomeMd: string,
-): string {
-  const content = welcomeMd
-    ? renderMarkdown(welcomeMd)
-    : `<p>Gratulujeme! Právě jste začali kurz <strong>${courseTitle}</strong>. První lekce vám přijde již brzy.</p>`;
+interface WelcomeEmailParams {
+  name: string;
+  courseTitle: string;
+  /** Uvítací text kurzu z adminu (Markdown). Prázdný = výchozí věta. */
+  welcomeMd: string;
+  /** Kdy a jak přijde první lekce. */
+  firstLessonInfo?: string;
+  appUrl: string;
+  /** Nabídka dalšího vzdělávání. Chybí u příjemců, kteří ji odhlásili, a když není co nabídnout. */
+  promo?: PromoData;
+}
+
+export function welcomeEmail(p: WelcomeEmailParams): string {
+  const content = p.welcomeMd
+    ? styleProse(renderMarkdown(p.welcomeMd))
+    : `<p style="${P}">vítejte v kurzu <strong>${escapeHtml(p.courseTitle)}</strong>. Jsme rádi, že jste se zapsali.</p>`;
 
   return baseTemplate(
-    `Vítejte v kurzu ${courseTitle}`,
+    `Vítejte v kurzu ${p.courseTitle}`,
     `
-    <p>Ahoj ${name},</p>
+    <p style="${P}">Dobrý den, ${escapeHtml(p.name)},</p>
     ${content}
-    <p>Přejeme hodně štěstí s učením!</p>
+    ${p.firstLessonInfo ? infoBox(escapeHtml(p.firstLessonInfo)) : ''}
+    <p style="${P}">Přejeme vám, ať se kurz dobře čte.</p>
+    ${SIGNATURE}
+    ${promoSection(p.promo)}
     `,
+    { appUrl: p.appUrl },
   );
 }

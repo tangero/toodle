@@ -1,112 +1,80 @@
-# Lokální vývoj – Letní škola AI (toodle)
+# Lokální vývoj – Škola AI
 
-Tento dokument popisuje, jak spustit projekt lokálně s plnou Cloudflare emulací (D1 + R2 + Bindings).
+Projekt běží jako Cloudflare Worker (Astro 6 + `@astrojs/cloudflare`). Lokálně ho spouští `wrangler dev` s emulací D1, R2 a rate limiteru.
 
 ## Požadavky
 
 - Node.js >= 22.12
-- Wrangler CLI (nainstalován jako dependency)
-- (Volitelně) účet na Resend, OpenRouter, FIO pro reálné testy
+- Wrangler (je v devDependencies)
 
-## Rychlý start (doporučený způsob)
+## Rychlý start
 
 ```bash
-# 1. Instalace závislostí
 npm install
 
-# 2. Vytvoř .env.local z příkladu
-cp .env.example .env.local
-# Uprav .env.local – alespoň APP_URL a JWT_SECRET + CRON_SECRET
+# Proměnné prostředí – wrangler je čte ze souboru .dev.vars (je v .gitignore)
+cp .env.example .dev.vars
+# Vyplň alespoň JWT_SECRET, CRON_SECRET, ADMIN_EMAIL. EMAIL_DEV_LOG=1 nechej zapnuté.
 
-# 3. Build projektu (vytvoří dist/)
-npm run build
+# Lokální D1: aplikuje všechny migrace z db/migrations (sleduje, které už proběhly)
+npm run db:migrate:local
 
-# 4. Spuštění s plnou Cloudflare emulací (D1 + R2 v paměti)
+# Build + wrangler dev na http://localhost:8788
 npm run dev:wrangler
 ```
 
-Aplikace poběží na `http://localhost:8788`.
+Data lokální D1 a R2 jsou v `.wrangler/state` a přežijí restart.
 
-## Dostupné npm skripty
+## npm skripty
 
-| Skript                | Popis |
-|-----------------------|-------|
-| `npm run dev`         | Klasický Astro dev server (bez D1/R2 bindingů) |
-| `npm run build`       | Produkční build do `dist/` |
-| `npm run preview`     | Preview buildu |
-| `npm run dev:wrangler`| **Doporučeno** – wrangler pages dev s lokální D1 + R2 emulací |
-| `npm run check`       | Type checking přes Astro |
-| `npm run generate-types` | Vygeneruje Cloudflare types |
+| Skript | Popis |
+|---|---|
+| `npm run dev:wrangler` | **Doporučeno** – build a `wrangler dev` s D1, R2 a rate limiterem |
+| `npm run dev` | Astro dev server bez D1/R2 – stránky sahající do DB nefungují |
+| `npm run db:migrate:local` | Aplikuje migrace do lokální D1 |
+| `npm test` | Unit testy (vitest) – časy doručení, escapování, certifikát, LLM |
+| `npm run check` | Typová kontrola (`astro check`) |
+| `npm run build` | Produkční build do `dist/` |
+| `npm run generate-types` | Vygeneruje `worker-configuration.d.ts` |
 
-## Lokální databáze a storage (D1 + R2)
+## E-maily lokálně
 
-Wrangler automaticky vytváří dočasné D1 databáze a R2 buckety v paměti při spuštění `wrangler pages dev`.
+S `EMAIL_DEV_LOG=1` se e-maily neodesílají. Do konzole wrangleru se vypíše řádek `[email:dev] … → příjemce | předmět` a HTML těla (`[email:dev-body]`), včetně přihlašovacích a potvrzovacích odkazů. Bez této proměnné a se skutečným `RESEND_API_KEY` e-maily opravdu odejdou.
 
-Po restartu se data ztratí (to je v lokálním vývoji normální).
+## První admin
 
-### Trvalá lokální D1 (volitelné)
-
-Pokud chceš data přežít restart:
-
-```bash
-npx wrangler d1 create toodle-local --experimental-remote  # nebo lokálně
-# Pak uprav příkaz v package.json nebo spusť ručně s --d1=...
-```
-
-## První admin účet
-
-Po prvním spuštění nemáš žádného admina.
-
-### Možnost A – Bootstrap endpoint (doporučeno)
-
-Viz `src/pages/api/admin/bootstrap.ts` (musí být implementován – viz níže).
-
-### Možnost B – Ruční vložení přes SQL
+Admin je uživatel s e-mailem z `ADMIN_EMAIL`. Stačí se přihlásit na `/prihlaseni`. Přihlašovací odkaz se ale posílá jen existujícím účtům, takže admina je potřeba nejdřív vložit:
 
 ```bash
-npx wrangler d1 execute toodle-local --local --command "
-  INSERT INTO users (id, email, name, verified_at) 
-  VALUES ('ulid-here', 'tvuj@email.cz', 'Patrick', datetime('now'));
-"
+npx wrangler d1 execute skola-ai-db --local --persist-to .wrangler/state --command \
+  "INSERT INTO users (id, email, name, verified_at) VALUES ('admin-1', 'tvuj@email.cz', 'Admin', datetime('now'))"
 ```
 
-## Důležitá omezení lokálního vývoje
+## Crony
 
-- Email (Resend) – lokálně se neposílá (nebo použij testovací klíč)
-- FIO API – reálné volání na banku (pozor na limity)
-- LLM (OpenRouter) – reálné volání (může stát peníze)
-- Crony – lokálně se nespouštějí automaticky (musíš je volat ručně přes curl s `CRON_SECRET`)
-
-Příklad ručního spuštění cronu:
+V produkci je spouští Cloudflare přímo ve stejném Workeru (`scheduled` handler v `src/worker.ts`, výrazy v `wrangler.jsonc` → `triggers.crons`). Lokálně se cron endpointy volají ručně:
 
 ```bash
-curl -X POST http://localhost:8788/api/cron/send-lessons \
-  -H "X-Cron-Secret: $CRON_SECRET"
+curl -X POST http://localhost:8788/api/cron/send-lessons -H "X-Cron-Secret: $CRON_SECRET"
+# další: reminders, expire-orders, cleanup, admin-digest, match-payments
 ```
 
-## Řešení častých problémů
-
-**"Astro.locals.runtime.env has been removed"**
-
-→ V novém kódu nepoužívej `locals.runtime.env`; používej `@lib/env`, který čte Cloudflare bindings přes `cloudflare:workers`.
-
-**Build selže na typech**
+`wrangler dev --test-scheduled` (`/__scheduled?cron=…`) se sestaveným `dist/server/wrangler.json` nefunguje: požadavek dostane Astro a vrátí 404. Nejspíš je to kvůli `no_bundle`. Kopie konfigurace bez `no_bundle` a `rules` scheduled handler spustí:
 
 ```bash
-npm run check
+cd dist/server && python3 -c "import json;d=json.load(open('wrangler.json'));[d.pop(k,None) for k in ('no_bundle','rules')];json.dump(d,open('wrangler.sched.json','w'))"
+npx wrangler dev --config wrangler.sched.json --port 8797 --test-scheduled --env-file ../../.dev.vars --persist-to ../../.wrangler/state
+curl "http://localhost:8797/__scheduled?cron=0+7+*+*+*"
 ```
 
-**Chceš reálnou D1 databázi lokálně**
+## Omezení
 
-Použij `wrangler d1 execute ... --local --file=db/migrations/0001_initial.sql`
+- OpenRouter (hodnocení otevřených otázek) volá reálné API a stojí peníze. Bez `OPENROUTER_API_KEY` vrátí test s otevřenými otázkami 503.
+- FIO: bez `FIO_API_TOKEN` se párování plateb přeskočí (kurzy jsou zatím zdarma).
+- Rate limiter je lokálně emulovaný (10 požadavků / 60 s na IP).
 
-## Další kroky po lokálním spuštění
+## Časté problémy
 
-1. Vytvoř si prvního admina
-2. Přidej minimálně jeden kurz přes `/admin/kurzy/novy`
-3. Otestuj celý flow (registrace → objednávka → "platba" → lekce → test → certifikát)
-4. Až vše funguje lokálně → pokračuj podle `DEPLOYMENT_CHECKLIST.md`
+**„Astro.locals.runtime.env has been removed“** – používej `import { env } from '@lib/env'`.
 
----
-
-**Poznámka pro vývojáře**: Při přidávání nových API routes a Astro stránek drž jednotný pattern `import { env } from '@lib/env'`.
+**Změna schématu DB** – přidej novou migraci `db/migrations/000N_*.sql`, srovnej `db/schema.sql` a spusť `npm run db:migrate:local`.

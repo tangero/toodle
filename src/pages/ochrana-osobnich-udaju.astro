@@ -1,0 +1,123 @@
+---
+/**
+ * Zásady zpracování osobních údajů. Vychází ze zásad Vibecoding.cz (stejný správce)
+ * a popisuje to, co je ve Škole AI jiné: hodnocení testů pomocí AI, veřejné certifikáty
+ * a nabídku dalšího vzdělávání v e-mailech. Návrh z 16. 11. 2026, čeká na posouzení právníkem.
+ * Při změně toho, jaké údaje aplikace ukládá nebo komu je předává, uprav i tento text.
+ */
+import SiteLayout from '@layouts/SiteLayout.astro';
+---
+
+<SiteLayout
+  title="Zásady zpracování osobních údajů"
+  description="Jak Škola AI nakládá s vašimi osobními údaji: jaké údaje ukládáme, proč, komu je předáváme a jak je smažete."
+>
+  <div class="wrap">
+    <a class="back" href="/">← Zpět na hlavní stránku</a>
+    <header class="page-head">
+      <h1>Zásady zpracování osobních údajů</h1>
+      <p class="lead">Jak nakládáme s vašimi osobními údaji na webu Škola AI.</p>
+      <p class="mono">Účinné od 16. 11. 2026</p>
+    </header>
+
+    <div class="prose" style="padding-top:2rem">
+      <h2>1. Správce údajů</h2>
+      <p>Správcem osobních údajů je:</p>
+      <p>
+        Patrick Zandl<br />
+        U Přelízky 1126/6, 250 01 Brandýs nad Labem-Stará Boleslav<br />
+        IČO: 43943420<br />
+        E-mail: <a href="mailto:patrick@zandl.cz">patrick@zandl.cz</a>
+      </p>
+      <p>
+        Stejný správce provozuje weby <a href="https://www.vibecoding.cz/">Vibecoding.cz</a>
+        a <a href="https://www.aivefirmach.cz/">AI ve firmách</a>.
+      </p>
+
+      <h2>2. Jaké údaje zpracováváme</h2>
+      <ul>
+        <li><strong>Jméno a e-mail</strong>, které zadáte při zápisu do kurzu.</li>
+        <li><strong>Průběh kurzu:</strong> do kterých kurzů jste zapsáni, které lekce jsme vám poslali a kdy.</li>
+        <li><strong>Odpovědi v závěrečném testu</strong>, jejich hodnocení a výsledné skóre.</li>
+        <li><strong>Certifikát:</strong> vaše jméno, název kurzu, datum vydání a veřejný kód certifikátu.</li>
+        <li><strong>Hodnocení kurzu</strong>, pokud nám ho po skončení kurzu pošlete.</li>
+        <li><strong>Údaje o doručení e-mailů:</strong> zda byl e-mail doručen, otevřen a zda jste klikli na odkaz.</li>
+        <li><strong>IP adresa</strong> krátkodobě, k omezení počtu požadavků a ochraně proti zneužití.</li>
+      </ul>
+
+      <h2>3. Účel a právní základ zpracování</h2>
+      <ul>
+        <li><strong>Poskytnutí kurzu</strong>, o který jste požádali: zasílání lekcí, test a certifikát. Právním základem je plnění smlouvy.</li>
+        <li><strong>Bezpečnost webu</strong> a ochrana proti zneužití. Právním základem je náš oprávněný zájem.</li>
+        <li><strong>Nabídka našeho dalšího vzdělávání</strong> v e-mailech s lekcemi a po skončení kurzu. Právním základem je náš oprávněný zájem nabízet vlastní podobné služby. Nabídky můžete kdykoli odmítnout odkazem v každém e-mailu.</li>
+        <li><strong>Zveřejnění vašeho hodnocení kurzu</strong> jen s vaším výslovným souhlasem, který můžete kdykoli odvolat.</li>
+      </ul>
+      <p>
+        Zápis do kurzu potvrzujeme dvojím ověřením: po zadání e-mailu vám pošleme potvrzovací odkaz
+        a kurz spustíme až po jeho potvrzení.
+      </p>
+
+      <h2>4. Hodnocení testů pomocí umělé inteligence</h2>
+      <p>
+        Otevřené odpovědi v závěrečném testu hodnotí jazykový model. K hodnocení posíláme pouze název
+        kurzu, text otázky a vaši odpověď. Vaše jméno ani e-mail se k hodnocení neposílají. Do odpovědí
+        proto nepište osobní údaje o sobě ani o jiných lidech.
+      </p>
+      <p>
+        Výsledek testu rozhoduje jen o vydání certifikátu o absolvování kurzu. Test můžete opakovat.
+        Pokud s hodnocením nesouhlasíte, napište nám a odpovědi posoudí člověk.
+      </p>
+
+      <h2>5. Veřejné ověření certifikátu</h2>
+      <p>
+        Každý certifikát má veřejný kód a QR kód. Kdo zná kód nebo má certifikát v ruce, uvidí na
+        stránce ověření vaše jméno, název kurzu a datum vydání. Kódy nejsou nikde veřejně vypsané.
+        Komu certifikát ukážete, je na vás.
+      </p>
+
+      <h2>6. Příjemci a zpracovatelé údajů</h2>
+      <ul>
+        <li><strong>Cloudflare</strong>: provoz webu, databáze a úložiště certifikátů.</li>
+        <li><strong>Resend</strong>: odesílání e-mailů.</li>
+        <li><strong>OpenRouter</strong> a poskytovatel jazykového modelu: hodnocení otevřených odpovědí v testu podle bodu 4.</li>
+      </ul>
+      <p>
+        Někteří zpracovatelé sídlí ve Spojených státech nebo tam údaje zpracovávají. Údaje neprodáváme
+        a nepředáváme je nikomu dalšímu k jeho vlastním účelům.
+      </p>
+
+      <h2>7. Měření a cookies</h2>
+      <p>
+        Používáme jen technickou cookie nezbytnou pro přihlášení. Web nepoužívá reklamní ani
+        analytické cookies a nevkládá sledovací kódy třetích stran.
+      </p>
+      <p>
+        Odkazy na naše další weby a akce obsahují označení zdroje, podle kterého poznáme, že návštěva
+        přišla ze Školy AI. Toto označení neobsahuje vaše osobní údaje.
+      </p>
+
+      <h2>8. Doba uchovávání</h2>
+      <p>
+        Údaje uchováváme po dobu, po kterou máte u nás účet. Účet i s průběhem kurzů, výsledky testů
+        a certifikáty můžete kdykoli smazat v nastavení účtu. Přihlašovací odkazy mažeme po vypršení
+        platnosti, provozní záznamy nejpozději po dvou letech.
+      </p>
+
+      <h2>9. Vaše práva</h2>
+      <p>Máte právo na:</p>
+      <ul>
+        <li>přístup ke svým osobním údajům, které si můžete stáhnout v nastavení účtu,</li>
+        <li>opravu nepřesných údajů,</li>
+        <li>výmaz údajů,</li>
+        <li>omezení zpracování a vznesení námitky, zejména proti zasílání nabídek,</li>
+        <li>přenositelnost údajů,</li>
+        <li>odvolání souhlasu se zveřejněním hodnocení,</li>
+        <li>podání stížnosti u Úřadu pro ochranu osobních údajů (<a href="https://uoou.gov.cz/">uoou.gov.cz</a>).</li>
+      </ul>
+      <p>
+        Pro uplatnění práv nás kontaktujte na
+        <a href="mailto:patrick@zandl.cz">patrick@zandl.cz</a>.
+      </p>
+    </div>
+  </div>
+</SiteLayout>

@@ -27,6 +27,12 @@ export interface Course {
   status: CourseStatus;
   welcome_email_md: string;
   completion_email_md: string;
+  /** Pro koho kurz je (jedna věta na titulce a stránce kurzu). */
+  audience: string;
+  /** Co je potřeba umět a mít (účet, tarif, aplikace). */
+  requirements: string;
+  /** Pořadí v katalogu, menší číslo je výš. První kurz je doporučený na titulce. */
+  sort_order: number;
   created_at: string;
 }
 

@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { generateId, getAll, getOne, run } from '@lib/db';
+import { generateId, getOne, run } from '@lib/db';
 import { logAudit } from '@lib/audit';
 import { env } from '@lib/env';
 
@@ -38,12 +38,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
     course_id, course_id,
   );
 
-  await logAudit(env.DB, user.email, 'lesson.create', id, { course_id, title, position });
+  await logAudit(env.DB, user.id, 'lesson.create', id, { course_id, title, position });
   return json({ id, position }, 201);
 };
 
 export const PUT: APIRoute = async ({ request, locals }) => {
-  // env is imported from @lib/env
   const user = locals.user!;
 
   let body: Record<string, unknown>;
@@ -54,20 +53,36 @@ export const PUT: APIRoute = async ({ request, locals }) => {
   }
 
   const { id, title, content_md, reading_minutes, position } = body as Record<string, string | number>;
-  if (!id) return json({ error: 'ID je povinné' }, 400);
+  if (!id || !title) return json({ error: 'ID a název jsou povinné' }, 400);
 
-  await run(
-    env.DB,
-    `UPDATE lessons SET title=?, content_md=?, reading_minutes=?, position=? WHERE id=?`,
-    title, content_md ?? '', Number(reading_minutes ?? 5), Number(position), id,
+  const lesson = await getOne<{ course_id: string; position: number }>(
+    env.DB, `SELECT course_id, position FROM lessons WHERE id = ?`, id,
   );
+  if (!lesson) return json({ error: 'Lekce nenalezena' }, 404);
 
-  await logAudit(env.DB, user.email, 'lesson.update', String(id));
+  const newPosition = Number(position ?? lesson.position);
+  const db = env.DB;
+  const statements = [];
+
+  if (Number.isInteger(newPosition) && newPosition >= 1 && newPosition !== lesson.position) {
+    // Prohození pozic s lekcí, která cílovou pozici zabírá (UNIQUE course_id + position).
+    statements.push(
+      db.prepare(`UPDATE lessons SET position = -1 WHERE course_id = ? AND position = ?`).bind(lesson.course_id, newPosition),
+      db.prepare(`UPDATE lessons SET position = ? WHERE id = ?`).bind(newPosition, id),
+      db.prepare(`UPDATE lessons SET position = ? WHERE course_id = ? AND position = -1`).bind(lesson.position, lesson.course_id),
+    );
+  }
+  statements.push(
+    db.prepare(`UPDATE lessons SET title = ?, content_md = ?, reading_minutes = ? WHERE id = ?`)
+      .bind(String(title), String(content_md ?? ''), Number(reading_minutes ?? 5), id),
+  );
+  await db.batch(statements);
+
+  await logAudit(env.DB, user.id, 'lesson.update', String(id));
   return json({ ok: true });
 };
 
 export const DELETE: APIRoute = async ({ request, locals }) => {
-  // env is imported from @lib/env
   const user = locals.user!;
 
   const url = new URL(request.url);
@@ -81,24 +96,24 @@ export const DELETE: APIRoute = async ({ request, locals }) => {
   );
   if (!lesson) return json({ error: 'Lekce nenalezena' }, 404);
 
-  await run(env.DB, `DELETE FROM lessons WHERE id = ?`, id);
+  const db = env.DB;
+  await db.batch([
+    // email_log.lesson_id odkazuje na lekci (FK) – historii odeslání zachováme bez vazby.
+    db.prepare(`UPDATE email_log SET lesson_id = NULL WHERE lesson_id = ?`).bind(id),
+    db.prepare(`DELETE FROM lessons WHERE id = ?`).bind(id),
+    // Přečíslování ve dvou krocích, aby UPDATE nenarazil na UNIQUE(course_id, position).
+    db.prepare(`UPDATE lessons SET position = -position WHERE course_id = ? AND position > ?`).bind(lesson.course_id, lesson.position),
+    db.prepare(`UPDATE lessons SET position = -position - 1 WHERE course_id = ? AND position < 0`).bind(lesson.course_id),
+    // Běžící zápisy, které už smazanou lekci dostaly, posuneme, aby nepřeskočily další lekci.
+    db.prepare(
+      `UPDATE enrollments SET current_lesson = current_lesson - 1
+       WHERE course_id = ? AND current_lesson > ? AND status IN ('active', 'paused', 'stalled')`,
+    ).bind(lesson.course_id, lesson.position),
+    db.prepare(`UPDATE courses SET lesson_count = (SELECT COUNT(*) FROM lessons WHERE course_id = ?) WHERE id = ?`)
+      .bind(lesson.course_id, lesson.course_id),
+  ]);
 
-  // Re-number remaining lessons
-  await run(
-    env.DB,
-    `UPDATE lessons SET position = position - 1
-     WHERE course_id = ? AND position > ?`,
-    lesson.course_id, lesson.position,
-  );
-
-  // Update lesson_count
-  await run(
-    env.DB,
-    `UPDATE courses SET lesson_count = (SELECT COUNT(*) FROM lessons WHERE course_id = ?) WHERE id = ?`,
-    lesson.course_id, lesson.course_id,
-  );
-
-  await logAudit(env.DB, user.email, 'lesson.delete', id);
+  await logAudit(env.DB, user.id, 'lesson.delete', id);
   return json({ ok: true });
 };
 

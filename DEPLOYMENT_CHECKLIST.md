@@ -1,4 +1,4 @@
-# Production Deployment Checklist – skola-ai (Letní škola AI)
+# Production Deployment Checklist – skola-ai (Škola AI)
 
 Tento checklist musí být splněn před reálným spuštěním na produkci.
 
@@ -6,6 +6,7 @@ Tento checklist musí být splněn před reálným spuštěním na produkci.
 
 - [x] `npm run build` projde bez chyb
 - [x] `npm run check` (nebo `astro check`) nehlásí kritické chyby
+- [x] `npm test` (unit testy) projde
 - [ ] Žádné `console.log` s citlivými daty v produkčním kódu
 - [ ] Všechny TODO/FIXME v kódu jsou zdokumentovány s datem a prioritou
 
@@ -25,9 +26,9 @@ Kód používá centrální helper `@lib/env`, který čte Cloudflare bindings p
 
 Povinné:
 - [ ] `RESEND_API_KEY`
-- [ ] `RESEND_WEBHOOK_SECRET`
+- [ ] `RESEND_WEBHOOK_SECRET` – bez něj webhook vrací 503 (nepodepsané požadavky se nepřijímají)
 - [ ] `OPENROUTER_API_KEY`
-- [ ] `FIO_API_TOKEN`
+- [ ] (až budou placené kurzy) `FIO_API_TOKEN` – bez něj se párování plateb přeskočí
 - [ ] `ADMIN_EMAIL`
 - [x] `JWT_SECRET` (min. 32 znaků, náhodný)
 - [x] `CRON_SECRET` (min. 32 znaků, náhodný)
@@ -36,7 +37,9 @@ Volitelné (monitoring):
 - [ ] `BETTERSTACK_HEARTBEAT_*`
 
 Volitelné (LLM routing):
-- [ ] `OPENROUTER_MODEL` (výchozí je `openrouter/auto`)
+- [ ] `OPENROUTER_MODEL` – doporučeno nastavit konkrétní model (výchozí `openrouter/auto` mění model a cenu podle dotazu)
+
+Nikdy v produkci: `EMAIL_DEV_LOG` (vypne odesílání e-mailů).
 
 ## 4. Email infrastruktura (Resend)
 
@@ -45,11 +48,15 @@ Volitelné (LLM routing):
 - [ ] Webhook nastaven na `https://<domena>/api/webhooks/resend`
 - [ ] Webhook secret zkopírován do `RESEND_WEBHOOK_SECRET`
 
-## 5. Companion Worker (crony)
+## 5. Crony a databáze
 
-- [x] `cron-worker/` nasazen: `cd cron-worker && wrangler deploy`
-- [x] `wrangler.toml` v cron-worker obsahuje správné crony a `APP_URL`
-- [x] `CRON_SECRET` nastaven i v companion workeru
+Crony běží přímo v hlavním Workeru (`scheduled` handler v `src/worker.ts`, výrazy v `wrangler.jsonc` → `triggers.crons`). Samostatný cron worker už neexistuje.
+
+- [x] Starý worker smazán: `npx wrangler delete skola-ai-cron` – jinak by crony běžely dvakrát
+- [x] Migrace aplikovány: `npx wrangler d1 migrations apply skola-ai-db --remote`
+  (pokud byla 0001 nahraná dřív ručně přes `d1 execute`, zapiš ji nejdřív do tabulky `d1_migrations`, viz Rychlé příkazy)
+- [x] Rate limiter `RATE_LIMITER` (binding `ratelimits` ve `wrangler.jsonc`) je po deployi aktivní
+- [ ] Po prvním dni zkontrolovat v logu Workeru `send-lessons {"due":…,"sent":…}`
 
 ## 6. Monitoring (doporučeno)
 
@@ -65,15 +72,15 @@ Volitelné (LLM routing):
 - [ ] Minimálně 1 kurz publikován přes `/admin/kurzy/novy`
 - [ ] Lekce + testy vyplněny
 - [ ] Welcome a Completion emaily nastaveny
-- [ ] První admin účet vytvořen (přes bootstrap nebo ručně)
+- [ ] První admin účet vložen do D1 ručně (`ADMIN_EMAIL`, viz LOCAL_DEVELOPMENT.md) – bootstrap endpoint byl odstraněn
 
 ## 8. Testování před launchi
 
 - [ ] End-to-end test na **staging** (nebo přes custom domain před přepnutím DNS):
-  1. Registrace nového uživatele (magic link)
-  2. Objednávka kurzu (i placeného)
-  3. Simulace platby (nebo ruční označení jako zaplaceno)
-  4. Doručení lekce (ruční spuštění cronu)
+  1. Zápis do kurzu bez přihlášení → potvrzovací e-mail → potvrzení → uvítací e-mail
+  2. Přihlášení existujícího uživatele (magic link)
+  3. Doručení lekce (ruční spuštění cronu) a „Hotovo“ u on-click kurzu
+  4. Odhlášení z kurzu odkazem v e-mailu i tlačítkem „Odhlásit“ v Gmailu (List-Unsubscribe)
   5. Vyplnění testu (včetně LLM hodnocení)
   6. Vydání certifikátu + veřejný odkaz
 - [ ] Email doručitelnost otestována (SPF/DKIM pass)
@@ -100,21 +107,25 @@ Volitelné (LLM routing):
 ## Rychlé příkazy (po nastavení)
 
 ```bash
-# Build + lokální test
-npm run build && npm run dev:wrangler
+# Lokální test
+npm test && npm run dev:wrangler
 
 # Nasazení hlavní aplikace
 npm run build && wrangler deploy
 
-# Nasazení companion workeru
-npm --prefix cron-worker run deploy
+# Jednorázově: smazat starý cron worker (crony jsou teď v hlavním Workeru)
+npx wrangler delete skola-ai-cron
 
 # Spuštění cronu ručně (po nasazení)
 curl -X POST https://skola.aivefirmach.cz/api/cron/send-lessons \
   -H "X-Cron-Secret: $CRON_SECRET"
 
-# Migrace D1
-wrangler d1 execute skola-ai-db --remote --file=./db/migrations/0001_initial.sql
+# Migrace D1 (před deployem nové verze)
+npx wrangler d1 migrations apply skola-ai-db --remote
+
+# Jen pokud 0001 už v produkci je (nahraná ručně) a d1_migrations ji nezná:
+npx wrangler d1 execute skola-ai-db --remote --command \
+  "CREATE TABLE IF NOT EXISTS d1_migrations (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP); INSERT OR IGNORE INTO d1_migrations (name) VALUES ('0001_initial.sql');"
 ```
 
 ---

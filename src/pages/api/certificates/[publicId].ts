@@ -19,7 +19,8 @@ export const GET: APIRoute = async ({ params }) => {
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="certifikat-${publicId}.pdf"`,
-      'Cache-Control': 'public, max-age=86400',
+      'Cache-Control': 'public, max-age=3600',
+      'X-Content-Type-Options': 'nosniff',
     },
   });
 };

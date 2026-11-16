@@ -1,43 +1,45 @@
 ---
-import PublicLayout from '@layouts/PublicLayout.astro';
+import SiteLayout from '@layouts/SiteLayout.astro';
 
 const status = Astro.url.searchParams.get('status');
 ---
 
-<PublicLayout title="Ověření emailu">
-  <div class="mx-auto max-w-md py-12 text-center">
+<SiteLayout title="Ověření e-mailu">
+  <div class="wrap">
     {status === 'ok' && (
-      <div>
-        <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-          <svg class="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-          </svg>
+      <>
+        <header class="page-head">
+          <h1>E-mail je ověřený</h1>
+          <p class="lead">Váš e-mail jsme ověřili. Pokračovat můžete ve svém profilu.</p>
+        </header>
+        <div class="page-body narrow">
+          <p class="actions"><a class="btn" href="/profil">Přejít do profilu</a></p>
         </div>
-        <h1 class="mt-4 text-2xl font-bold text-gray-900">Email ověřen</h1>
-        <p class="mt-2 text-gray-600">Váš email byl úspěšně ověřen. Můžete pokračovat.</p>
-        <a href="/profil" class="mt-6 inline-block rounded-lg bg-blue-600 px-6 py-2 font-medium text-white hover:bg-blue-700">
-          Přejít do profilu
-        </a>
-      </div>
+      </>
     )}
 
     {status === 'invalid' && (
-      <div>
-        <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
-          <svg class="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+      <>
+        <header class="page-head">
+          <h1>Odkaz není platný</h1>
+          <p class="lead">Odkaz pro ověření vypršel nebo už byl použit. Na stránce přihlášení si nechte poslat nový.</p>
+        </header>
+        <div class="page-body narrow">
+          <p class="actions"><a class="btn" href="/prihlaseni">Přejít na přihlášení</a></p>
         </div>
-        <h1 class="mt-4 text-2xl font-bold text-gray-900">Neplatný odkaz</h1>
-        <p class="mt-2 text-gray-600">Odkaz pro ověření vypršel nebo byl již použit.</p>
-      </div>
+      </>
     )}
 
-    {status === 'error' && (
-      <div>
-        <h1 class="text-2xl font-bold text-gray-900">Nastala chyba</h1>
-        <p class="mt-2 text-gray-600">Zkuste to prosím znovu.</p>
-      </div>
+    {status !== 'ok' && status !== 'invalid' && (
+      <>
+        <header class="page-head">
+          <h1>Ověření se nepodařilo</h1>
+          <p class="lead">E-mail se nepodařilo ověřit. Otevřete odkaz z e-mailu znovu, nebo si na stránce přihlášení nechte poslat nový.</p>
+        </header>
+        <div class="page-body narrow">
+          <p class="actions"><a class="btn" href="/prihlaseni">Přejít na přihlášení</a></p>
+        </div>
+      </>
     )}
   </div>
-</PublicLayout>
+</SiteLayout>

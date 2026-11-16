@@ -1,0 +1,49 @@
+---
+import SiteLayout from '@layouts/SiteLayout.astro';
+import { safeRedirectPath } from '@lib/escape';
+
+// Stránka jen zobrazí tlačítko; token se spotřebuje až po kliknutí (POST na /api/auth/verify).
+// Bezpečnostní skenery pošty, které otevírají odkazy z e-mailů, tak token nevyplýtvají.
+const token = Astro.url.searchParams.get('token') ?? '';
+const next = safeRedirectPath(Astro.url.searchParams.get('next'));
+const isEnrollment = Astro.url.searchParams.get('typ') === 'zapis';
+const validFormat = /^[0-9a-f]{64}$/.test(token);
+---
+
+<SiteLayout title={isEnrollment ? 'Potvrzení zápisu' : 'Potvrzení přihlášení'}>
+  <div class="wrap">
+    {validFormat ? (
+      <>
+        <header class="page-head">
+          <h1>{isEnrollment ? 'Potvrďte zápis do kurzu' : 'Dokončete přihlášení'}</h1>
+          <p class="lead">
+            {isEnrollment
+              ? 'Tlačítkem potvrdíte svůj e-mail. Kurz se tím spustí a zároveň vás přihlásíme.'
+              : 'Tlačítkem se přihlásíte do Školy AI.'}
+          </p>
+        </header>
+        <div class="page-body narrow">
+          <form class="form" method="post" action="/api/auth/verify">
+            <input type="hidden" name="token" value={token} />
+            <input type="hidden" name="next" value={next} />
+            <p class="actions">
+              <button type="submit" class="btn btn-accent">
+                {isEnrollment ? 'Potvrdit zápis' : 'Přihlásit se'}
+              </button>
+            </p>
+          </form>
+        </div>
+      </>
+    ) : (
+      <>
+        <header class="page-head">
+          <h1>Odkaz není platný</h1>
+          <p class="lead">Odkaz je neúplný nebo poškozený. Na stránce přihlášení si nechte poslat nový.</p>
+        </header>
+        <div class="page-body narrow">
+          <p class="actions"><a class="btn" href="/prihlaseni">Přejít na přihlášení</a></p>
+        </div>
+      </>
+    )}
+  </div>
+</SiteLayout>

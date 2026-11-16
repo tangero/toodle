@@ -10,6 +10,8 @@ export default defineConfig({
   adapter: cloudflare(),
   integrations: [react()],
   site: 'https://skola.aivefirmach.cz',
+  // Kontrolu Origin dělá src/middleware.ts – potřebuje výjimky (one-click odhlášení, webhook, crony).
+  security: { checkOrigin: false },
   vite: {
     plugins: [tailwindcss()],
     resolve: {

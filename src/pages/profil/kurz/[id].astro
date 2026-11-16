@@ -1,9 +1,9 @@
 ---
-import PublicLayout from '@layouts/PublicLayout.astro';
+import SiteLayout from '@layouts/SiteLayout.astro';
 import { getOne, getAll } from '@lib/db';
-import { renderMarkdown } from '@lib/markdown';
 import type { Enrollment, Course, Lesson, Certificate } from '@lib/types';
-import { env } from "@lib/env";
+import { env } from '@lib/env';
+import { enrollmentStatusLabel } from '@lib/labels';
 
 const { id } = Astro.params;
 const user = Astro.locals.user!;
@@ -41,103 +41,156 @@ const certificate = await getOne<Certificate>(
   enrollment.id,
 );
 
-const statusLabels: Record<string, string> = {
-  pending: 'Čeká na aktivaci',
-  active: 'Aktivní',
-  paused: 'Pozastaveno',
-  stalled: 'Neaktivní',
-  completed: 'Dokončeno',
-  cancelled: 'Zrušeno',
-};
+const hasTest = !!(await getOne<{ id: string }>(
+  env.DB,
+  `SELECT id FROM tests WHERE course_id = ? AND questions_json != '[]'`,
+  course.id,
+));
+
+const canContinue = (enrollment.status === 'active' || enrollment.status === 'stalled') && course.delivery_mode === 'on_click';
+const canPause = ['active', 'stalled', 'paused'].includes(enrollment.status);
 ---
 
-<PublicLayout title={course.title}>
-  <div class="mx-auto max-w-3xl py-8">
-    <a href="/profil" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na profil</a>
+<SiteLayout title={course.title}>
+  <div class="wrap">
+    <a class="back" href="/profil">← Zpět na profil</a>
 
-    <header class="mt-4">
-      <h1 class="text-2xl font-bold text-gray-900">{course.title}</h1>
-      <div class="mt-2 flex items-center gap-3">
-        <span class="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700">
-          {statusLabels[enrollment.status] || enrollment.status}
-        </span>
-        <span class="text-sm text-gray-500">
-          Lekce {Math.min(enrollment.current_lesson, course.lesson_count)} z {course.lesson_count}
-        </span>
-      </div>
+    <header class="page-head">
+      <h1>{course.title}</h1>
+      <p class="meta-row">
+        <span class="tag">{enrollmentStatusLabel(enrollment.status)}</span>
+        <span class="mono">Lekce {Math.min(enrollment.current_lesson, course.lesson_count)} z {course.lesson_count}</span>
+      </p>
     </header>
 
-    {enrollment.status === 'completed' && (
-      <div class="mt-6 rounded-lg bg-green-50 p-4">
-        <p class="font-medium text-green-800">Kurz byl dokončen!</p>
-        <div class="mt-2 flex gap-3">
-          {!certificate && enrollment.score === null && (
-            <a href={`/test/${enrollment.id}`} class="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
-              Složit závěrečný test
-            </a>
-          )}
-          {certificate && (
-            <a href={`/certifikat/${certificate.public_id}`} class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-              Zobrazit certifikát
-            </a>
+    <div class="page-body">
+      {enrollment.status === 'pending' && (
+        <div class="note">
+          <p><strong>Zápis čeká na potvrzení e-mailu.</strong></p>
+          <p>Otevřete potvrzovací e-mail a klikněte v něm na odkaz. Lekce začnou chodit hned potom.</p>
+          {course.price_czk === 0 && (
+            <p class="actions">
+              <a class="btn btn-line" href={`/objednavka/${course.slug}`}>Potvrdit zápis tady</a>
+            </p>
           )}
         </div>
-      </div>
-    )}
+      )}
 
-    <section class="mt-8">
-      <h2 class="text-lg font-semibold text-gray-900">Lekce</h2>
-      <ol class="mt-4 space-y-2">
-        {lessons.map((lesson) => {
-          const isCompleted = lesson.position < enrollment.current_lesson;
-          const isCurrent = lesson.position === enrollment.current_lesson;
-          return (
-            <li class:list={[
-              'flex items-center gap-3 rounded-lg border px-4 py-3',
-              isCompleted ? 'border-green-200 bg-green-50' : isCurrent ? 'border-blue-200 bg-blue-50' : 'border-gray-100',
-            ]}>
-              <span class:list={[
-                'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-medium',
-                isCompleted ? 'bg-green-200 text-green-700' : isCurrent ? 'bg-blue-200 text-blue-700' : 'bg-gray-100 text-gray-500',
-              ]}>
-                {isCompleted ? '\u2713' : lesson.position}
-              </span>
-              <span class:list={['text-gray-900', isCompleted && 'line-through opacity-60']}>
-                {lesson.title}
-              </span>
-              <span class="ml-auto text-xs text-gray-400">{lesson.reading_minutes} min</span>
-            </li>
-          );
-        })}
-      </ol>
-    </section>
+      {enrollment.status === 'paused' && (
+        <div class="note">
+          <p><strong>Kurz je pozastavený.</strong></p>
+          <p>Další lekce vám teď nechodí. Až budete chtít pokračovat, kurz obnovte tlačítkem pod seznamem lekcí.</p>
+        </div>
+      )}
 
-    {enrollment.status === 'active' && course.delivery_mode === 'on_click' && (
-      <div class="mt-6 text-center">
-        <button
-          id="mark-done"
-          class="rounded-lg bg-blue-600 px-6 py-2 font-medium text-white hover:bg-blue-700"
-          data-enrollment-id={enrollment.id}
-        >
-          Pokračovat na další lekci
-        </button>
-      </div>
-      <script>
-        document.getElementById('mark-done')?.addEventListener('click', async (e) => {
-          const btn = e.target as HTMLButtonElement;
-          const id = btn.dataset.enrollmentId;
-          btn.disabled = true;
-          btn.textContent = 'Odesílám...';
-          const res = await fetch(`/api/enrollments/${id}/done`, { method: 'POST' });
-          if (res.ok) {
-            window.location.reload();
-          } else {
-            btn.disabled = false;
-            btn.textContent = 'Pokračovat na další lekci';
-            alert('Nastala chyba.');
-          }
-        });
-      </script>
-    )}
+      {enrollment.status === 'completed' && (
+        <div class="note ok">
+          <p><strong>Kurz máte dokončený.</strong></p>
+          {enrollment.score !== null && (
+            <p>Nejlepší výsledek testu: <strong>{enrollment.score} %</strong></p>
+          )}
+          {(hasTest || certificate) && (
+            <div class="actions">
+              {hasTest && !certificate && (
+                <a class="btn" href={`/test/${enrollment.id}`}>
+                  {enrollment.score === null ? 'Složit závěrečný test' : 'Zkusit test znovu'}
+                </a>
+              )}
+              {certificate && (
+                <a class="btn" href={`/certifikat/${certificate.public_id}`}>Zobrazit certifikát</a>
+              )}
+              {hasTest && certificate && (enrollment.score ?? 0) < 100 && (
+                <a class="btn btn-line" href={`/test/${enrollment.id}`}>Zlepšit skóre</a>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      <section>
+        <h2>Lekce</h2>
+        <ol class="outline">
+          {lessons.map((lesson) => {
+            const isCompleted = lesson.position < enrollment.current_lesson;
+            const isCurrent = lesson.position === enrollment.current_lesson;
+            return (
+              <li class:list={[isCompleted && 'done', isCurrent && 'now']} aria-current={isCurrent ? 'step' : undefined}>
+                <span class="lt">{lesson.title}</span>
+                <span class="lm">
+                  {isCompleted ? 'hotovo · ' : isCurrent ? 'aktuální · ' : ''}{lesson.reading_minutes} min
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      </section>
+
+      {(canContinue || canPause) && (
+        <div class="stack">
+          <div class="actions">
+            {canContinue && (
+              <button type="button" id="mark-done" class="btn btn-accent" data-enrollment-id={enrollment.id}>
+                Mám přečteno, pošlete další lekci
+              </button>
+            )}
+            {canPause && (
+              <button type="button" id="toggle-pause" class="btn btn-line" data-enrollment-id={enrollment.id}>
+                {enrollment.status === 'paused' ? 'Obnovit kurz' : 'Pozastavit kurz'}
+              </button>
+            )}
+          </div>
+          <div aria-live="polite">
+            <p id="done-msg" class="note err" hidden></p>
+          </div>
+        </div>
+      )}
+    </div>
   </div>
-</PublicLayout>
+
+  <script>
+    const msg = document.getElementById('done-msg');
+    const showMsg = (text: string) => {
+      if (!msg) return;
+      msg.textContent = text;
+      msg.hidden = false;
+    };
+
+    document.getElementById('mark-done')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget as HTMLButtonElement;
+      const label = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Odesílám…';
+      if (msg) msg.hidden = true;
+      try {
+        const res = await fetch(`/api/enrollments/${btn.dataset.enrollmentId}/done`, { method: 'POST' });
+        if (res.ok) {
+          window.location.reload();
+          return;
+        }
+        const data = await res.json().catch(() => ({})) as { error?: string };
+        showMsg(data.error ?? 'Další lekci se nepodařilo odeslat. Zkuste to prosím znovu.');
+      } catch {
+        showMsg('Další lekci se nepodařilo odeslat. Zkontrolujte připojení k internetu a zkuste to znovu.');
+      }
+      btn.disabled = false;
+      btn.textContent = label;
+    });
+
+    document.getElementById('toggle-pause')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget as HTMLButtonElement;
+      btn.disabled = true;
+      if (msg) msg.hidden = true;
+      try {
+        const res = await fetch(`/api/enrollments/${btn.dataset.enrollmentId}/pause`, { method: 'POST' });
+        if (res.ok) {
+          window.location.reload();
+          return;
+        }
+      } catch {
+        // Chybu sítě ohlásíme stejně jako chybu serveru.
+      }
+      btn.disabled = false;
+      showMsg('Stav kurzu se nepodařilo změnit. Zkuste to prosím znovu.');
+    });
+  </script>
+</SiteLayout>

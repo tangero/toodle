@@ -33,6 +33,12 @@ function sanitizeMarkup(html: string): string {
         return `<a href="${escapeAttribute(href)}" target="_blank" rel="noopener noreferrer nofollow">`;
       }
 
+      // Číslovaný seznam přerušený odstavcem pokračuje přes <ol start="N">; bez atributu by začal znovu od 1.
+      if (name === 'ol') {
+        const start = getAttribute(String(attrs), 'start');
+        if (start && /^\d{1,4}$/.test(start)) return `<ol start="${start}">`;
+      }
+
       if (name === 'td' || name === 'th') {
         const align = getAttribute(String(attrs), 'align');
         if (align && ['left', 'center', 'right'].includes(align.toLowerCase())) {

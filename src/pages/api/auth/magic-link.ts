@@ -1,53 +1,52 @@
 import type { APIRoute } from 'astro';
-import { findOrCreateUser, createMagicLink } from '@lib/auth';
+import { createMagicLink, countRecentMagicLinks, MAX_LINKS_PER_HOUR } from '@lib/auth';
+import { getOne } from '@lib/db';
 import { sendEmail } from '@lib/email';
 import { magicLinkEmail } from '@lib/email-templates/magic-link';
-import { checkRateLimit } from '@lib/rate-limit';
-
+import { checkRateLimit, clientIp, tooManyRequests } from '@lib/rate-limit';
+import { normalizeEmail, safeRedirectPath } from '@lib/escape';
 import { env } from '@lib/env';
 
-export const POST: APIRoute = async ({ request }) => {
+const GENERIC_OK = {
+  ok: true,
+  message: 'Pokud u nás máte účet, poslali jsme vám na e-mail odkaz pro přihlášení.',
+};
 
-  let body: { email?: string; name?: string };
+export const POST: APIRoute = async ({ request }) => {
+  let body: { email?: string; next?: string };
   try {
     body = await request.json();
   } catch {
-    return new Response(JSON.stringify({ error: 'Neplatný požadavek' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return json({ error: 'Neplatný požadavek' }, 400);
   }
 
-  const email = body.email?.trim().toLowerCase();
-  if (!email || !email.includes('@')) {
-    return new Response(
-      JSON.stringify({ error: 'Zadejte platný email' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } },
-    );
-  }
+  const email = normalizeEmail(body.email);
+  if (!email) return json({ error: 'Zadejte platný e-mail' }, 400);
 
-  // Rate limit: 3 requests per email per hour
-  if (!checkRateLimit(`magic-link:${email}`, 3, 60 * 60 * 1000)) {
-    return new Response(
-      JSON.stringify({ error: 'Příliš mnoho požadavků. Zkuste to za chvíli.' }),
-      { status: 429, headers: { 'Content-Type': 'application/json' } },
-    );
-  }
+  if (!(await checkRateLimit(env, `magic-link:${clientIp(request)}`))) return tooManyRequests();
 
-  const name = body.name?.trim() || email.split('@')[0];
-  const user = await findOrCreateUser(env.DB, email, name);
+  // Nové účty z přihlašovacího formuláře nezakládáme – vznikají jen zápisem do kurzu.
+  // Odpověď je stejná pro existující i neexistující e-mail (nelze zjišťovat, kdo má účet).
+  const user = await getOne<{ id: string }>(
+    env.DB, `SELECT id FROM users WHERE email = ? AND deleted_at IS NULL`, email,
+  );
+  if (!user) return json(GENERIC_OK);
+
+  if ((await countRecentMagicLinks(env.DB, user.id)) >= MAX_LINKS_PER_HOUR) return tooManyRequests();
+
   const token = await createMagicLink(env.DB, user.id);
-
-  const url = `${env.APP_URL}/api/auth/verify?token=${token}`;
+  const next = safeRedirectPath(body.next);
+  const url = `${env.APP_URL}/prihlaseni/potvrzeni?token=${token}&next=${encodeURIComponent(next)}`;
   await sendEmail(env, {
     to: email,
-    subject: 'Přihlášení do Letní školy AI',
-    html: magicLinkEmail(url),
+    subject: 'Přihlášení do Školy AI',
+    html: magicLinkEmail(url, env.APP_URL),
     tags: [{ name: 'type', value: 'magic-link' }],
   });
 
-  return new Response(
-    JSON.stringify({ ok: true, message: 'Odkaz pro přihlášení byl odeslán na váš email.' }),
-    { status: 200, headers: { 'Content-Type': 'application/json' } },
-  );
+  return json(GENERIC_OK);
 };
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
+}

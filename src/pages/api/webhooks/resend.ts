@@ -10,22 +10,30 @@ interface ResendWebhookEvent {
 }
 
 import { env } from '@lib/env';
+import { toSqlDateTime } from '@lib/time';
 
 export const POST: APIRoute = async ({ request }) => {
 
-  // Verify Resend webhook signature (svix-based)
+  // Podpis (svix) je povinný – bez secretu nebo hlaviček webhook odmítneme.
+  if (!env.RESEND_WEBHOOK_SECRET) {
+    console.error('RESEND_WEBHOOK_SECRET není nastaven – webhook odmítnut');
+    return new Response('Webhook not configured', { status: 503 });
+  }
   const svixId = request.headers.get('svix-id');
   const svixTimestamp = request.headers.get('svix-timestamp');
   const svixSignature = request.headers.get('svix-signature');
+  if (!svixId || !svixTimestamp || !svixSignature) {
+    return new Response('Missing signature', { status: 401 });
+  }
+  // Ochrana proti přehrání starých zpráv: max. 5 minut.
+  const ts = Number(svixTimestamp);
+  if (!Number.isFinite(ts) || Math.abs(Date.now() / 1000 - ts) > 300) {
+    return new Response('Stale timestamp', { status: 401 });
+  }
 
   const body = await request.text();
-
-  if (svixId && svixTimestamp && svixSignature && env.RESEND_WEBHOOK_SECRET) {
-    const isValid = await verifyWebhookSignature(
-      body, svixId, svixTimestamp, svixSignature, env.RESEND_WEBHOOK_SECRET,
-    );
-    if (!isValid) return new Response('Invalid signature', { status: 401 });
-  }
+  const isValid = await verifyWebhookSignature(body, svixId, svixTimestamp, svixSignature, env.RESEND_WEBHOOK_SECRET);
+  if (!isValid) return new Response('Invalid signature', { status: 401 });
 
   let event: ResendWebhookEvent;
   try {
@@ -42,7 +50,7 @@ export const POST: APIRoute = async ({ request }) => {
   );
   if (!logRow) return new Response('OK', { status: 200 });
 
-  const now = new Date().toISOString();
+  const now = toSqlDateTime(new Date());
 
   switch (event.type) {
     case 'email.opened':

@@ -1,19 +1,16 @@
-import { baseTemplate } from './base';
+import { baseTemplate, button, P, SMALL } from './base';
 
-export function magicLinkEmail(url: string): string {
+export function magicLinkEmail(url: string, appUrl: string): string {
   return baseTemplate(
-    'Přihlášení do Letní školy AI',
+    'Přihlášení do Školy AI',
     `
-    <p>Ahoj,</p>
-    <p>kliknutím na tlačítko se přihlásíte do Letní školy AI:</p>
-    <div style="text-align: center; margin: 32px 0;">
-      <a href="${url}" style="background-color: #2563eb; color: #ffffff; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block;">
-        Přihlásit se
-      </a>
-    </div>
-    <p style="color: #6b7280; font-size: 14px;">
-      Odkaz platí 15 minut. Pokud jste o přihlášení nežádali, email ignorujte.
+    <p style="${P}">Dobrý den,</p>
+    <p style="${P}">tlačítkem níže se přihlásíte do Školy AI.</p>
+    ${button(url, 'Přihlásit se')}
+    <p style="${SMALL}">
+      Odkaz platí 15 minut. Pokud jste o přihlášení nežádali, e-mail ignorujte.
     </p>
     `,
+    { appUrl },
   );
 }

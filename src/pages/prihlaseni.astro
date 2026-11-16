@@ -1,88 +1,105 @@
 ---
-import PublicLayout from '@layouts/PublicLayout.astro';
+import SiteLayout from '@layouts/SiteLayout.astro';
 
 const error = Astro.url.searchParams.get('error');
 const redirectTo = Astro.url.searchParams.get('redirect') || '/profil';
 
 const errorMessages: Record<string, string> = {
-  'missing-token': 'Odkaz je neplatný.',
-  'invalid-token': 'Odkaz vypršel nebo byl již použit. Vyžádejte si nový.',
+  'missing-token': 'Přihlašovací odkaz je neúplný. Nechte si poslat nový.',
+  'invalid-token': 'Přihlašovací odkaz vypršel nebo už byl použit. Nechte si poslat nový.',
 };
 ---
 
-<PublicLayout title="Přihlášení">
-  <div class="wrap enroll">
-    <a class="back" href="/">← Zpět</a>
-    <div class="card">
-      <h1>Přihlášení do Školy AI</h1>
-      <p class="sub">
-        Zadejte e-mail a pošleme vám přihlašovací odkaz. Žádné heslo si nemusíte pamatovat.
-      </p>
+<SiteLayout title="Přihlášení" description="Přihlášení do Školy AI odkazem zaslaným na e-mail, bez hesla.">
+  <div class="wrap">
+    <a class="back" href="/">← Zpět na hlavní stránku</a>
 
+    <header class="page-head">
+      <h1>Přihlášení</h1>
+      <p class="lead">Zadejte e-mail, se kterým jste se zapsali do kurzu. Pošleme vám přihlašovací odkaz, heslo nepotřebujete.</p>
+    </header>
+
+    <div class="page-body narrow">
       {error && (
-        <div class="ok" style="background:#fee2e2;border-color:#fca5a5;color:#991b1b;margin-bottom:18px">
-          {errorMessages[error] || 'Nastala chyba. Zkuste to znovu.'}
-        </div>
+        <p class="note err">{errorMessages[error] || 'Přihlášení se nepodařilo. Nechte si poslat nový odkaz.'}</p>
       )}
 
-      <form id="login-form">
+      <form id="login-form" class="form" method="post">
         <input type="hidden" name="redirect" value={redirectTo} />
         <div class="field">
-          <label for="email">Váš e-mail</label>
-          <input type="email" id="email" name="email" required placeholder="vas@email.cz" />
+          <label for="email">E-mail</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            required
+            maxlength="254"
+            autocomplete="email"
+            inputmode="email"
+            spellcheck="false"
+            enterkeyhint="send"
+            data-error="email-error"
+          />
+          <span class="error-msg" id="email-error">E-mail není ve správném tvaru. Zadejte ho jako jmeno@example.cz.</span>
         </div>
-        <button type="submit" class="btn btn-pink btn-big">Odeslat přihlašovací odkaz →</button>
+        <button type="submit" class="btn btn-accent" data-label="Poslat přihlašovací odkaz">Poslat přihlašovací odkaz</button>
       </form>
 
-      <div id="message" class="ok" style="display:none;margin-top:18px"></div>
+      <div aria-live="polite">
+        <p id="message" class="note" tabindex="-1" hidden></p>
+      </div>
     </div>
   </div>
 
   <script>
+    import { initFormErrors } from '../scripts/form-errors';
+
     const form = document.getElementById('login-form') as HTMLFormElement;
-    const messageEl = document.getElementById('message') as HTMLDivElement;
+    const messageEl = document.getElementById('message') as HTMLParagraphElement;
+    initFormErrors(form);
+
+    const showMessage = (text: string, ok: boolean) => {
+      messageEl.textContent = text;
+      messageEl.classList.toggle('ok', ok);
+      messageEl.classList.toggle('err', !ok);
+      messageEl.hidden = false;
+    };
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const formData = new FormData(form);
       const email = formData.get('email') as string;
+      const next = formData.get('redirect') as string;
       const button = form.querySelector('button') as HTMLButtonElement;
+      const label = button.dataset.label ?? '';
 
       button.disabled = true;
-      button.textContent = 'Odesílám...';
-      messageEl.style.display = 'none';
+      button.textContent = 'Odesílám…';
+      messageEl.hidden = true;
+      messageEl.textContent = '';
 
       try {
         const res = await fetch('/api/auth/magic-link', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ email, next }),
         });
         const data = (await res.json()) as { message?: string; error?: string };
 
-        messageEl.style.display = 'block';
         if (res.ok) {
-          messageEl.style.background = '#d1fae5';
-          messageEl.style.borderColor = '#6ee7b7';
-          messageEl.style.color = '#065f46';
-          messageEl.textContent = '📬 ' + (data.message || 'Zkontrolujte svůj e-mail.');
-          form.style.display = 'none';
+          form.hidden = true;
+          showMessage(data.message || 'Podívejte se do své e-mailové schránky.', true);
+          // Formulář zmizel, focus přesuneme na hlášku.
+          messageEl.focus();
         } else {
-          messageEl.style.background = '#fee2e2';
-          messageEl.style.borderColor = '#fca5a5';
-          messageEl.style.color = '#991b1b';
-          messageEl.textContent = data.error || 'Neznámá chyba';
+          showMessage(data.error || 'Odkaz se nepodařilo odeslat. Zkuste to za chvíli znovu.', false);
         }
       } catch {
-        messageEl.style.display = 'block';
-        messageEl.style.background = '#fee2e2';
-        messageEl.style.borderColor = '#fca5a5';
-        messageEl.style.color = '#991b1b';
-        messageEl.textContent = 'Nastala chyba. Zkuste to znovu.';
+        showMessage('Odkaz se nepodařilo odeslat. Zkontrolujte připojení k internetu a zkuste to znovu.', false);
       } finally {
         button.disabled = false;
-        button.textContent = 'Odeslat přihlašovací odkaz →';
+        button.textContent = label;
       }
     });
   </script>
-</PublicLayout>
+</SiteLayout>

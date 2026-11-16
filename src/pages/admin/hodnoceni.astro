@@ -1,0 +1,101 @@
+---
+/**
+ * Přehled hodnocení kurzů od absolventů (formulář /hodnoceni/[token]).
+ * Text hodnocení píše uživatel: vypisuje se jen jako `{text}`, nikdy přes set:html.
+ */
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { getAll } from '@lib/db';
+import { firstName } from '@lib/ratings';
+import { env } from '@lib/env';
+
+const ratings = await getAll<{
+  id: string; course_title: string; created_at: string;
+  score: number; comment: string; publish_consent: number; user_name: string;
+}>(
+  env.DB,
+  `SELECT r.id, c.title as course_title, r.created_at, r.score, r.comment, r.publish_consent,
+          u.name as user_name
+   FROM course_ratings r
+   JOIN enrollments e ON e.id = r.enrollment_id
+   JOIN courses c ON c.id = e.course_id
+   JOIN users u ON u.id = e.user_id AND u.deleted_at IS NULL
+   ORDER BY r.created_at DESC
+   LIMIT 300`,
+);
+
+const summary = await getAll<{ course_title: string; count: number; average: number }>(
+  env.DB,
+  `SELECT c.title as course_title, COUNT(*) as count, AVG(r.score) as average
+   FROM course_ratings r
+   JOIN enrollments e ON e.id = r.enrollment_id
+   JOIN courses c ON c.id = e.course_id
+   GROUP BY c.id
+   ORDER BY c.sort_order, c.title`,
+);
+
+const formatDate = (value: string) => value.slice(0, 10).split('-').reverse().map(Number).join('. ');
+const formatAverage = (value: number) => value.toFixed(1).replace('.', ',');
+---
+
+<AdminLayout title="Hodnocení kurzů">
+  {summary.length > 0 && (
+    <div class="mb-6 overflow-hidden rounded-xl border border-gray-200 bg-white">
+      <table class="w-full text-sm">
+        <thead class="border-b border-gray-200 bg-gray-50">
+          <tr>
+            <th scope="col" class="px-4 py-3 text-left font-medium text-gray-700">Kurz</th>
+            <th scope="col" class="px-4 py-3 text-right font-medium text-gray-700">Počet hodnocení</th>
+            <th scope="col" class="px-4 py-3 text-right font-medium text-gray-700">Průměrná známka</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {summary.map((s) => (
+            <tr>
+              <td class="px-4 py-3 text-gray-900">{s.course_title}</td>
+              <td class="px-4 py-3 text-right text-gray-900">{s.count}</td>
+              <td class="px-4 py-3 text-right font-medium text-gray-900">{formatAverage(s.average)} z 5</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+
+  <div class="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+    <table class="w-full text-sm">
+      <thead class="border-b border-gray-200 bg-gray-50">
+        <tr>
+          <th scope="col" class="px-4 py-3 text-left font-medium text-gray-700">Kurz</th>
+          <th scope="col" class="px-4 py-3 text-left font-medium text-gray-700">Datum</th>
+          <th scope="col" class="px-4 py-3 text-left font-medium text-gray-700">Známka</th>
+          <th scope="col" class="px-4 py-3 text-left font-medium text-gray-700">Text</th>
+          <th scope="col" class="px-4 py-3 text-left font-medium text-gray-700">Zveřejnění</th>
+          <th scope="col" class="px-4 py-3 text-left font-medium text-gray-700">Křestní jméno</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {ratings.map((r) => (
+          <tr class="align-top hover:bg-gray-50">
+            <td class="px-4 py-3 text-gray-900">{r.course_title}</td>
+            <td class="px-4 py-3 whitespace-nowrap text-gray-500">{formatDate(r.created_at)}</td>
+            <td class="px-4 py-3 whitespace-nowrap font-medium text-gray-900">{r.score} z 5</td>
+            <td class="max-w-xl px-4 py-3 whitespace-pre-wrap break-words text-gray-700">{r.comment || '–'}</td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              {r.publish_consent === 1
+                ? <span class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Souhlasí</span>
+                : <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">Nesouhlasí</span>}
+            </td>
+            <td class="px-4 py-3 text-gray-900">{firstName(r.user_name)}</td>
+          </tr>
+        ))}
+        {ratings.length === 0 && (
+          <tr>
+            <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+              Zatím žádné hodnocení. Žádost o hodnocení odchází absolventům tři dny po dokončení kurzu.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</AdminLayout>

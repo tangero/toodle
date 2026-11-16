@@ -1,0 +1,20 @@
+Cvičná sada „Podnikání“ – Škola AI
+Soubory jsou převzaté beze změn z veřejných zdrojů.
+
+ekonomicke-subjekty-aktivni-csu.xlsx
+  Aktivní ekonomické subjekty podle právní formy a velikosti, 2000–2025
+  Zdroj: Český statistický úřad, https://csu.gov.cz/produkty/res_cr – licence CC BY 4.0 („Zdroj: ČSÚ“)
+  Pozor: chybějící hodnoty jsou zapsané tečkou.
+
+inflace-isc-csu.csv
+  Indexy spotřebitelských cen, 1/1995–12/2025. Zdroj: ČSÚ, https://csu.gov.cz/produkty/indexy-spotrebitelskych-cen – CC BY 4.0
+
+pokyny-danove-priznani-fo-2025.pdf
+  Pokyny k vyplnění přiznání k dani z příjmů fyzických osob za rok 2025
+  Zdroj: Ministerstvo financí / Finanční správa, https://financnisprava.gov.cz/cs/dane/danove-tiskopisy?rok=2025
+  Úřední tiskopis.
+
+cnb-zprava-o-menove-politice-leto-2026.pdf
+  Zpráva o měnové politice – léto 2026
+  Zdroj: Česká národní banka, https://www.cnb.cz/cs/menova-politika/zpravy-o-menove-politice/Zprava-o-menove-politice-leto-2026/
+  Šíření dle podmínek užití obsahu webu ČNB.

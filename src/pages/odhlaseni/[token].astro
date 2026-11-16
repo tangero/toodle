@@ -1,66 +1,97 @@
 ---
-import PublicLayout from '@layouts/PublicLayout.astro';
+import SiteLayout from '@layouts/SiteLayout.astro';
 import { verifyUnsubscribeToken } from '@lib/unsubscribe';
-import { getOne, run } from '@lib/db';
-import { logAudit } from '@lib/audit';
-import { env } from "@lib/env";
+import { cancelEnrollmentByToken, type UnsubscribeResult } from '@lib/unsubscribe-action';
+import { getOne } from '@lib/db';
+import { env } from '@lib/env';
 
-const { token } = Astro.params;
+const { token = '' } = Astro.params;
 
-let status: 'ok' | 'invalid' | 'already' = 'invalid';
+// GET jen zobrazí potvrzení – odkaz v e-mailu otevírají i bezpečnostní skenery pošty,
+// které by jinak studenty potichu odhlásily. Odhlášení provede až POST z tlačítka.
+let status: UnsubscribeResult | 'confirm' = 'invalid';
+let courseTitle = '';
 
-if (token) {
+if (Astro.request.method === 'POST') {
+  status = await cancelEnrollmentByToken(token);
+} else {
   const enrollmentId = await verifyUnsubscribeToken(token, env.JWT_SECRET);
   if (enrollmentId) {
-    const enrollment = await getOne<{ id: string; status: string; user_id: string }>(
+    const row = await getOne<{ status: string; title: string }>(
       env.DB,
-      `SELECT id, status, user_id FROM enrollments WHERE id = ?`,
+      `SELECT e.status, c.title FROM enrollments e JOIN courses c ON c.id = e.course_id WHERE e.id = ?`,
       enrollmentId,
     );
-    if (enrollment) {
-      if (enrollment.status === 'cancelled') {
-        status = 'already';
-      } else {
-        await run(
-          env.DB,
-          `UPDATE enrollments SET status = 'cancelled', next_send_at = NULL WHERE id = ?`,
-          enrollmentId,
-        );
-        await logAudit(env.DB, 'unsubscribe', 'enrollment.cancelled', enrollmentId);
-        status = 'ok';
-      }
+    if (row) {
+      courseTitle = row.title;
+      status = row.status === 'cancelled' ? 'already' : row.status === 'completed' ? 'completed' : 'confirm';
     }
   }
 }
 ---
 
-<PublicLayout title="Odhlášení z kurzu">
-  <div class="mx-auto max-w-md py-16 text-center">
-    {status === 'ok' && (
-      <div>
-        <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
-          <svg class="h-8 w-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-          </svg>
+<SiteLayout title="Odhlášení z kurzu">
+  <div class="wrap">
+    {status === 'confirm' && (
+      <>
+        <header class="page-head">
+          <h1>Odhlásit se z kurzu?</h1>
+          <p class="lead">Kurz <strong>{courseTitle}</strong>: další lekce vám přestanou chodit.</p>
+        </header>
+        <div class="page-body narrow">
+          <form method="post" class="actions">
+            <button type="submit" class="btn">Ano, odhlásit z kurzu</button>
+            <a class="btn btn-line" href="/profil">Ne, chci pokračovat</a>
+          </form>
         </div>
-        <h1 class="mt-4 text-2xl font-bold text-gray-900">Odhlášení proběhlo</h1>
-        <p class="mt-2 text-gray-600">Byli jste odhlášeni z kurzu. Další lekce vám nebudou chodit.</p>
-        <a href="/" class="mt-6 inline-block rounded-lg bg-gray-800 px-6 py-2 text-sm font-medium text-white hover:bg-gray-900">
-          Zpět na hlavní stránku
-        </a>
-      </div>
+      </>
+    )}
+    {status === 'ok' && (
+      <>
+        <header class="page-head">
+          <h1>Z kurzu jste odhlášeni</h1>
+          <p class="lead">Další lekce vám už nebudou chodit. Zapsat se můžete kdykoli znovu.</p>
+        </header>
+        <div class="page-body narrow">
+          <p class="actions"><a class="btn" href="/">Zpět na hlavní stránku</a></p>
+        </div>
+      </>
     )}
     {status === 'already' && (
-      <div>
-        <h1 class="text-2xl font-bold text-gray-900">Již odhlášeno</h1>
-        <p class="mt-2 text-gray-600">Z tohoto kurzu jste již dříve odhlášeni.</p>
-      </div>
+      <>
+        <header class="page-head">
+          <h1>Z kurzu už jste odhlášeni</h1>
+          <p class="lead">Odhlášení proběhlo dříve, žádné další lekce vám nechodí. Zapsat se můžete kdykoli znovu.</p>
+        </header>
+        <div class="page-body narrow">
+          <p class="actions"><a class="btn" href="/">Zpět na hlavní stránku</a></p>
+        </div>
+      </>
+    )}
+    {status === 'completed' && (
+      <>
+        <header class="page-head">
+          <h1>Kurz máte dokončený</h1>
+          <p class="lead">Všechny lekce už vám přišly, žádné další e-maily z kurzu nedostanete.</p>
+        </header>
+        <div class="page-body narrow">
+          <p class="actions"><a class="btn" href="/">Zpět na hlavní stránku</a></p>
+        </div>
+      </>
     )}
     {status === 'invalid' && (
-      <div>
-        <h1 class="text-2xl font-bold text-gray-900">Neplatný odkaz</h1>
-        <p class="mt-2 text-gray-600">Odkaz pro odhlášení je neplatný nebo vypršel.</p>
-      </div>
+      <>
+        <header class="page-head">
+          <h1>Odkaz není platný</h1>
+          <p class="lead">
+            Odkaz pro odhlášení je neúplný nebo poškozený. Otevřete ho znovu přímo z e-mailu s lekcí,
+            nebo kurz pozastavte ve svém profilu.
+          </p>
+        </header>
+        <div class="page-body narrow">
+          <p class="actions"><a class="btn" href="/profil">Přejít do profilu</a></p>
+        </div>
+      </>
     )}
   </div>
-</PublicLayout>
+</SiteLayout>

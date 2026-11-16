@@ -1,9 +1,11 @@
 {
 	"name": "skola-ai",
 	"workers_dev": true,
+	// Vlastní doména; zóna aivefirmach.cz je na Cloudflare. DNS záznam a certifikát vytvoří Cloudflare.
+	"routes": [{ "pattern": "skola.aivefirmach.cz", "custom_domain": true }],
 	"compatibility_date": "2026-04-15",
 	"compatibility_flags": ["global_fetch_strictly_public"],
-	"main": "@astrojs/cloudflare/entrypoints/server",
+	"main": "./src/worker.ts",
 	"assets": {
 		"directory": "./dist",
 		"binding": "ASSETS"
@@ -17,7 +19,8 @@
 		{
 			"binding": "DB",
 			"database_name": "skola-ai-db",
-			"database_id": "105afe9e-205d-41a2-92b2-1b24ac7f926d"
+			"database_id": "105afe9e-205d-41a2-92b2-1b24ac7f926d",
+			"migrations_dir": "db/migrations"
 		}
 	],
 
@@ -29,10 +32,24 @@
 		}
 	],
 
+	// Cron triggery – mapování na endpointy je v src/worker.ts (CRON_MAP)
+	"triggers": {
+		"crons": ["0 5,6,7 * * 1-5", "*/30 * * * *", "0 7 * * *", "0 16 * * *"]
+	},
+
+	// Rate limiting sdílený napříč instancemi (formuláře: zápis, přihlášení) – 10 požadavků / 60 s na IP
+	"ratelimits": [
+		{
+			"name": "RATE_LIMITER",
+			"namespace_id": "1001",
+			"simple": { "limit": 10, "period": 60 }
+		}
+	],
+
 	// Environment variables
 	"vars": {
 		"APP_URL": "https://skola.aivefirmach.cz",
-		"MAIL_FROM": "Letní škola AI <patrick@skola.aivefirmach.cz>",
+		"MAIL_FROM": "Škola AI <tereza@skola.aivefirmach.cz>",
 		"ADMIN_EMAIL": "patrick@zandl.cz"
 	}
 

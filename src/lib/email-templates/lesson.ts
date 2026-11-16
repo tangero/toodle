@@ -1,8 +1,11 @@
-import { baseTemplate } from './base';
+import {
+  baseTemplate, button, courseUnsubscribeLine, infoBox, promoSection, styleProse,
+  COLOR, SMALL, type PromoData,
+} from './base';
 import { renderMarkdown } from '../markdown';
+import { escapeHtml } from '../escape';
 
 interface LessonEmailParams {
-  userName: string;
   courseTitle: string;
   lessonTitle: string;
   lessonPosition: number;
@@ -13,57 +16,49 @@ interface LessonEmailParams {
   enrollmentId: string;
   appUrl: string;
   unsubscribeToken: string;
+  /** Nabídka dalšího vzdělávání. Chybí u příjemců, kteří ji odhlásili, a když není co nabídnout. */
+  promo?: PromoData;
 }
 
+/**
+ * E-mail s lekcí. Oslovení jménem se nevkládá: texty lekcí začínají vlastním úvodem
+ * (u denních kurzů „Dobré ráno…“, viz docs/course-content/pravidla-psani-lekci.md),
+ * takže by se v e-mailu sešla dvě oslovení za sebou.
+ */
 export function lessonEmail(p: LessonEmailParams): string {
-  const contentHtml = renderMarkdown(p.contentMd);
-  const isLast = p.lessonPosition === p.totalLessons;
+  const contentHtml = styleProse(renderMarkdown(p.contentMd));
+  const isLast = p.lessonPosition >= p.totalLessons;
+  const courseUrl = `${p.appUrl}/profil/kurz/${p.enrollmentId}`;
 
-  const doneButton = p.deliveryMode === 'on_click' && !isLast ? `
-    <div style="text-align: center; margin: 32px 0;">
-      <a href="${p.appUrl}/profil/kurz/${p.enrollmentId}"
-         style="background-color: #2563eb; color: #ffffff; padding: 12px 32px; border-radius: 8px;
-                text-decoration: none; font-weight: 600; display: inline-block;">
-        Hotovo, chci další lekci →
-      </a>
-    </div>
-  ` : '';
+  const doneButton = p.deliveryMode === 'on_click' && !isLast
+    ? button(courseUrl, 'Hotovo, chci další lekci')
+    : '';
 
   const nextInfo = p.deliveryMode === 'next_workday' && !isLast
-    ? `<p style="color: #6b7280; font-size: 13px; text-align: center;">Další lekce přijde příští pracovní den.</p>`
+    ? `<p style="${SMALL}margin-top:24px;">Další lekce vám přijde příští pracovní den.</p>`
     : '';
 
   const finishInfo = isLast
-    ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin-top:24px;text-align:center;">
-         <p style="margin:0;font-weight:600;color:#166534;">Gratulujeme — to byla poslední lekce!</p>
-         <p style="margin:8px 0 0;font-size:13px;color:#166534;">Nyní můžete složit závěrečný test a získat certifikát.</p>
-         <a href="${p.appUrl}/profil/kurz/${p.enrollmentId}"
-            style="display:inline-block;margin-top:12px;background:#16a34a;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
-           Přejít na závěrečný test
-         </a>
-       </div>`
+    ? `${infoBox(`<strong>To byla poslední lekce kurzu.</strong><br>Teď můžete složit závěrečný test a získat certifikát.`)}
+       ${button(courseUrl, 'Přejít na závěrečný test')}`
     : '';
 
   return baseTemplate(
     `Lekce ${p.lessonPosition}: ${p.lessonTitle}`,
     `
-    <p style="color: #6b7280; font-size: 13px; margin: 0 0 4px;">
-      ${p.courseTitle} · Lekce ${p.lessonPosition} z ${p.totalLessons} · ${p.readingMinutes} min čtení
+    <p style="${SMALL}margin-bottom:6px;">
+      ${escapeHtml(p.courseTitle)} · Lekce ${p.lessonPosition} z ${p.totalLessons} · ${p.readingMinutes} min čtení
     </p>
-    <h2 style="color: #111827; margin: 0 0 24px; font-size: 22px;">${p.lessonTitle}</h2>
+    <h1 style="margin:0 0 20px;font-size:24px;font-weight:600;line-height:1.2;color:${COLOR.ink};">${escapeHtml(p.lessonTitle)}</h1>
 
-    <div style="line-height: 1.7; color: #374151;">
-      ${contentHtml}
-    </div>
+    ${contentHtml}
 
     ${doneButton}
     ${nextInfo}
     ${finishInfo}
-
-    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0 16px;" />
-    <p style="color: #9ca3af; font-size: 12px; text-align: center;">
-      <a href="${p.appUrl}/odhlaseni/${p.unsubscribeToken}" style="color: #9ca3af;">Odhlásit se z kurzu</a>
-    </p>
+    ${promoSection(p.promo)}
+    ${courseUnsubscribeLine(p.appUrl, p.unsubscribeToken)}
     `,
+    { appUrl: p.appUrl },
   );
 }

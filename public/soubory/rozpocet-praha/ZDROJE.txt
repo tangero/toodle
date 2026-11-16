@@ -1,0 +1,15 @@
+Cvičná sada „Rozpočet hl. m. Prahy“ – Škola AI
+Soubory jsou převzaté beze změn z veřejných zdrojů. Slouží k procvičování práce s AI.
+
+rozpocet-praha-mhmp-2024.csv, rozpocet-praha-mhmp-2025.csv, rozpocet-praha-mhmp-2026.csv
+  Zdroj: Hlavní město Praha, otevřená data – Rozpočet MHMP (Národní katalog otevřených dat, data.gov.cz)
+  https://opendata-storage.praha.eu/ROZ_rozpocet_finance/rozpocet/Zdroje/
+  Licence: CC0 (bez autorskoprávní ochrany)
+  Poznámky: kódování UTF-8, oddělovač středník, částky v tis. Kč. Položky 1xxx–4xxx jsou příjmy,
+  5xxx–6xxx výdaje, 8xxx financování. Jen Magistrát (MHMP), bez městských částí.
+  Rozpočet 2026 je průběžný stav (upravený rozpočet se během roku mění).
+
+praha-zprava-o-plneni-rozpoctu-2025.pdf
+  Zdroj: Hlavní město Praha – Zpráva o plnění rozpočtu za rok 2025, důvodová zpráva část I
+  https://praha.eu/documents/d/praha/duvodova-zprava-i-hl-m-praha
+  Veřejný dokument úřadu.
