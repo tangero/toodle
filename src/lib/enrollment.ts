@@ -80,6 +80,7 @@ interface LessonRow {
   content_md: string;
   reading_minutes: number;
   position: number;
+  version: number;
 }
 
 export type DeliveryResult =
@@ -121,7 +122,7 @@ export async function deliverNextLesson(
   if (lesson === undefined) {
     lesson = await getOne<LessonRow>(
       env.DB,
-      `SELECT id, title, content_md, reading_minutes, position FROM lessons WHERE course_id = ? AND position = ?`,
+      `SELECT id, title, content_md, reading_minutes, position, version FROM lessons WHERE course_id = ? AND position = ?`,
       row.course_id,
       row.current_lesson,
     );
@@ -176,7 +177,7 @@ export async function deliverNextLesson(
     // Otázka na srozumitelnost je v e-mailu jen u denních kurzů; u kurzů na potvrzení
     // se odpovídá tlačítky na stránce kurzu.
     const feedbackUrl = row.delivery_mode === 'next_workday'
-      ? `${env.APP_URL}/srozumitelnost/${await createFeedbackToken(row.id, lesson.position, env.JWT_SECRET)}`
+      ? `${env.APP_URL}/srozumitelnost/${await createFeedbackToken(row.id, lesson.id, env.JWT_SECRET)}`
       : undefined;
     const result = await sendEmail(env, {
       to: row.user_email,
@@ -234,7 +235,7 @@ export async function deliverNextLesson(
   // 4. Uvolnění zámku (i když lekci přijal Resend už při dřívějším pokusu).
   await run(env.DB, `UPDATE enrollments SET sending_at = NULL WHERE id = ?`, row.id);
 
-  await logEmail(env, { enrollmentId: row.id, lessonId: lesson.id, template: 'lesson', resendId });
+  await logEmail(env, { enrollmentId: row.id, lessonId: lesson.id, lessonVersion: lesson.version, template: 'lesson', resendId });
 
   if (isLast) {
     try {

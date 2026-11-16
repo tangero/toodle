@@ -142,3 +142,16 @@ describe('needsRewrite', () => {
     expect(needsRewrite('next_workday', 0, 0)).toBe(false);
   });
 });
+
+describe('formatDuration', () => {
+  it('volí jednotku podle délky', async () => {
+    const { formatDuration } = await import('@lib/feedback');
+    expect(formatDuration(20)).toBe('1 min');
+    expect(formatDuration(45 * 60)).toBe('45 min');
+    expect(formatDuration(3 * 3600)).toBe('3 h');
+    expect(formatDuration(47 * 3600)).toBe('47 h');
+    expect(formatDuration(5 * 86400)).toBe('5 d');
+    expect(formatDuration(-1)).toBe('–');
+    expect(formatDuration(Number.NaN)).toBe('–');
+  });
+});

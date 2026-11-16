@@ -46,6 +46,16 @@ export function needsRewrite(mode: DeliveryMode, totalAnswers: number, notUnders
   return notUnderstood / totalAnswers >= threshold.minShare;
 }
 
+/** Doba čitelně pro přehled v adminu: minuty, od 90 minut hodiny, od 48 hodin dny. */
+export function formatDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return '–';
+  const minutes = seconds / 60;
+  if (minutes < 90) return `${Math.max(1, Math.round(minutes))} min`;
+  const hours = minutes / 60;
+  if (hours < 48) return `${Math.round(hours)} h`;
+  return `${Math.round(hours / 24)} d`;
+}
+
 /** Odpověď z formuláře, adresy nebo JSON těla: jen 1, 2 nebo 3 (číslo nebo text). */
 export function parseFeedbackAnswer(raw: unknown): FeedbackAnswer | null {
   const text = typeof raw === 'number' ? String(raw) : raw;

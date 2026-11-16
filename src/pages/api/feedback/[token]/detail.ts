@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { verifyFeedbackToken } from '@lib/unsubscribe';
-import { parseFeedbackDetail } from '@lib/feedback';
+import { parseFeedbackDetail, parseSectionsJson } from '@lib/feedback';
 import { loadFeedbackContext, saveFeedbackDetail, sectionsOf } from '@lib/feedback-store';
 import { logAudit } from '@lib/audit';
 import { checkRateLimit, clientIp } from '@lib/rate-limit';
@@ -33,18 +33,22 @@ export const POST: APIRoute = async ({ params, request, redirect }) => {
   if (!form) return back('chyba');
   if (!(await checkRateLimit(env, `feedback:${clientIp(request)}`))) return back('limit');
 
-  const context = await loadFeedbackContext(env.DB, target.enrollmentId, target.lessonPosition);
+  const context = await loadFeedbackContext(env.DB, target.enrollmentId, { lessonId: target.lessonId });
   if (!context) return new Response('Odkaz na zpětnou vazbu není platný.', { status: 400 });
 
   const parsed = parseFeedbackDetail(
     { sections: form.getAll('sections'), comment: form.get('comment') },
-    sectionsOf(context.contentMd),
+    // Části se nabízejí jen z textu, který čtenář dostal. Po úpravě lekce starší znění nemáme.
+    context.textIsDelivered ? sectionsOf(context.contentMd) : [],
   );
   if (!parsed.ok) return back('text');
+  // Formulář k upravené lekci části neposílá; dříve označené části proto nepřepisujeme.
+  if (!context.textIsDelivered) parsed.value.sections = parseSectionsJson(context.sectionsJson);
 
   const saved = await saveFeedbackDetail(env.DB, {
     enrollmentId: context.enrollmentId,
     lessonId: context.lessonId,
+    lessonVersion: context.deliveredVersion,
     detail: parsed.value,
   });
   if (!saved) return back('bez-odpovedi');

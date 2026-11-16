@@ -4,11 +4,12 @@
  * Kurzy na potvrzení a kurzy doručované každý pracovní den se vyhodnocují zvlášť:
  * u prvních odpovídá skoro každý, u druhých jen ti, kdo se rozhodnou kliknout.
  * Čísla se počítají jen z odpovědí k aktuální verzi lekce, po přepisu se měří znovu.
+ * Odpověď se váže k verzi, kterou čtenář dostal e-mailem (email_log.lesson_version).
  * Připomínky píše uživatel: vypisují se jen jako `{text}`, nikdy přes set:html.
  */
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { getAll } from '@lib/db';
-import { FEEDBACK_LABELS, REWRITE_THRESHOLDS, needsRewrite, parseSectionsJson } from '@lib/feedback';
+import { FEEDBACK_LABELS, REWRITE_THRESHOLDS, formatDuration, needsRewrite } from '@lib/feedback';
 import type { DeliveryMode } from '@lib/types';
 import { env } from '@lib/env';
 
@@ -42,14 +43,65 @@ const stats = await getAll<{ lesson_id: string; total: number; a1: number; a2: n
    GROUP BY f.lesson_id`,
 );
 
-const details = await getAll<{ lesson_id: string; answer: number; sections_json: string; comment: string; updated_at: string }>(
+// Četnosti označených částí se počítají v databázi ze všech odpovědí k aktuální verzi.
+const sectionRows = await getAll<{ lesson_id: string; title: string; count: number }>(
   env.DB,
-  `SELECT f.lesson_id, f.answer, f.sections_json, f.comment, f.updated_at
+  `SELECT f.lesson_id, json_extract(j.value, '$.title') as title, COUNT(*) as count
    FROM lesson_feedback f
-   JOIN lessons l ON l.id = f.lesson_id
-   WHERE f.lesson_version = l.version AND (f.comment <> '' OR f.sections_json <> '[]')
-   ORDER BY f.updated_at DESC
-   LIMIT 3000`,
+   JOIN lessons l ON l.id = f.lesson_id,
+        json_each(CASE WHEN json_valid(f.sections_json) AND json_type(f.sections_json) = 'array'
+                       THEN f.sections_json ELSE '[]' END) j
+   WHERE f.lesson_version = l.version AND json_type(j.value, '$.title') = 'text'
+   GROUP BY f.lesson_id, title
+   ORDER BY count DESC, title`,
+);
+
+// Poslední připomínky se omezují pro každou lekci zvlášť.
+const commentRows = await getAll<{ lesson_id: string; answer: number; comment: string; updated_at: string }>(
+  env.DB,
+  `SELECT lesson_id, answer, comment, updated_at FROM (
+     SELECT f.lesson_id, f.answer, f.comment, f.updated_at,
+            ROW_NUMBER() OVER (PARTITION BY f.lesson_id ORDER BY f.updated_at DESC, f.id DESC) as rn
+     FROM lesson_feedback f
+     JOIN lessons l ON l.id = f.lesson_id
+     WHERE f.lesson_version = l.version AND f.comment <> ''
+   )
+   WHERE rn <= ?
+   ORDER BY lesson_id, rn`,
+  LAST_COMMENTS,
+);
+
+// Kurzy na potvrzení: medián času mezi odesláním lekce a jejím potvrzením. Potvrzení lekce
+// je okamžik, kdy témuž zápisu odešla lekce na následující pozici. Každé takové odeslání se
+// páruje s nejbližším předchozím odesláním dané lekce, aby opakovaný zápis nevyrobil
+// falešně dlouhé časy. Poslední lekce následující e-mail nemá, proto zůstává bez údaje.
+const confirmTimes = await getAll<{ lesson_id: string; median_seconds: number; count: number }>(
+  env.DB,
+  `WITH sent AS (
+     SELECT g.id, g.enrollment_id, g.lesson_id, l.course_id, l.position, g.sent_at
+     FROM email_log g
+     JOIN lessons l ON l.id = g.lesson_id
+     JOIN courses c ON c.id = l.course_id
+     WHERE g.template = 'lesson' AND c.delivery_mode = 'on_click'
+   ),
+   pairs AS (
+     SELECT a.lesson_id as lesson_id,
+            (julianday(b.sent_at) - julianday(MAX(a.sent_at))) * 86400.0 as seconds
+     FROM sent b
+     JOIN sent a ON a.enrollment_id = b.enrollment_id AND a.course_id = b.course_id
+                AND a.position = b.position - 1 AND datetime(a.sent_at) <= datetime(b.sent_at)
+     GROUP BY b.id
+   ),
+   ranked AS (
+     SELECT lesson_id, seconds,
+            ROW_NUMBER() OVER (PARTITION BY lesson_id ORDER BY seconds) as rn,
+            COUNT(*) OVER (PARTITION BY lesson_id) as n
+     FROM pairs
+   )
+   SELECT lesson_id, AVG(seconds) as median_seconds, MAX(n) as count
+   FROM ranked
+   WHERE rn IN ((n + 1) / 2, (n + 2) / 2)
+   GROUP BY lesson_id`,
 );
 
 // Signál, který už máme: po které lekci čtenáři kurz odhlašují.
@@ -64,19 +116,19 @@ const dropOffs = await getAll<{ course_id: string; position: number; count: numb
 const statsByLesson = new Map(stats.map((s) => [s.lesson_id, s]));
 const dropByLesson = new Map(dropOffs.map((d) => [`${d.course_id}:${d.position}`, d.count]));
 
-const sectionCounts = new Map<string, Map<string, number>>();
-const commentsByLesson = new Map<string, { answer: number; comment: string; updated_at: string }[]>();
-for (const row of details) {
-  const counts = sectionCounts.get(row.lesson_id) ?? new Map<string, number>();
-  for (const section of parseSectionsJson(row.sections_json)) {
-    counts.set(section.title, (counts.get(section.title) ?? 0) + 1);
-  }
-  sectionCounts.set(row.lesson_id, counts);
-  if (row.comment) {
-    const list = commentsByLesson.get(row.lesson_id) ?? [];
-    if (list.length < LAST_COMMENTS) list.push(row);
-    commentsByLesson.set(row.lesson_id, list);
-  }
+const confirmByLesson = new Map(confirmTimes.map((c) => [c.lesson_id, c]));
+
+const sectionsByLesson = new Map<string, [string, number][]>();
+for (const row of sectionRows) {
+  const list = sectionsByLesson.get(row.lesson_id) ?? [];
+  if (list.length < TOP_SECTIONS) list.push([row.title, row.count]);
+  sectionsByLesson.set(row.lesson_id, list);
+}
+const commentsByLesson = new Map<string, typeof commentRows>();
+for (const row of commentRows) {
+  const list = commentsByLesson.get(row.lesson_id) ?? [];
+  list.push(row);
+  commentsByLesson.set(row.lesson_id, list);
 }
 
 const rows = lessons.map((lesson) => {
@@ -93,7 +145,8 @@ const rows = lessons.map((lesson) => {
     share3: total > 0 ? a3 / total : null,
     rewrite: needsRewrite(lesson.delivery_mode, total, a3),
     dropOff: dropByLesson.get(`${lesson.course_id}:${lesson.position}`) ?? 0,
-    topSections: [...(sectionCounts.get(lesson.lesson_id) ?? [])].sort((a, b) => b[1] - a[1]).slice(0, TOP_SECTIONS),
+    confirm: confirmByLesson.get(lesson.lesson_id) ?? null,
+    topSections: sectionsByLesson.get(lesson.lesson_id) ?? [],
     comments: commentsByLesson.get(lesson.lesson_id) ?? [],
   };
 });
@@ -150,6 +203,7 @@ const th = 'px-3 py-3 font-medium text-gray-700';
                   <th scope="col" class={`${th} text-right`}>3</th>
                   <th scope="col" class={`${th} text-right`}>Podíl 3</th>
                   <th scope="col" class={`${th} text-right`}>Odhlášení po lekci</th>
+                  {group.mode === 'on_click' && <th scope="col" class={`${th} text-right`}>Čas do potvrzení (medián)</th>}
                   <th scope="col" class={`${th} text-left`}>Stav</th>
                 </tr>
               </thead>
@@ -169,6 +223,13 @@ const th = 'px-3 py-3 font-medium text-gray-700';
                       <td class="px-3 py-3 text-right text-gray-700">{row.a3}</td>
                       <td class="px-3 py-3 text-right font-medium text-gray-900">{percent(row.share3)}</td>
                       <td class="px-3 py-3 text-right text-gray-700">{row.dropOff}</td>
+                      {group.mode === 'on_click' && (
+                        <td class="px-3 py-3 text-right whitespace-nowrap text-gray-700">
+                          {row.confirm
+                            ? <>{formatDuration(row.confirm.median_seconds)} <span class="text-xs text-gray-500">({row.confirm.count}×)</span></>
+                            : '–'}
+                        </td>
+                      )}
                       <td class="px-3 py-3 whitespace-nowrap">
                         {row.rewrite
                           ? <span class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">k přepisu</span>
@@ -179,7 +240,7 @@ const th = 'px-3 py-3 font-medium text-gray-700';
                     </tr>
                     {(row.topSections.length > 0 || row.comments.length > 0) && (
                       <tr class="bg-gray-50">
-                        <td colspan="8" class="px-3 py-3 text-gray-700">
+                        <td colspan={group.mode === 'on_click' ? 9 : 8} class="px-3 py-3 text-gray-700">
                           {row.topSections.length > 0 && (
                             <div class="mb-2">
                               <span class="font-medium text-gray-900">Nejčastěji označené části:</span>

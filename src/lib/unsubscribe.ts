@@ -8,9 +8,9 @@
  * - `promo`:  odhlášení nabídek dalšího vzdělávání, id = uživatel. Zpráva `promo:<id>`.
  * - `rating`: hodnocení kurzu, id = zápis. Zpráva `rating:<id>`.
  *
- * Čtvrtý účel, zpětná vazba na srozumitelnost lekce, nese vedle zápisu i pozici lekce.
- * Token má proto tvar `<id zápisu>.<pozice>.<podpis hex>` a podepisuje se zpráva
- * `feedback:<id zápisu>:<pozice>` (viz createFeedbackToken níže).
+ * Čtvrtý účel, zpětná vazba na srozumitelnost lekce, nese vedle zápisu i id lekce.
+ * Token má proto tvar `<id zápisu>.<id lekce>.<podpis hex>` a podepisuje se zpráva
+ * `feedback:<id zápisu>:<id lekce>` (viz createFeedbackToken níže).
  */
 export type TokenPurpose = 'course' | 'promo' | 'rating';
 
@@ -71,9 +71,6 @@ export function verifyRatingToken(token: string, jwtSecret: string): Promise<str
   return verifySignedToken('rating', token, jwtSecret);
 }
 
-/** Pozice lekce v tokenu: jen kanonický zápis celého čísla 1 až 999 (žádné „01“, „1e1“ ani „0“). */
-const POSITION_RE = /^[1-9]\d{0,2}$/;
-
 async function hmacHex(message: string, secret: string): Promise<string> {
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
@@ -85,30 +82,31 @@ async function hmacHex(message: string, secret: string): Promise<string> {
 }
 
 /**
- * Odkaz na zpětnou vazbu ke srozumitelnosti jedné lekce (id zápisu + pozice lekce).
- * Tečka mezi id a pozicí zaručuje, že token neprojde ověřením ostatních účelů:
+ * Odkaz na zpětnou vazbu ke srozumitelnosti jedné lekce (id zápisu + id lekce).
+ * Podepisuje se stálé id lekce, ne její pozice: mazání v adminu lekce přečísluje
+ * a už odeslaný odkaz by pak hodnotil jinou lekci.
+ * Tečka mezi oběma id zaručuje, že token neprojde ověřením ostatních účelů:
  * ty berou jako id vše před poslední tečkou a tečku v id nepovolují.
  */
-export async function createFeedbackToken(enrollmentId: string, lessonPosition: number, jwtSecret: string): Promise<string> {
-  const position = String(lessonPosition);
-  if (!ID_RE.test(enrollmentId) || !POSITION_RE.test(position)) {
-    throw new Error('Neplatné id zápisu nebo pozice lekce pro token zpětné vazby.');
+export async function createFeedbackToken(enrollmentId: string, lessonId: string, jwtSecret: string): Promise<string> {
+  if (!ID_RE.test(enrollmentId) || typeof lessonId !== 'string' || !ID_RE.test(lessonId)) {
+    throw new Error('Neplatné id zápisu nebo lekce pro token zpětné vazby.');
   }
-  const sig = await hmacHex(`feedback:${enrollmentId}:${position}`, jwtSecret);
-  return `${enrollmentId}.${position}.${sig}`;
+  const sig = await hmacHex(`feedback:${enrollmentId}:${lessonId}`, jwtSecret);
+  return `${enrollmentId}.${lessonId}.${sig}`;
 }
 
 export async function verifyFeedbackToken(
   token: string,
   jwtSecret: string,
-): Promise<{ enrollmentId: string; lessonPosition: number } | null> {
+): Promise<{ enrollmentId: string; lessonId: string } | null> {
   if (typeof token !== 'string' || token.length > MAX_TOKEN_LENGTH) return null;
   const parts = token.split('.');
   if (parts.length !== 3) return null;
-  const [enrollmentId, position] = parts;
-  if (!ID_RE.test(enrollmentId) || !POSITION_RE.test(position)) return null;
-  const expected = await createFeedbackToken(enrollmentId, Number(position), jwtSecret);
-  return timingSafeEqual(expected, token) ? { enrollmentId, lessonPosition: Number(position) } : null;
+  const [enrollmentId, lessonId] = parts;
+  if (!ID_RE.test(enrollmentId) || !ID_RE.test(lessonId)) return null;
+  const expected = await createFeedbackToken(enrollmentId, lessonId, jwtSecret);
+  return timingSafeEqual(expected, token) ? { enrollmentId, lessonId } : null;
 }
 
 function timingSafeEqual(a: string, b: string): boolean {
