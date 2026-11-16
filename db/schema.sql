@@ -114,6 +114,8 @@ CREATE TABLE IF NOT EXISTS email_log (
   id TEXT PRIMARY KEY,
   enrollment_id TEXT REFERENCES enrollments(id),
   lesson_id TEXT REFERENCES lessons(id),
+  -- Verze lekce (lessons.version), která odešla; jen u šablony 'lesson'.
+  lesson_version INTEGER,
   template TEXT NOT NULL,
   sent_at TEXT NOT NULL DEFAULT (datetime('now')),
   resend_id TEXT,

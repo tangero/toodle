@@ -82,14 +82,15 @@ export async function sendEmail(
 /** Záznam do email_log – kvůli párování webhooků (doručeno, bounce, stížnost). */
 export async function logEmail(
   env: AppEnv,
-  entry: { enrollmentId: string | null; lessonId?: string | null; template: string; resendId: string | null },
+  entry: { enrollmentId: string | null; lessonId?: string | null; lessonVersion?: number | null; template: string; resendId: string | null },
 ): Promise<void> {
   await run(
     env.DB,
-    `INSERT INTO email_log (id, enrollment_id, lesson_id, template, resend_id) VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO email_log (id, enrollment_id, lesson_id, lesson_version, template, resend_id) VALUES (?, ?, ?, ?, ?, ?)`,
     generateId(),
     entry.enrollmentId,
     entry.lessonId ?? null,
+    entry.lessonVersion ?? null,
     entry.template,
     entry.resendId,
   );

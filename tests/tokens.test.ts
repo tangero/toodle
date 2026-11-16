@@ -60,14 +60,23 @@ describe('podepsané tokeny z e-mailů', () => {
   });
 
   describe('zpětná vazba na srozumitelnost lekce', () => {
-    it('ověří svůj token a vrátí zápis i pozici lekce', async () => {
-      const token = await createFeedbackToken(ID, 3, SECRET);
-      expect(token.startsWith(`${ID}.3.`)).toBe(true);
-      expect(await verifyFeedbackToken(token, SECRET)).toEqual({ enrollmentId: ID, lessonPosition: 3 });
+    const LESSON = 'lekce-2';
+
+    it('ověří svůj token a vrátí zápis i id lekce', async () => {
+      const token = await createFeedbackToken(ID, LESSON, SECRET);
+      expect(token.startsWith(`${ID}.${LESSON}.`)).toBe(true);
+      expect(await verifyFeedbackToken(token, SECRET)).toEqual({ enrollmentId: ID, lessonId: LESSON });
+    });
+
+    it('token s id lekce ve tvaru ULID se vejde do limitu délky', async () => {
+      const ulid = 'A'.repeat(26);
+      const token = await createFeedbackToken(ulid, ulid, SECRET);
+      expect(token.length).toBeLessThanOrEqual(200);
+      expect(await verifyFeedbackToken(token, SECRET)).toEqual({ enrollmentId: ulid, lessonId: ulid });
     });
 
     it('token zpětné vazby neprojde ověřením ostatních účelů', async () => {
-      const feedback = await createFeedbackToken(ID, 1, SECRET);
+      const feedback = await createFeedbackToken(ID, LESSON, SECRET);
       expect(await verifyUnsubscribeToken(feedback, SECRET)).toBeNull();
       expect(await verifyPromoOptOutToken(feedback, SECRET)).toBeNull();
       expect(await verifyRatingToken(feedback, SECRET)).toBeNull();
@@ -81,41 +90,50 @@ describe('podepsané tokeny z e-mailů', () => {
       ];
       for (const token of others) {
         expect(await verifyFeedbackToken(token, SECRET)).toBeNull();
-        // Ani s doplněnou pozicí: podpis je nad jinou zprávou.
+        // Ani s doplněným id lekce: podpis je nad jinou zprávou.
         const [id, sig] = token.split('.');
-        expect(await verifyFeedbackToken(`${id}.1.${sig}`, SECRET)).toBeNull();
+        expect(await verifyFeedbackToken(`${id}.${LESSON}.${sig}`, SECRET)).toBeNull();
       }
     });
 
     it('podpis zpětné vazby nejde přebalit na token jiného účelu', async () => {
-      const feedback = await createFeedbackToken(ID, 2, SECRET);
+      const feedback = await createFeedbackToken(ID, LESSON, SECRET);
       const sig = feedback.slice(feedback.lastIndexOf('.') + 1);
-      for (const forged of [`${ID}.${sig}`, `feedback:${ID}:2.${sig}`, `${ID}:2.${sig}`, `${ID}.2.${sig}`]) {
+      for (const forged of [`${ID}.${sig}`, `feedback:${ID}:${LESSON}.${sig}`, `${ID}:${LESSON}.${sig}`, `${ID}.${LESSON}.${sig}`]) {
         expect(await verifyUnsubscribeToken(forged, SECRET)).toBeNull();
         expect(await verifyPromoOptOutToken(forged, SECRET)).toBeNull();
         expect(await verifyRatingToken(forged, SECRET)).toBeNull();
       }
     });
 
-    it('pozici lekce ani zápis v tokenu nejde zaměnit', async () => {
-      const token = await createFeedbackToken(ID, 2, SECRET);
+    it('lekci ani zápis v tokenu nejde zaměnit', async () => {
+      const token = await createFeedbackToken(ID, LESSON, SECRET);
       const sig = token.slice(token.lastIndexOf('.') + 1);
-      expect(await verifyFeedbackToken(`${ID}.3.${sig}`, SECRET)).toBeNull();
-      expect(await verifyFeedbackToken(`01HZXK3V5N8Q2R7T9W4YB6C0DF.2.${sig}`, SECRET)).toBeNull();
+      expect(await verifyFeedbackToken(`${ID}.lekce-3.${sig}`, SECRET)).toBeNull();
+      expect(await verifyFeedbackToken(`jiny-zapis.${LESSON}.${sig}`, SECRET)).toBeNull();
     });
 
-    it('odmítne nekanonickou pozici a poškozený token', async () => {
-      const token = await createFeedbackToken(ID, 2, SECRET);
+    it('hranici mezi id zápisu a id lekce nejde posunout', async () => {
+      // Dvojtečku ani tečku id neobsahují, takže zprávu „zápis:lekce“ nejde složit dvěma způsoby.
+      const token = await createFeedbackToken('ab', 'cd', SECRET);
       const sig = token.slice(token.lastIndexOf('.') + 1);
-      for (const position of ['0', '02', '2.0', '1e1', '-2', '', ' 2', '1000', 'x']) {
-        expect(await verifyFeedbackToken(`${ID}.${position}.${sig}`, SECRET)).toBeNull();
+      expect(await verifyFeedbackToken(`a.bcd.${sig}`, SECRET)).toBeNull();
+      expect(await verifyFeedbackToken(`abc.d.${sig}`, SECRET)).toBeNull();
+    });
+
+    it('odmítne neplatné id lekce a poškozený token', async () => {
+      const token = await createFeedbackToken(ID, LESSON, SECRET);
+      const sig = token.slice(token.lastIndexOf('.') + 1);
+      for (const lesson of ['', ' ', 'a:b', 'a b', 'a/b', 'x'.repeat(65)]) {
+        expect(await verifyFeedbackToken(`${ID}.${lesson}.${sig}`, SECRET)).toBeNull();
       }
       expect(await verifyFeedbackToken(token.slice(0, -4), SECRET)).toBeNull();
       expect(await verifyFeedbackToken('', SECRET)).toBeNull();
-      expect(await verifyFeedbackToken(`${'a'.repeat(300)}.1.abc`, SECRET)).toBeNull();
-      expect(await verifyFeedbackToken(await createFeedbackToken(ID, 2, 'jiny-klic'), SECRET)).toBeNull();
-      await expect(createFeedbackToken(ID, 0, SECRET)).rejects.toThrow();
-      await expect(createFeedbackToken(ID, 1.5, SECRET)).rejects.toThrow();
+      expect(await verifyFeedbackToken(`${'a'.repeat(300)}.${LESSON}.abc`, SECRET)).toBeNull();
+      expect(await verifyFeedbackToken(await createFeedbackToken(ID, LESSON, 'jiny-klic'), SECRET)).toBeNull();
+      await expect(createFeedbackToken(ID, '', SECRET)).rejects.toThrow();
+      await expect(createFeedbackToken(ID, 'a:b', SECRET)).rejects.toThrow();
+      await expect(createFeedbackToken(ID, 3 as unknown as string, SECRET)).rejects.toThrow();
     });
   });
 });

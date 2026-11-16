@@ -43,7 +43,8 @@ Do zadání se vloží text vybrané části (bez značek). Dokud čtenář čá
 - `lessons.version INTEGER NOT NULL DEFAULT 1`. Importní skript číslo zvýší, když se změní tělo lekce.
 - Tabulka `lesson_feedback`: `id`, `enrollment_id`, `lesson_id`, `lesson_version`, `answer` (1–3), `sections_json` (pořadová čísla a názvy označených částí), `comment`, `created_at`, `updated_at`, `resent_version` (verze, kterou jsme čtenáři poslali po přepisu, jinak NULL). UNIQUE (`enrollment_id`, `lesson_id`): nová odpověď starou přepíše.
 - Mazání účtu a GDPR export tabulku zahrnou.
-- Token do e-mailu: čtvrtý účel v `src/lib/unsubscribe.ts`, `feedback:<id zápisu>:<pozice lekce>`.
+- Token do e-mailu: čtvrtý účel v `src/lib/unsubscribe.ts`, `feedback:<id zápisu>:<id lekce>`. Podepisuje se stálé id lekce, ne pozice: mazání lekce v adminu pozice přečísluje a starý odkaz by hodnotil jinou lekci.
+- Odpověď patří verzi, kterou čtenář dostal: při odeslání lekce se verze zapíše do `email_log.lesson_version` a odpověď i upřesnění se ukládají k ní. Starší znění lekce se neuchovává, takže když se text od odeslání změnil, stránka nenabízí výběr částí ani zadání s textem části, jen připomínku.
 
 ## Vyhodnocení
 

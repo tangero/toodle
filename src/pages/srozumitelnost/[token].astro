@@ -1,6 +1,6 @@
 ---
 /**
- * Zpětná vazba na srozumitelnost jedné lekce. Odkaz s podepsaným tokenem (zápis + pozice
+ * Zpětná vazba na srozumitelnost jedné lekce. Odkaz s podepsaným tokenem (zápis + id
  * lekce) je pod lekcí v e-mailu u kurzů doručovaných každý pracovní den; u kurzů na
  * potvrzení sem po odpovědi 2 a 3 přesměruje stránka kurzu. Přihlášení není potřeba.
  *
@@ -26,7 +26,7 @@ const stav = Astro.url.searchParams.get('stav') ?? '';
 const from = Astro.url.searchParams.get('z') ?? '';
 
 const target = await verifyFeedbackToken(token, env.JWT_SECRET);
-const ctx = target ? await loadFeedbackContext(env.DB, target.enrollmentId, target.lessonPosition) : null;
+const ctx = target ? await loadFeedbackContext(env.DB, target.enrollmentId, { lessonId: target.lessonId }) : null;
 
 const errors: Record<string, string> = {
   odpoved: 'Vyberte prosím jednu z odpovědí.',
@@ -42,7 +42,8 @@ const error = ctx && (!answered || stav === 'text') ? errors[stav] : undefined;
 
 const preselected = ctx ? parseFeedbackAnswer(Astro.url.searchParams.get('odpoved')) ?? ctx.answer : null;
 
-const sections = answered && ctx && ctx.answer !== 1 ? sectionsOf(ctx.contentMd) : [];
+// Části nabízíme jen z textu, který čtenář dostal. Po úpravě lekce starší znění nemáme.
+const sections = answered && ctx && ctx.answer !== 1 && ctx.textIsDelivered ? sectionsOf(ctx.contentMd) : [];
 const marked = new Set(ctx ? parseSectionsJson(ctx.sectionsJson).map((s) => s.n) : []);
 const markedSections = sections.filter((s) => marked.has(s.n));
 const prompts = answered && ctx && ctx.answer === 3
@@ -143,6 +144,9 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
               </p>
               <form method="post" action={`/api/feedback/${token}/detail`} class="form">
                 {from && <input type="hidden" name="z" value={from} />}
+                {!ctx.textIsDelivered && (
+                  <p class="hint">Lekci jsme od odeslání upravili, proto se neptáme na jednotlivé části.</p>
+                )}
                 {sections.length > 0 && (
                   <fieldset class="question">
                     <legend>Které části lekce se to týká?</legend>

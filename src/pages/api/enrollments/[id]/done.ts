@@ -91,18 +91,18 @@ async function recordAnswer(
 ): Promise<string | null> {
   if (lessonPosition < 1) return null;
   try {
-    const context = await loadFeedbackContext(env.DB, enrollmentId, lessonPosition);
+    const context = await loadFeedbackContext(env.DB, enrollmentId, { position: lessonPosition });
     if (!context) return null;
     await saveFeedbackAnswer(env.DB, {
       enrollmentId,
       lessonId: context.lessonId,
-      lessonVersion: context.lessonVersion,
+      lessonVersion: context.deliveredVersion,
       answer,
     });
     await logAudit(env.DB, userId, 'feedback.answered', enrollmentId, {
-      lesson: lessonPosition, version: context.lessonVersion, answer,
+      lesson: lessonPosition, version: context.deliveredVersion, answer,
     });
-    const token = await createFeedbackToken(enrollmentId, lessonPosition, env.JWT_SECRET);
+    const token = await createFeedbackToken(enrollmentId, context.lessonId, env.JWT_SECRET);
     return `/srozumitelnost/${token}`;
   } catch (err) {
     console.error(`done: feedback for ${enrollmentId} lesson ${lessonPosition} failed:`, err);
