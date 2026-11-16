@@ -1,4 +1,4 @@
-Cvičná sada „Statistiky ČSÚ“ – Letní škola AI
+Cvičná sada „Statistiky ČSÚ“ – Škola AI
 Zdroj všech souborů: Český statistický úřad (csu.gov.cz). Licence CC BY 4.0 – při použití uveďte „Zdroj: ČSÚ“.
 Soubory jsou převzaté beze změn.
 

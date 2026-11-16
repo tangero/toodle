@@ -1,4 +1,4 @@
-Cvičná sada „Rozpočet hl. m. Prahy“ – Letní škola AI
+Cvičná sada „Rozpočet hl. m. Prahy“ – Škola AI
 Soubory jsou převzaté beze změn z veřejných zdrojů. Slouží k procvičování práce s AI.
 
 rozpocet-praha-mhmp-2024.csv, rozpocet-praha-mhmp-2025.csv, rozpocet-praha-mhmp-2026.csv

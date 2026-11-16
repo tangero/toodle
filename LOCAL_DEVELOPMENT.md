@@ -1,4 +1,4 @@
-# Lokální vývoj – Letní škola AI
+# Lokální vývoj – Škola AI
 
 Projekt běží jako Cloudflare Worker (Astro 6 + `@astrojs/cloudflare`). Lokálně ho spouští `wrangler dev` s emulací D1, R2 a rate limiteru.
 

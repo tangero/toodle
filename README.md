@@ -1,4 +1,4 @@
-# Letní škola AI – skola-ai
+# Škola AI – skola-ai
 
 Moderní implementace emailového kurzu na Astro + Cloudflare (D1 + R2).
 

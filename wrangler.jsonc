@@ -49,7 +49,7 @@
 	// Environment variables
 	"vars": {
 		"APP_URL": "https://skola.aivefirmach.cz",
-		"MAIL_FROM": "Letní škola AI <patrick@skola.aivefirmach.cz>",
+		"MAIL_FROM": "Škola AI <patrick@skola.aivefirmach.cz>",
 		"ADMIN_EMAIL": "patrick@zandl.cz"
 	}
 

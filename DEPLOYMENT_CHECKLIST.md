@@ -1,4 +1,4 @@
-# Production Deployment Checklist – skola-ai (Letní škola AI)
+# Production Deployment Checklist – skola-ai (Škola AI)
 
 Tento checklist musí být splněn před reálným spuštěním na produkci.
 
