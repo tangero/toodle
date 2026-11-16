@@ -76,8 +76,10 @@ for (const prefix of prefixes) {
       `INSERT INTO lessons (id, course_id, position, title, content_md, reading_minutes) ` +
         `VALUES (${q(ulid())}, ${courseId}, ${lesson.position}, ${q(lesson.title)}, ${q(lesson.html)}, ${lesson.minutes}) ` +
         // Verze lekce roste jen při změně těla; k verzi se váže zpětná vazba na srozumitelnost.
+        // Porovnání dává v SQLite 0 nebo 1. Zápis přes CASE … END tu být nesmí: wrangler při dělení
+        // souboru na příkazy bere CASE jako začátek bloku a celý soubor spojí (SQLITE_TOOBIG).
         `ON CONFLICT(course_id, position) DO UPDATE SET title = excluded.title, ` +
-        `version = CASE WHEN lessons.content_md <> excluded.content_md THEN lessons.version + 1 ELSE lessons.version END, ` +
+        `version = lessons.version + (lessons.content_md <> excluded.content_md), ` +
         `content_md = excluded.content_md, reading_minutes = excluded.reading_minutes;`,
     );
   }
