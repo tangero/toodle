@@ -1,9 +1,10 @@
 ---
-import PublicLayout from '@layouts/PublicLayout.astro';
+import SiteLayout from '@layouts/SiteLayout.astro';
 import { getOne, getAll } from '@lib/db';
 import { renderMarkdown } from '@lib/markdown';
 import type { Course, Lesson } from '@lib/types';
 import { env } from '@lib/env';
+import { deliveryLabel, lessonCountLabel, priceLabel } from '@lib/labels';
 
 const { slug } = Astro.params;
 
@@ -24,68 +25,64 @@ const lessons = await getAll<Lesson>(
 );
 
 const descriptionHtml = renderMarkdown(course.description_md);
-const deliveryLabel = course.delivery_mode === 'next_workday' ? 'Automaticky Po-Pá' : 'Vlastním tempem';
 const totalMinutes = lessons.reduce((sum, lesson) => sum + (lesson.reading_minutes || 0), 0);
-const fmtPrice = (czk: number) => czk === 0 ? 'Zdarma' : `${czk.toLocaleString('cs-CZ')} Kč`;
-const lessonCountLabel = (count: number) => count === 1
-  ? '1 lekce'
-  : count >= 2 && count <= 4
-    ? `${count} lekce`
-    : `${count} lekcí`;
-const checkSvg = '<svg class="ck" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 6" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const free = course.price_czk === 0;
 ---
 
-<PublicLayout title={course.title} description={course.perex}>
-  <div class="wrap" style="padding-top:8px">
-    <a class="back" href="/">← Zpět na kurzy</a>
-    <div class="cd">
-      <div>
-        <span class="tag" style={`background:${course.price_czk === 0 ? '#7c3aed' : '#ec4899'}`}>
-          {course.price_czk === 0 ? 'Start zdarma' : 'Kurz'}
-        </span>
-        <h1>{course.title}</h1>
-        <p class="lead">{course.perex}</p>
-        <div class="chips">
-          <span class="chip">{lessonCountLabel(course.lesson_count)}</span>
-          <span class="chip">{deliveryLabel}</span>
-          {totalMinutes > 0 && <span class="chip">~{totalMinutes} min celkem</span>}
-          <span class="chip">{course.author_name}</span>
-        </div>
+<SiteLayout title={course.title} description={course.perex}>
+  <div class="wrap">
+    <a class="back" href="/#kurzy">← Všechny kurzy</a>
 
-        {course.description_md && (
-          <div class="desc" set:html={descriptionHtml} />
-        )}
+    <header class="page-head">
+      <h1>{course.title}</h1>
+      <p class="lead">{course.perex}</p>
+    </header>
+
+    <dl class="facts text">
+      {course.audience && <div><dt>Pro koho</dt><dd>{course.audience}</dd></div>}
+      {course.requirements && <div><dt>Co potřebujete</dt><dd>{course.requirements}</dd></div>}
+      <div>
+        <dt>Rozsah</dt>
+        <dd>{`${lessonCountLabel(course.lesson_count)}, ${deliveryLabel(course.delivery_mode)}${totalMinutes > 0 ? `, celkem asi ${totalMinutes} minut čtení` : ''}`}</dd>
+      </div>
+    </dl>
+
+    <div class="layout">
+      <aside class="aside box enroll">
+        <p class="box-head">Zápis do kurzu</p>
+        <div class="box-body">
+          <p class="price">{priceLabel(course.price_czk)}</p>
+          <ul>
+            <li>{lessonCountLabel(course.lesson_count)} přímo do e-mailu</li>
+            <li>Zadání připravená ke zkopírování</li>
+            <li>Test a certifikát na závěr</li>
+            <li>Kurz můžete kdykoli pozastavit</li>
+          </ul>
+          <a class="btn btn-accent" href={`/objednavka/${course.slug}`}>
+            {free ? 'Zapsat se zdarma' : `Objednat za ${priceLabel(course.price_czk)}`}
+          </a>
+          <p class="mono">Píše {course.author_name}. Po potvrzení e-mailu vám pošleme první lekci.</p>
+        </div>
+      </aside>
+
+      <div class="content">
+        {course.description_md && <div class="prose" set:html={descriptionHtml} />}
 
         {lessons.length > 0 && (
-          <div class="outline">
+          <section class="stack">
             <h2>Osnova kurzu</h2>
-            {lessons.map((lesson) => (
-              <div class="lesson">
-                <div class="pos">{lesson.position}</div>
-                <span class="lt">{lesson.title}</span>
-                <span class="lm">{lesson.reading_minutes} min</span>
-              </div>
-            ))}
-          </div>
+            <ol class="outline">
+              {lessons.map((lesson) => (
+                <li>
+                  <span class="lt">{lesson.title}</span>
+                  <span class="lm">{lesson.reading_minutes} min</span>
+                </li>
+              ))}
+            </ol>
+          </section>
         )}
       </div>
 
-      <aside>
-        <div class="buy">
-          <div class={`price ${course.price_czk === 0 ? 'free' : ''}`}>{fmtPrice(course.price_czk)}</div>
-          <div class="pn">{course.price_czk === 0 ? 'Žádná karta, žádné závazky' : 'Jednorázově za celý kurz'}</div>
-          <ul>
-            <li><Fragment set:html={checkSvg} /> {lessonCountLabel(course.lesson_count)} přímo do e-mailu</li>
-            <li><Fragment set:html={checkSvg} /> Připravené prompty ke zkopírování</li>
-            <li><Fragment set:html={checkSvg} /> Test a certifikát na závěr</li>
-            <li><Fragment set:html={checkSvg} /> Tempo kdykoli pozastavíte</li>
-          </ul>
-          <a class="btn btn-pink btn-big" href={`/objednavka/${course.slug}`}>
-            {course.price_czk === 0 ? 'Zapsat se zdarma →' : `Objednat za ${fmtPrice(course.price_czk)} →`}
-          </a>
-          <div class="note">Po přihlášení vám pošleme první lekci.</div>
-        </div>
-      </aside>
     </div>
   </div>
-</PublicLayout>
+</SiteLayout>

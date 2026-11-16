@@ -62,11 +62,12 @@ for (const prefix of prefixes) {
 
   sql.push(`-- ${course.title} (${course.slug})`);
   sql.push(
-    `INSERT INTO courses (id, slug, title, perex, description_md, author_name, price_czk, lesson_count, delivery_mode, status, welcome_email_md, completion_email_md) ` +
-      `VALUES (${q(ulid())}, ${q(course.slug)}, ${q(course.title)}, ${q(course.perex)}, ${q(course.description)}, ${q(course.author)}, ${course.price}, 0, ${q(course.delivery)}, 'draft', ${q(course.welcome)}, ${q(course.completion)}) ` +
+    `INSERT INTO courses (id, slug, title, perex, description_md, author_name, price_czk, lesson_count, delivery_mode, status, welcome_email_md, completion_email_md, audience, requirements, sort_order) ` +
+      `VALUES (${q(ulid())}, ${q(course.slug)}, ${q(course.title)}, ${q(course.perex)}, ${q(course.description)}, ${q(course.author)}, ${course.price}, 0, ${q(course.delivery)}, 'draft', ${q(course.welcome)}, ${q(course.completion)}, ${q(course.audience)}, ${q(course.requirements)}, ${course.sortOrder}) ` +
       `ON CONFLICT(slug) DO UPDATE SET title = excluded.title, perex = excluded.perex, description_md = excluded.description_md, ` +
       `author_name = excluded.author_name, price_czk = excluded.price_czk, delivery_mode = excluded.delivery_mode, ` +
-      `welcome_email_md = excluded.welcome_email_md, completion_email_md = excluded.completion_email_md;`,
+      `welcome_email_md = excluded.welcome_email_md, completion_email_md = excluded.completion_email_md, ` +
+      `audience = excluded.audience, requirements = excluded.requirements, sort_order = excluded.sort_order;`,
   );
   for (const lesson of lessons) {
     sql.push(
@@ -111,6 +112,9 @@ function parseCourse(text, prefix) {
     price: Number(meta['Cena'] ?? 0),
     delivery: meta['Doručování'],
     perex: meta['Perex'] ?? '',
+    audience: meta['Pro koho'] ?? '',
+    requirements: meta['Co potřebujete'] ?? '',
+    sortOrder: Number(meta['Pořadí'] ?? 100),
     description: section(text, 'Popis', 'Uvítací e-mail'),
     welcome: section(text, 'Uvítací e-mail'),
     completion: section(text, 'Závěrečný e-mail'),
@@ -119,7 +123,8 @@ function parseCourse(text, prefix) {
   if (!course.title) fail(`${prefix}: chybí Název.`);
   if (!['next_workday', 'on_click'].includes(course.delivery)) fail(`${prefix}: Doručování musí být next_workday nebo on_click.`);
   if (!Number.isInteger(course.price) || course.price < 0) fail(`${prefix}: neplatná Cena.`);
-  for (const key of ['perex', 'description', 'welcome', 'completion']) {
+  if (!Number.isInteger(course.sortOrder)) fail(`${prefix}: Pořadí musí být celé číslo.`);
+  for (const key of ['perex', 'audience', 'requirements', 'description', 'welcome', 'completion']) {
     if (!course[key]) fail(`${prefix}: karta kurzu nemá vyplněno „${key}“.`);
   }
   return course;

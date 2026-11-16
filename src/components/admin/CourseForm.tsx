@@ -13,6 +13,9 @@ interface CourseFormProps {
     status: string;
     welcome_email_md: string;
     completion_email_md: string;
+    audience?: string;
+    requirements?: string;
+    sort_order?: number;
   };
 }
 
@@ -31,6 +34,9 @@ export default function CourseForm({ course }: CourseFormProps) {
     status: course?.status ?? 'draft',
     welcome_email_md: course?.welcome_email_md ?? '',
     completion_email_md: course?.completion_email_md ?? '',
+    audience: course?.audience ?? '',
+    requirements: course?.requirements ?? '',
+    sort_order: String(course?.sort_order ?? 100),
   });
 
   const set = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
@@ -108,6 +114,22 @@ export default function CourseForm({ course }: CourseFormProps) {
       <div>
         <label className={labelClass}>Perex (krátký popis)</label>
         <input type="text" value={form.perex} onChange={set('perex')} className={inputClass} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <label className={labelClass}>Pro koho (jedna věta do katalogu)</label>
+          <input type="text" value={form.audience} onChange={set('audience')} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Co je potřeba umět a mít</label>
+          <input type="text" value={form.requirements} onChange={set('requirements')} className={inputClass} />
+        </div>
+      </div>
+
+      <div>
+        <label className={labelClass}>Pořadí v katalogu (menší je výš, první kurz je doporučený na titulce)</label>
+        <input type="number" value={form.sort_order} onChange={set('sort_order')} className={inputClass} />
       </div>
 
       <div>

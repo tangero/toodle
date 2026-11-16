@@ -28,7 +28,10 @@ CREATE TABLE IF NOT EXISTS courses (
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'archived')),
   welcome_email_md TEXT NOT NULL DEFAULT '',
   completion_email_md TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  audience TEXT NOT NULL DEFAULT '',
+  requirements TEXT NOT NULL DEFAULT '',
+  sort_order INTEGER NOT NULL DEFAULT 100
 );
 
 CREATE INDEX IF NOT EXISTS idx_courses_slug ON courses(slug);

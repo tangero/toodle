@@ -1,0 +1,60 @@
+---
+/**
+ * Layout veřejného webu v novém vzhledu (styly v src/styles/site.css, scope .site).
+ * Stránky ve starém vzhledu zatím používají PublicLayout.astro.
+ */
+import BaseLayout from './BaseLayout.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description } = Astro.props;
+const user = Astro.locals.user;
+const year = new Date().getFullYear();
+const path = Astro.url.pathname;
+---
+
+<BaseLayout title={title} description={description}>
+  <div class="site">
+    <a class="skip" href="#obsah">Přeskočit na obsah</a>
+
+    <header class="hdr">
+      <div class="wrap">
+        <a class="brand" href="/">Škola AI</a>
+        <nav class="nav" aria-label="Hlavní navigace">
+          <ul>
+            <li><a href="/#kurzy">Kurzy</a></li>
+            <li><a href="/#autor">O autorovi</a></li>
+            <li>
+              {user
+                ? <a class="nav-btn" href="/profil" aria-current={path.startsWith('/profil') ? 'page' : undefined}>Můj profil</a>
+                : <a class="nav-btn" href="/prihlaseni" aria-current={path.startsWith('/prihlaseni') ? 'page' : undefined}>Přihlásit se</a>}
+            </li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <main id="obsah">
+      <slot />
+    </main>
+
+    <footer class="ftr">
+      <div class="wrap">
+        <div class="who">
+          <strong>Škola AI</strong>
+          <span>© {year} Patrick Zandl, IČO 43943420</span>
+        </div>
+        <nav aria-label="Patička">
+          <ul>
+            <li><a href="mailto:patrick@zandl.cz">patrick@zandl.cz</a></li>
+            <li><a href="https://www.aivefirmach.cz/">AI ve firmách</a></li>
+            <li><a href="https://www.vibecoding.cz/">Vibecoding.cz</a></li>
+          </ul>
+        </nav>
+      </div>
+    </footer>
+  </div>
+</BaseLayout>

@@ -1,186 +1,149 @@
 ---
-import PublicLayout from '@layouts/PublicLayout.astro';
+import SiteLayout from '@layouts/SiteLayout.astro';
 import { getAll } from '@lib/db';
 import type { Course } from '@lib/types';
 import { env } from '@lib/env';
+import { loadEventTips } from '@lib/events';
+import { deliveryLabel, lessonCountLabel } from '@lib/labels';
 
-const courses = await getAll<Course>(
-  env.DB,
-  `SELECT * FROM courses WHERE status = 'published' ORDER BY created_at DESC`,
-);
+const [courses, events] = await Promise.all([
+  getAll<Course>(
+    env.DB,
+    `SELECT * FROM courses WHERE status = 'published' ORDER BY sort_order ASC, created_at ASC`,
+  ),
+  loadEventTips(2),
+]);
 
-const steps = [
-  {
-    n: '1',
-    title: 'Ráno vám přijde lekce',
-    body: 'Stručná, praktická a napsaná lidsky. Bez čekání na čas, kdy si pustíte dlouhé školení.',
-  },
-  {
-    n: '2',
-    title: 'Zkopírujete připravený prompt',
-    body: 'Nemusíte vymýšlet, jak se AI zeptat. Ukážeme vám konkrétní zadání a vysvětlíme každý nový pojem.',
-  },
-  {
-    n: '3',
-    title: 'Použijete výsledek v praxi',
-    body: 'E-mail, shrnutí, plán nebo nápad. Každá lekce má jasný výstup, který si rovnou vyzkoušíte.',
-  },
-];
-
-const testimonials = [
-  {
-    quote: 'Konečně něco, co jsem dotáhla do konce. Patnáct minut denně zvládnu i ve vlaku.',
-    name: 'Jana K.',
-    role: 'účetní',
-    color: '#2563eb',
-  },
-  {
-    quote: 'Myslel jsem, že na to nemám hlavu. Po týdnu jsem psal e-maily s AI rychleji než kolegové.',
-    name: 'Martin V.',
-    role: 'obchodní zástupce',
-    color: '#f59e0b',
-  },
-  {
-    quote: 'Dobré tempo. Žádná omáčka, hned víte, co máte zkusit. A funguje to.',
-    name: 'Petra S.',
-    role: 'majitelka kavárny',
-    color: '#10b981',
-  },
-];
-
-const deliveryLabel = (mode: string) => mode === 'next_workday' ? 'Automaticky Po-Pá' : 'Vlastním tempem';
-const fmtPrice = (czk: number) => czk === 0 ? 'Zdarma' : `${czk.toLocaleString('cs-CZ')} Kč`;
-const lessonCountLabel = (count: number) => count === 1
-  ? '1 lekce'
-  : count >= 2 && count <= 4
-    ? `${count} lekce`
-    : `${count} lekcí`;
-const firstSlug = courses[0]?.slug;
+// První kurz v katalogu je doporučený pro začátečníky, druhý pro ty, kdo už AI používají.
+const [first, second] = courses;
 ---
 
-<PublicLayout title="Kurzy" description="Naučte se AI krok za krokem. E-mailové kurzy pro začátečníky i firmy.">
-  <section class="hero">
-    <div class="wrap">
-      <span class="eyebrow">⚡ E-mailové kurzy AI pro úplné začátečníky</span>
-      <h1>Naučte se <span class="mk p">AI</span><br />krok za <span class="mk o">krokem</span></h1>
-      <p class="sub">
-        Každý pracovní den vám přijde jedna krátká lekce do e-mailu. Žádné dlouhé přednášky.
-        Jeden příklad, jeden prompt, jeden úkol, který si hned vyzkoušíte.
-      </p>
+<SiteLayout
+  title="E-mailové kurzy ChatGPT a Claude"
+  description="Praktické e-mailové kurzy ChatGPT a Claude pro lidi, kteří nejsou programátoři. Jedna krátká lekce každý pracovní den, zdarma."
+>
+  <section class="wrap hero">
+    <p class="mono">E-mailové kurzy ChatGPT a Claude</p>
+    <h1>Naučte se pracovat s AI. Jedna krátká lekce denně.</h1>
+    <p class="lead">
+      Praktické kurzy pro lidi, kteří nejsou programátoři. Každý pracovní den vám přijde jedna lekce
+      s úkolem, který si hned vyzkoušíte.
+    </p>
+    {first && (
       <div class="cta">
-        <a class="btn btn-pink btn-big" href="#kurzy">Vybrat si kurz →</a>
-        <a class="btn btn-white btn-big" href="#jak">Jak to funguje</a>
+        <a class="btn btn-accent" href={`/objednavka/${first.slug}`}>Začít kurzem {first.title}</a>
+        {second && (
+          <a class="alt" href={`/kurz/${second.slug}`}>Už AI používáte? Pokračujte kurzem {second.title}</a>
+        )}
       </div>
-      <span class="sticker">
-        <span><b>0 Kč</b><span>start zdarma</span></span>
-      </span>
-      <div class="stats">
-        <div class="st"><b>15 min</b><span>denně stačí</span></div>
-        <div class="st"><b>Po-Pá</b><span>bez víkendů</span></div>
-        <div class="st"><b>0 Kč</b><span>první kurz</span></div>
-      </div>
-    </div>
+    )}
+    <dl class="facts">
+      <div><dt>Cena</dt><dd>Všechny kurzy zdarma</dd></div>
+      <div><dt>Forma</dt><dd>Lekce přímo do e-mailu</dd></div>
+      <div><dt>Od roku 2025</dt><dd>Kolem 10 000 lidí</dd></div>
+    </dl>
   </section>
 
-  <div class="marquee" aria-hidden="true">
-    <div class="track">
-      <span>jeden prompt denně <span class="d">●</span></span>
-      <span>bez zbytečné teorie <span class="d">●</span></span>
-      <span>praktické úkoly <span class="d">●</span></span>
-      <span>lekce přímo v e-mailu <span class="d">●</span></span>
-      <span>jeden prompt denně <span class="d">●</span></span>
-      <span>bez zbytečné teorie <span class="d">●</span></span>
-      <span>praktické úkoly <span class="d">●</span></span>
-      <span>lekce přímo v e-mailu <span class="d">●</span></span>
-    </div>
-  </div>
+  <section class="wrap sec" id="kurzy">
+    <h2>Kurzy</h2>
+    {courses.length === 0 ? (
+      <p class="note">Kurzy právě připravujeme.</p>
+    ) : (
+      <div class="courses">
+        {courses.map((course) => (
+          <article class="course">
+            <h3><a href={`/kurz/${course.slug}`}>{course.title}</a></h3>
+            <p class="col"><span class="mono">Pro koho</span>{course.audience || course.perex}</p>
+            {course.requirements && (
+              <p class="col"><span class="mono">Co potřebujete</span>{course.requirements}</p>
+            )}
+            <p class="col narrow">
+              <span class="mono">{lessonCountLabel(course.lesson_count)} · {deliveryLabel(course.delivery_mode)}</span>
+              <a class="more" href={`/kurz/${course.slug}`}>Zobrazit kurz<span class="sr-only"> {course.title}</span></a>
+            </p>
+          </article>
+        ))}
+      </div>
+    )}
+  </section>
 
-  <section class="section" id="jak">
-    <div class="wrap">
-      <div class="shead">
-        <h2>AI se nenaučíte koukáním. Naučíte se ji používáním.</h2>
-        <p>
-          Z kurzů jsme odstranili dlouhé přednášky, nejasné pojmy a prázdnou teorii.
-          Každý den dostanete jednu věc, kterou si hned zkusíte.
+  <section class="wrap sec">
+    <div class="split">
+      <div class="side">
+        <h2>Takhle vypadá lekce</h2>
+        <p class="muted">
+          Krátký výklad, jedno zadání ke zkopírování a kontrola výsledku. Úryvek je z kurzu
+          Bezpečně s AI v práci a ve škole.
         </p>
       </div>
-      <div class="steps">
-        {steps.map((step) => (
-          <div class="step">
-            <div class="num">{step.n}</div>
-            <h3>{step.title}</h3>
-            <p>{step.body}</p>
-          </div>
-        ))}
-      </div>
-      <p class="closing">
-        Za pár minut denně si vybudujete návyk, díky kterému AI opravdu začnete používat.
-      </p>
-    </div>
-  </section>
-
-  <section class="section courses" id="kurzy">
-    <div class="wrap">
-      <div class="shead">
-        <h2>Vyberte si kurz</h2>
-        <p>Začněte tématem, které vám pomůže hned v běžném dni.</p>
-      </div>
-      {courses.length === 0 ? (
-        <p style="color:#fff;font-weight:700;margin-top:28px">Kurzy se brzy objeví.</p>
-      ) : (
-        <div class="grid">
-          {courses.map((course) => (
-            <a class="pcard" href={`/kurz/${course.slug}`}>
-              <div class="hd">
-                <span>{course.price_czk === 0 ? 'Start zdarma' : 'Kurz'}</span>
-                <span>{lessonCountLabel(course.lesson_count)}</span>
-              </div>
-              <div class="bd">
-                <h3>{course.title}</h3>
-                <p class="perex">{course.perex}</p>
-                <div class="foot">
-                  <span class={`ptag ${course.price_czk === 0 ? 'free' : 'paid'}`}>{fmtPrice(course.price_czk)}</span>
-                  <span class="go">{deliveryLabel(course.delivery_mode)} →</span>
-                </div>
-              </div>
-            </a>
-          ))}
-        </div>
-      )}
-    </div>
-  </section>
-
-  <section class="section tband">
-    <div class="wrap">
-      <div class="tgrid">
-        {testimonials.map((item) => (
-          <div class="tcard">
-            <div class="stars">★★★★★</div>
-            <p>„{item.quote}“</p>
-            <div class="who">
-              <span class="av" style={`background:${item.color}`}>{item.name.charAt(0)}</span>
-              <span>
-                <span class="nm">{item.name}</span><br />
-                <span class="rl">{item.role}</span>
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  </section>
-
-  <section class="section fcta">
-    <div class="wrap">
-      <div class="box">
-        <div class="dec" style="width:220px;height:220px;background:rgba(255,255,255,.10);top:-60px;right:-40px"></div>
-        <div class="dec" style="width:140px;height:140px;background:rgba(255,255,255,.08);bottom:-50px;left:30px"></div>
-        <div style="position:relative;z-index:2">
-          <h2>Začněte už zítra ráno</h2>
-          <p>První lekce dorazí další pracovní den. Bez závazků, kdykoli můžete přestat.</p>
-          {firstSlug && <a class="btn btn-orange btn-big" href={`/kurz/${firstSlug}`}>Zapsat se zdarma →</a>}
+      <div class="main box">
+        <p class="box-head">Lekce 6 z 6 · 6 minut čtení</p>
+        <div class="box-body">
+          <h3>Nechte si pravidla oponovat</h3>
+          <p>Teď to nejužitečnější. Pošlete navazující zadání:</p>
+          <p class="prompt">
+            „Přečti ta pravidla jako člověk, který je chce obejít nebo který je špatně pochopí. Napiš mi:
+            1) tři situace z běžné práce, které pravidla neřeší; 2) dvě pravidla, která jsou tak obecná,
+            že se nedají zkontrolovat; 3) jedno pravidlo, které je zbytečně přísné a bude se porušovat.
+            Pravidla zatím neupravuj.“
+          </p>
+          <p>
+            Projděte odpověď a rozhodněte sami, co z toho je pravda. AI neví, jak vaše práce vypadá,
+            a některé námitky budou mimo.
+          </p>
         </div>
       </div>
     </div>
   </section>
-</PublicLayout>
+
+  <section class="wrap sec" id="autor">
+    <h2>Kurzy píše Patrick Zandl</h2>
+    <p class="measure">
+      Internetový podnikatel, novinář a spisovatel. V roce 1997 spoluzaložil Mobil.cz, v roce 2006
+      Stream.cz a v letech 2008 až 2012 vedl Lupa.cz. Napsal osm knih, mimo jiné Mýty a naděje
+      digitálního světa.
+    </p>
+    <p class="measure">
+      Dnes se věnuje hlavně využití AI ve firemní praxi: radí firmám a vede workshopy pod značkami
+      AI ve firmách a Vibecoding.cz. Škola AI nabízí stejnou zkušenost zdarma každému, kdo se chce
+      AI naučit používat.
+    </p>
+    <ul class="links">
+      <li><a href="https://cs.wikipedia.org/wiki/Patrick_Zandl">Wikipedie</a></li>
+      <li><a href="https://www.linkedin.com/in/patrickzandl">LinkedIn</a></li>
+      <li><a href="https://www.aivefirmach.cz/">AI ve firmách</a></li>
+      <li><a href="https://www.vibecoding.cz/">Vibecoding.cz</a></li>
+    </ul>
+  </section>
+
+  {events.length > 0 && (
+    <section class="wrap sec">
+      <h2>Další naše AI vzdělávání</h2>
+      <div class="cards">
+        {events.map((event) => (
+          <a class="card" href={event.url}>
+            <span class="mono">{[event.label, event.meta].filter(Boolean).join(' · ')}</span>
+            <span class="t">{event.title}</span>
+            <span class="more">Podrobnosti na Vibecoding.cz</span>
+          </a>
+        ))}
+      </div>
+    </section>
+  )}
+
+  <section class="wrap sec">
+    <div class="band">
+      <div class="txt">
+        <h2>Nechcete se teď zapisovat do kurzu?</h2>
+        <p class="muted measure">
+          Patrickův Newsletter píše o AI a technologiích srozumitelně a bez zbytečných podrobností.
+          Pro technicky zaměřené čtenáře je tu kanál na WhatsAppu.
+        </p>
+      </div>
+      <div class="act">
+        <a class="btn" href="https://zandl.substack.com/?utm_source=skola-ai&utm_medium=web">Odebírat Patrickův Newsletter</a>
+        <a class="back" href="https://whatsapp.com/channel/0029VbDhkLcAjPXIv8c3E72Z">Technické AI novinky na WhatsAppu</a>
+      </div>
+    </div>
+  </section>
+</SiteLayout>
