@@ -1,10 +1,13 @@
+import { escapeHtml } from '../escape';
+
+/** `title` je prostý text (escapuje se), `body` je hotové HTML – vkládané hodnoty escapuj už při skládání. */
 export function baseTemplate(title: string, body: string): string {
   return `<!DOCTYPE html>
 <html lang="cs">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
+  <title>${escapeHtml(title)}</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f9fafb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
   <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">

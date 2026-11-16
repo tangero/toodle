@@ -46,6 +46,7 @@ const errorMessages: Record<string, string> = {
       e.preventDefault();
       const formData = new FormData(form);
       const email = formData.get('email') as string;
+      const next = formData.get('redirect') as string;
       const button = form.querySelector('button') as HTMLButtonElement;
 
       button.disabled = true;
@@ -56,7 +57,7 @@ const errorMessages: Record<string, string> = {
         const res = await fetch('/api/auth/magic-link', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ email, next }),
         });
         const data = (await res.json()) as { message?: string; error?: string };
 

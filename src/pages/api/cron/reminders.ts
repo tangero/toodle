@@ -1,19 +1,20 @@
 import type { APIRoute } from 'astro';
-import { generateId, getAll, run } from '@lib/db';
-import { sendEmail } from '@lib/email';
+import { getAll, run } from '@lib/db';
+import { sendEmail, logEmail, listUnsubscribeHeaders } from '@lib/email';
 import { reminderEmail } from '@lib/email-templates/reminder';
 import { createUnsubscribeToken } from '@lib/unsubscribe';
 import { logAudit } from '@lib/audit';
-
+import { isCronAuthorized } from '@lib/cron';
 import { env } from '@lib/env';
 
+/**
+ * On-click kurzy, kde uživatel 3+ dny nepokročil: jedna připomínka a stav `stalled`.
+ * Ze stavu `stalled` lze dál normálně pokračovat tlačítkem „Hotovo“ (vrátí se na `active`).
+ * Připomínka se pošle jen jednou – stalled zápisy už se znovu nevybírají.
+ */
 export const POST: APIRoute = async ({ request }) => {
+  if (!isCronAuthorized(request)) return new Response('Unauthorized', { status: 401 });
 
-  if (request.headers.get('X-Cron-Secret') !== env.CRON_SECRET) {
-    return new Response('Unauthorized', { status: 401 });
-  }
-
-  // Find on_click enrollments that haven't progressed in 3+ days
   const stalled = await getAll<{
     id: string; current_lesson: number;
     user_email: string; user_name: string; course_title: string;
@@ -23,42 +24,38 @@ export const POST: APIRoute = async ({ request }) => {
             u.email as user_email, u.name as user_name,
             c.title as course_title
      FROM enrollments e
-     JOIN users u ON e.user_id = u.id
+     JOIN users u ON e.user_id = u.id AND u.deleted_at IS NULL
      JOIN courses c ON e.course_id = c.id
      WHERE e.status = 'active'
-       AND e.delivery_mode = 'on_click'
+       AND c.delivery_mode = 'on_click'
        AND e.next_send_at IS NULL
-       AND (
-         SELECT MAX(el.sent_at) FROM email_log el WHERE el.enrollment_id = e.id
-       ) < datetime('now', '-3 days')`,
+       AND (SELECT MAX(datetime(el.sent_at)) FROM email_log el WHERE el.enrollment_id = e.id)
+           < datetime('now', '-3 days')
+     LIMIT 200`,
   );
 
   let reminded = 0;
   for (const enrollment of stalled) {
     try {
       const unsubToken = await createUnsubscribeToken(enrollment.id, env.JWT_SECRET);
-      const html = reminderEmail(
-        enrollment.user_name,
-        enrollment.course_title,
-        enrollment.current_lesson,
-        enrollment.id,
-        env.APP_URL,
-        unsubToken,
-      );
-
       const { id: resendId } = await sendEmail(env, {
         to: enrollment.user_email,
         subject: `Pokračujte v kurzu ${enrollment.course_title}`,
-        html,
+        html: reminderEmail(
+          enrollment.user_name,
+          enrollment.course_title,
+          enrollment.current_lesson,
+          enrollment.id,
+          env.APP_URL,
+          unsubToken,
+        ),
         tags: [{ name: 'type', value: 'reminder' }],
+        headers: listUnsubscribeHeaders(env.APP_URL, unsubToken),
+        idempotencyKey: `reminder-${enrollment.id}-${enrollment.current_lesson}`,
       });
 
-      await run(
-        env.DB,
-        `INSERT INTO email_log (id, enrollment_id, lesson_id, template, resend_id) VALUES (?, ?, NULL, 'reminder', ?)`,
-        generateId(), enrollment.id, resendId,
-      );
-      await run(env.DB, `UPDATE enrollments SET status = 'stalled' WHERE id = ?`, enrollment.id);
+      await logEmail(env, { enrollmentId: enrollment.id, template: 'reminder', resendId });
+      await run(env.DB, `UPDATE enrollments SET status = 'stalled' WHERE id = ? AND status = 'active'`, enrollment.id);
       await logAudit(env.DB, 'cron', 'reminder.sent', enrollment.id);
       reminded++;
     } catch (err) {

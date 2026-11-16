@@ -6,8 +6,8 @@ const ALLOWED_TYPES: Record<string, string> = {
   'image/png': 'png',
   'image/gif': 'gif',
   'image/webp': 'webp',
-  'image/svg+xml': 'svg',
 };
+// SVG záměrně nepovolujeme – může obsahovat skripty a servíruje se z vlastní domény.
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 
 import { env } from '@lib/env';

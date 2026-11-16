@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { TestQuestion } from '@lib/types';
 
+const MAX_ANSWER_LENGTH = 2000;
+
 interface FeedbackItem {
   question_id: string;
   points_awarded: number;
@@ -14,6 +16,7 @@ interface SubmitResult {
   passed: boolean;
   feedback: FeedbackItem[];
   certificatePublicId: string | null;
+  certificateError?: boolean;
 }
 
 interface Props {
@@ -61,6 +64,11 @@ export default function TestForm({ enrollmentId, questions }: Props) {
           <p className={`text-lg font-semibold ${result.passed ? 'text-green-800' : 'text-orange-800'}`}>
             {result.passed ? '🎉 Gratulujeme! Test byl úspěšně splněn.' : '😕 Bohužel jste test nesplnili (minimum je 70 %).'}
           </p>
+          {result.certificateError && (
+            <p className="mt-3 text-sm text-orange-800">
+              Certifikát se nepodařilo vygenerovat. Zkuste test odeslat znovu, případně nás kontaktujte.
+            </p>
+          )}
           {result.certificatePublicId && (
             <a
               href={`/certifikat/${result.certificatePublicId}`}
@@ -92,6 +100,16 @@ export default function TestForm({ enrollmentId, questions }: Props) {
             );
           })}
         </div>
+
+        {!result.passed && (
+          <button
+            type="button"
+            onClick={() => setResult(null)}
+            className="block w-full rounded-lg bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            Zkusit test znovu
+          </button>
+        )}
 
         <a href="/profil" className="block text-center rounded-lg border border-gray-300 px-6 py-2 text-sm text-gray-700 hover:bg-gray-50">
           Zpět do profilu
@@ -131,6 +149,7 @@ export default function TestForm({ enrollmentId, questions }: Props) {
           ) : (
             <textarea
               rows={4}
+              maxLength={MAX_ANSWER_LENGTH}
               value={answers[q.id] ?? ''}
               onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
               placeholder="Napište svoji odpověď..."

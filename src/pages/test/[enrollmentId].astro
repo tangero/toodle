@@ -28,8 +28,14 @@ const testRow = await getOne<Test>(
 );
 if (!testRow) return Astro.redirect(`/profil/kurz/${enrollmentId}`);
 
-const questions: TestQuestion[] = JSON.parse(testRow.questions_json);
-if (questions.length === 0) return Astro.redirect(`/profil/kurz/${enrollmentId}`);
+const allQuestions: TestQuestion[] = JSON.parse(testRow.questions_json);
+if (allQuestions.length === 0) return Astro.redirect(`/profil/kurz/${enrollmentId}`);
+
+// Do prohlížeče posíláme otázky BEZ správných odpovědí (props ostrůvku jsou vidět ve zdrojáku stránky).
+const questions: TestQuestion[] = allQuestions.map(({ id, type, question, options, max_points }) => ({
+  id, type, question, max_points,
+  options: options?.map((o) => ({ id: o.id, text: o.text })),
+}));
 ---
 
 <PublicLayout title={`Test — ${course.title}`}>

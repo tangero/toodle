@@ -1,0 +1,53 @@
+import type { AppEnv } from './env';
+import { getAll, getOne } from './db';
+
+/**
+ * Smazání uživatele podle GDPR (volá ho uživatel i admin).
+ *
+ * - Osobní data průběhu (zápisy, e-mailový log, testy, certifikáty, přihlašovací odkazy) se mažou.
+ * - Objednávky zůstávají kvůli účetnictví, jen se odpojí od smazaného zápisu.
+ * - Řádek uživatele se anonymizuje unikátním e-mailem (sloupec email je UNIQUE),
+ *   takže se člověk může později znovu registrovat stejnou adresou.
+ * - Vše běží v jedné D1 dávce (atomicky); PDF v R2 se mažou až po úspěchu.
+ */
+export async function deleteUserData(env: AppEnv, userId: string): Promise<boolean> {
+  const user = await getOne<{ id: string; email: string }>(
+    env.DB, `SELECT id, email FROM users WHERE id = ? AND deleted_at IS NULL`, userId,
+  );
+  if (!user) return false;
+
+  const certs = await getAll<{ pdf_r2_key: string }>(
+    env.DB,
+    `SELECT c.pdf_r2_key FROM certificates c JOIN enrollments e ON c.enrollment_id = e.id WHERE e.user_id = ?`,
+    userId,
+  );
+
+  const userEnrollments = `SELECT id FROM enrollments WHERE user_id = ?`;
+  const db = env.DB;
+  await db.batch([
+    db.prepare(`UPDATE orders SET enrollment_id = NULL WHERE user_id = ?`).bind(userId),
+    db.prepare(`DELETE FROM email_log WHERE enrollment_id IN (${userEnrollments})`).bind(userId),
+    db.prepare(`DELETE FROM test_attempts WHERE enrollment_id IN (${userEnrollments})`).bind(userId),
+    db.prepare(`DELETE FROM certificates WHERE enrollment_id IN (${userEnrollments})`).bind(userId),
+    db.prepare(`DELETE FROM enrollments WHERE user_id = ?`).bind(userId),
+    db.prepare(`DELETE FROM magic_links WHERE user_id = ?`).bind(userId),
+    db.prepare(`UPDATE audit_log SET actor = 'deleted-user' WHERE actor = ?`).bind(user.email),
+    db.prepare(`UPDATE audit_log SET payload_json = NULL WHERE instr(payload_json, ?) > 0`).bind(user.email),
+    db.prepare(
+      `UPDATE users SET deleted_at = datetime('now'), email = 'deleted-' || id || '@deleted.invalid',
+       name = 'Smazaný uživatel' WHERE id = ?`,
+    ).bind(userId),
+    db.prepare(
+      `INSERT INTO audit_log (id, actor, action, target, created_at) VALUES (?, 'gdpr', 'user.deleted', ?, datetime('now'))`,
+    ).bind(crypto.randomUUID(), userId),
+  ]);
+
+  for (const cert of certs) {
+    try {
+      await env.BUCKET.delete(cert.pdf_r2_key);
+    } catch (err) {
+      console.error(`R2 delete failed for ${cert.pdf_r2_key}:`, err);
+    }
+  }
+  return true;
+}

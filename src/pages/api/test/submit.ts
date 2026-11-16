@@ -1,36 +1,48 @@
 import type { APIRoute } from 'astro';
 import { generateId, getOne, run } from '@lib/db';
-import { evaluateOpenEndedAnswers } from '@lib/llm';
+import { evaluateOpenEndedAnswers, MAX_ANSWER_LENGTH } from '@lib/llm';
 import { issueCertificate } from '@lib/certificate';
-import { sendEmail } from '@lib/email';
+import { sendEmail, logEmail } from '@lib/email';
+import { certificateEmail } from '@lib/email-templates/certificate';
 import { logAudit } from '@lib/audit';
 import type { TestQuestion } from '@lib/types';
+import { env } from '@lib/env';
 
 const PASSING_SCORE = 70;
-
-import { env } from '@lib/env';
+/** Max. počet odevzdání testu za 24 h na jeden zápis (každé stojí volání LLM). */
+const MAX_ATTEMPTS_PER_DAY = 5;
 
 export const POST: APIRoute = async ({ request, locals }) => {
   const user = locals.user;
   if (!user) return json({ error: 'Nepřihlášen' }, 401);
 
-  let body: { enrollmentId: string; answers: Record<string, string> };
+  let body: { enrollmentId?: unknown; answers?: unknown };
   try {
     body = await request.json();
   } catch {
     return json({ error: 'Neplatný požadavek' }, 400);
   }
 
-  const { enrollmentId, answers } = body;
+  const enrollmentId = typeof body.enrollmentId === 'string' ? body.enrollmentId : '';
+  const answers = sanitizeAnswers(body.answers);
+  if (!enrollmentId || !answers) return json({ error: 'Neplatný požadavek' }, 400);
 
   const enrollment = await getOne<{ id: string; user_id: string; course_id: string; status: string; score: number | null }>(
     env.DB, `SELECT id, user_id, course_id, status, score FROM enrollments WHERE id = ?`, enrollmentId,
   );
-  if (!enrollment) return json({ error: 'Enrollment nenalezen' }, 404);
+  if (!enrollment) return json({ error: 'Zápis nenalezen' }, 404);
   if (enrollment.user_id !== user.id) return json({ error: 'Přístup odepřen' }, 403);
   if (enrollment.status !== 'completed') return json({ error: 'Kurz není dokončen' }, 400);
 
-  const previousBestScore = enrollment.score;
+  const recent = await getOne<{ count: number }>(
+    env.DB,
+    `SELECT COUNT(*) as count FROM test_attempts
+     WHERE enrollment_id = ? AND datetime(completed_at) > datetime('now', '-1 day')`,
+    enrollmentId,
+  );
+  if ((recent?.count ?? 0) >= MAX_ATTEMPTS_PER_DAY) {
+    return json({ error: `Test lze odevzdat nejvýše ${MAX_ATTEMPTS_PER_DAY}× za 24 hodin. Zkuste to prosím zítra.` }, 429);
+  }
 
   const testRow = await getOne<{ questions_json: string }>(
     env.DB, `SELECT questions_json FROM tests WHERE course_id = ?`, enrollment.course_id,
@@ -49,23 +61,21 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const feedbackItems: { question_id: string; points_awarded: number; max_points: number; feedback: string }[] = [];
   let llmRaw = '';
 
-  // Score multiple-choice
-  const mcQuestions = questions.filter((q) => q.type === 'multiple_choice');
-  for (const q of mcQuestions) {
+  for (const q of questions.filter((q) => q.type === 'multiple_choice')) {
     totalPoints += q.max_points;
-    if (answers[q.id] === q.correct_option_id) {
-      earnedPoints += q.max_points;
-      feedbackItems.push({ question_id: q.id, points_awarded: q.max_points, max_points: q.max_points, feedback: 'Správně!' });
-    } else {
-      feedbackItems.push({ question_id: q.id, points_awarded: 0, max_points: q.max_points, feedback: 'Nesprávně.' });
-    }
+    const correct = answers[q.id] === q.correct_option_id;
+    if (correct) earnedPoints += q.max_points;
+    feedbackItems.push({
+      question_id: q.id,
+      points_awarded: correct ? q.max_points : 0,
+      max_points: q.max_points,
+      feedback: correct ? 'Správně!' : 'Nesprávně.',
+    });
   }
 
-  // Evaluate open-ended answers through OpenRouter auto routing.
   const openQuestions = questions.filter((q) => q.type === 'open_ended');
   if (openQuestions.length > 0) {
     for (const q of openQuestions) totalPoints += q.max_points;
-
     try {
       const { evaluations, raw } = await evaluateOpenEndedAnswers(
         env.OPENROUTER_API_KEY,
@@ -83,69 +93,88 @@ export const POST: APIRoute = async ({ request, locals }) => {
         earnedPoints += ev.points_awarded;
         feedbackItems.push(ev);
       }
-    } catch {
-      // Fallback: half credit
-      for (const q of openQuestions) {
-        const pts = Math.floor(q.max_points * 0.5);
-        earnedPoints += pts;
-        feedbackItems.push({ question_id: q.id, points_awarded: pts, max_points: q.max_points, feedback: 'Hodnocení selhalo — přiznán částečný kredit.' });
-      }
+    } catch (err) {
+      // Pokus se neukládá a nezapočítává – student odešle test znovu.
+      console.error('LLM evaluation failed:', err);
+      return json({ error: 'Automatické hodnocení otevřených otázek se teď nepodařilo. Vaše odpovědi zůstaly ve formuláři – zkuste test odeslat znovu za chvíli.' }, 503);
     }
   }
 
   const score = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
   const passed = score >= PASSING_SCORE;
 
-  // Save attempt
   const attemptId = generateId();
   await run(
     env.DB,
-    `INSERT INTO test_attempts (id, enrollment_id, answers_json, score, feedback_json, llm_evaluation_raw)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO test_attempts (id, enrollment_id, answers_json, score, feedback_json, llm_evaluation_raw, completed_at)
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
     attemptId, enrollmentId, JSON.stringify(answers), score,
     JSON.stringify(feedbackItems), llmRaw || null,
   );
 
-  // Update best score on enrollment
-  if (previousBestScore === null || score > previousBestScore) {
-    await run(env.DB, `UPDATE enrollments SET score = ? WHERE id = ?`, score, enrollmentId);
-  }
+  const existingCert = await getOne<{ id: string }>(
+    env.DB, `SELECT id FROM certificates WHERE enrollment_id = ?`, enrollmentId,
+  );
+  const previousBest = enrollment.score;
 
-  // Issue certificate if passed and score improved (or no cert yet)
+  // Certifikát: když ještě žádný není (i po dřívějším selhání generování), nebo při lepším skóre.
   let certificatePublicId: string | null = null;
-  if (passed && (previousBestScore === null || score > (previousBestScore ?? 0))) {
-    // Delete old certificate if exists
-    const oldCert = await getOne<{ id: string; pdf_r2_key: string }>(
-      env.DB, `SELECT id, pdf_r2_key FROM certificates WHERE enrollment_id = ?`, enrollmentId,
-    );
-    if (oldCert) {
-      await env.BUCKET.delete(oldCert.pdf_r2_key);
-      await run(env.DB, `DELETE FROM certificates WHERE id = ?`, oldCert.id);
-    }
-
+  let certificateError = false;
+  if (passed && (!existingCert || previousBest === null || score > previousBest)) {
     const userRow = await getOne<{ name: string; email: string }>(
       env.DB, `SELECT name, email FROM users WHERE id = ?`, user.id,
     );
-    const { publicId } = await issueCertificate(
-      env.DB, env.BUCKET, enrollmentId,
-      userRow?.name ?? user.name,
-      courseRow?.title ?? '',
-      score,
-      env.APP_URL,
-    );
-    certificatePublicId = publicId;
+    try {
+      const { publicId } = await issueCertificate(
+        env.DB, env.BUCKET, enrollmentId,
+        userRow?.name ?? user.name,
+        courseRow?.title ?? '',
+        score,
+        env.APP_URL,
+      );
+      certificatePublicId = publicId;
+    } catch (err) {
+      certificateError = true;
+      console.error(`Certificate issue failed for ${enrollmentId}:`, err);
+    }
 
-    await sendEmail(env, {
-      to: user.email,
-      subject: `Váš certifikát — ${courseRow?.title}`,
-      html: `<p>Gratulujeme! Úspěšně jste dokončili test s výsledkem ${score} %. Certifikát najdete na: <a href="${env.APP_URL}/certifikat/${publicId}">${env.APP_URL}/certifikat/${publicId}</a></p>`,
-      tags: [{ name: 'type', value: 'certificate' }],
-    });
+    if (certificatePublicId) {
+      try {
+        const { id } = await sendEmail(env, {
+          to: userRow?.email ?? user.email,
+          subject: `Váš certifikát — ${courseRow?.title ?? ''}`,
+          html: certificateEmail(userRow?.name ?? user.name, courseRow?.title ?? '', score,
+            `${env.APP_URL}/certifikat/${certificatePublicId}`),
+          tags: [{ name: 'type', value: 'certificate' }],
+        });
+        await logEmail(env, { enrollmentId, template: 'certificate', resendId: id });
+      } catch (err) {
+        console.error(`Certificate email failed for ${enrollmentId}:`, err);
+      }
+    }
   }
 
-  await logAudit(env.DB, user.email, 'test.submitted', attemptId, { score, passed });
-  return json({ ok: true, score, passed, feedback: feedbackItems, certificatePublicId });
+  // Nejlepší skóre (issueCertificate ho nastavuje sám; tady pro neúspěšné / nezlepšené pokusy).
+  if (!certificatePublicId && (previousBest === null || score > previousBest)) {
+    await run(env.DB, `UPDATE enrollments SET score = ? WHERE id = ?`, score, enrollmentId);
+  }
+
+  await logAudit(env.DB, user.id, 'test.submitted', attemptId, { score, passed });
+  return json({ ok: true, score, passed, feedback: feedbackItems, certificatePublicId, certificateError });
 };
+
+/** Odpovědi: objekt { idOtazky: text }, max. 100 otázek, každá odpověď zkrácená na limit. */
+function sanitizeAnswers(value: unknown): Record<string, string> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length > 100) return null;
+  const result: Record<string, string> = {};
+  for (const [key, v] of entries) {
+    if (typeof v !== 'string' || key.length > 100) continue;
+    result[key] = v.slice(0, MAX_ANSWER_LENGTH);
+  }
+  return result;
+}
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });

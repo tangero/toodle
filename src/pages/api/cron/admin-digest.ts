@@ -4,26 +4,25 @@ import { sendEmail } from '@lib/email';
 import { adminDigestEmail } from '@lib/email-templates/admin-digest';
 
 import { env } from '@lib/env';
+import { isCronAuthorized } from '@lib/cron';
 
 export const POST: APIRoute = async ({ request }) => {
 
-  // Verify cron secret
-  const secret = request.headers.get('X-Cron-Secret');
-  if (secret !== env.CRON_SECRET) {
+  if (!isCronAuthorized(request)) {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  // Posledních 24 hodin (dříve od půlnoci UTC – události po 16:00 UTC se nedostaly do žádného přehledu).
+  const since = `datetime('now', '-1 day')`;
 
   const [newEnrollments, completedEnrollments, paidOrders, revenue, unmatchedPayments, bouncedEmails] =
     await Promise.all([
-      getOne<{ count: number }>(env.DB, `SELECT COUNT(*) as count FROM enrollments WHERE started_at >= ?`, today),
-      getOne<{ count: number }>(env.DB, `SELECT COUNT(*) as count FROM enrollments WHERE completed_at >= ?`, today),
-      getOne<{ count: number }>(env.DB, `SELECT COUNT(*) as count FROM orders WHERE status = 'paid' AND paid_at >= ?`, today),
-      getOne<{ total: number }>(env.DB, `SELECT COALESCE(SUM(amount_czk), 0) as total FROM orders WHERE status = 'paid' AND paid_at >= ?`, today),
+      getOne<{ count: number }>(env.DB, `SELECT COUNT(*) as count FROM enrollments WHERE datetime(started_at) >= ${since}`),
+      getOne<{ count: number }>(env.DB, `SELECT COUNT(*) as count FROM enrollments WHERE datetime(completed_at) >= ${since}`),
+      getOne<{ count: number }>(env.DB, `SELECT COUNT(*) as count FROM orders WHERE status = 'paid' AND datetime(paid_at) >= ${since}`),
+      getOne<{ total: number }>(env.DB, `SELECT COALESCE(SUM(amount_czk), 0) as total FROM orders WHERE status = 'paid' AND datetime(paid_at) >= ${since}`),
       getOne<{ count: number }>(env.DB, `SELECT COUNT(*) as count FROM payments WHERE matched_order_id IS NULL`),
-      getOne<{ count: number }>(env.DB, `SELECT COUNT(*) as count FROM email_log WHERE bounced_at >= ?`, today),
+      getOne<{ count: number }>(env.DB, `SELECT COUNT(*) as count FROM email_log WHERE datetime(bounced_at) >= ${since}`),
     ]);
 
   const html = adminDigestEmail({

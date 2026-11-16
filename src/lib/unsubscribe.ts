@@ -12,8 +12,15 @@ export async function createUnsubscribeToken(enrollmentId: string, jwtSecret: st
 
 export async function verifyUnsubscribeToken(token: string, jwtSecret: string): Promise<string | null> {
   const dot = token.lastIndexOf('.');
-  if (dot === -1) return null;
+  if (dot <= 0 || token.length > 200) return null;
   const enrollmentId = token.slice(0, dot);
   const expected = await createUnsubscribeToken(enrollmentId, jwtSecret);
-  return expected === token ? enrollmentId : null;
+  return timingSafeEqual(expected, token) ? enrollmentId : null;
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }

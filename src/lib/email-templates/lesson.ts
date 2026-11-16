@@ -1,5 +1,6 @@
 import { baseTemplate } from './base';
 import { renderMarkdown } from '../markdown';
+import { escapeHtml } from '../escape';
 
 interface LessonEmailParams {
   userName: string;
@@ -17,7 +18,7 @@ interface LessonEmailParams {
 
 export function lessonEmail(p: LessonEmailParams): string {
   const contentHtml = renderMarkdown(p.contentMd);
-  const isLast = p.lessonPosition === p.totalLessons;
+  const isLast = p.lessonPosition >= p.totalLessons;
 
   const doneButton = p.deliveryMode === 'on_click' && !isLast ? `
     <div style="text-align: center; margin: 32px 0;">
@@ -47,10 +48,11 @@ export function lessonEmail(p: LessonEmailParams): string {
   return baseTemplate(
     `Lekce ${p.lessonPosition}: ${p.lessonTitle}`,
     `
+    <p style="color: #374151; margin: 0 0 16px;">Ahoj ${escapeHtml(p.userName)},</p>
     <p style="color: #6b7280; font-size: 13px; margin: 0 0 4px;">
-      ${p.courseTitle} · Lekce ${p.lessonPosition} z ${p.totalLessons} · ${p.readingMinutes} min čtení
+      ${escapeHtml(p.courseTitle)} · Lekce ${p.lessonPosition} z ${p.totalLessons} · ${p.readingMinutes} min čtení
     </p>
-    <h2 style="color: #111827; margin: 0 0 24px; font-size: 22px;">${p.lessonTitle}</h2>
+    <h2 style="color: #111827; margin: 0 0 24px; font-size: 22px;">${escapeHtml(p.lessonTitle)}</h2>
 
     <div style="line-height: 1.7; color: #374151;">
       ${contentHtml}

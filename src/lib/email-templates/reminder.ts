@@ -1,4 +1,5 @@
 import { baseTemplate } from './base';
+import { escapeHtml } from '../escape';
 
 export function reminderEmail(
   userName: string,
@@ -11,9 +12,9 @@ export function reminderEmail(
   return baseTemplate(
     `Pokračujte v kurzu ${courseTitle}`,
     `
-    <p>Ahoj ${userName},</p>
+    <p>Ahoj ${escapeHtml(userName)},</p>
     <p>
-      Zdá se, že jste na chvíli přestali číst kurz <strong>${courseTitle}</strong>.
+      Zdá se, že jste na chvíli přestali číst kurz <strong>${escapeHtml(courseTitle)}</strong>.
       Pokračujete u lekce č. ${lessonPosition} — ještě vás čeká zajímavé učení!
     </p>
     <div style="text-align: center; margin: 32px 0;">

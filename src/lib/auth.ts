@@ -1,11 +1,18 @@
 import { generateId, getOne, run } from './db';
+import { toSqlDateTime } from './time';
 import type { User, MagicLink } from './types';
 import type { D1Database } from '@cloudflare/workers-types';
 
 const JWT_EXPIRY_SECONDS = 7 * 24 * 60 * 60; // 7 days
-const MAGIC_LINK_EXPIRY_MINUTES = 15;
 
-// --- ULID-based token generation ---
+/** Platnost přihlašovacího odkazu. */
+export const LOGIN_LINK_TTL_MINUTES = 15;
+/** Platnost odkazu pro potvrzení zápisu (double opt-in) – lidé ho často otevřou později. */
+export const CONFIRM_LINK_TTL_MINUTES = 48 * 60;
+/** Kolik odkazů smí jeden uživatel dostat za hodinu. */
+export const MAX_LINKS_PER_HOUR = 3;
+
+// --- Tokens ---
 
 export function generateToken(): string {
   const bytes = new Uint8Array(32);
@@ -13,49 +20,68 @@ export function generateToken(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/** V DB ukládáme jen SHA-256 hash tokenu – únik databáze tak neumožní přihlášení. */
+export async function hashToken(token: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 // --- Magic Links ---
 
 export async function createMagicLink(
   db: D1Database,
   userId: string,
+  ttlMinutes: number = LOGIN_LINK_TTL_MINUTES,
 ): Promise<string> {
   const token = generateToken();
-  const expiresAt = new Date(
-    Date.now() + MAGIC_LINK_EXPIRY_MINUTES * 60 * 1000,
-  ).toISOString();
+  const now = new Date();
+  const expiresAt = toSqlDateTime(new Date(now.getTime() + ttlMinutes * 60 * 1000));
 
   await run(
     db,
-    `INSERT INTO magic_links (token, user_id, expires_at) VALUES (?, ?, ?)`,
-    token,
+    `INSERT INTO magic_links (token, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)`,
+    await hashToken(token),
     userId,
     expiresAt,
+    toSqlDateTime(now),
   );
 
   return token;
 }
 
+/** Počet odkazů vytvořených pro uživatele za poslední hodinu (sdílený limit napříč instancemi). */
+export async function countRecentMagicLinks(db: D1Database, userId: string): Promise<number> {
+  const row = await getOne<{ count: number }>(
+    db,
+    `SELECT COUNT(*) as count FROM magic_links WHERE user_id = ? AND created_at > datetime('now', '-1 hour')`,
+    userId,
+  );
+  return row?.count ?? 0;
+}
+
+/** Jednorázově spotřebuje token. Vrací userId, nebo null (neplatný, použitý, prošlý). */
 export async function verifyMagicLink(
   db: D1Database,
   token: string,
 ): Promise<string | null> {
-  const link = await getOne<MagicLink>(
+  if (!/^[0-9a-f]{64}$/.test(token)) return null;
+  const hash = await hashToken(token);
+
+  // Atomické spotřebování – souběžné požadavky nemohou token použít dvakrát.
+  const result = await run(
     db,
-    `SELECT * FROM magic_links WHERE token = ?`,
-    token,
+    `UPDATE magic_links SET used_at = datetime('now')
+     WHERE token = ? AND used_at IS NULL AND datetime(expires_at) > datetime('now')`,
+    hash,
   );
+  if (!result.meta.changes) return null;
 
-  if (!link) return null;
-  if (link.used_at) return null;
-  if (new Date(link.expires_at) < new Date()) return null;
-
-  await run(
+  const link = await getOne<Pick<MagicLink, 'user_id'>>(
     db,
-    `UPDATE magic_links SET used_at = datetime('now') WHERE token = ?`,
-    token,
+    `SELECT user_id FROM magic_links WHERE token = ?`,
+    hash,
   );
-
-  return link.user_id;
+  return link?.user_id ?? null;
 }
 
 // --- JWT Sessions (using Web Crypto HMAC-SHA256) ---
@@ -166,49 +192,42 @@ export function getSessionCookie(request: Request): string | null {
   const match = cookie.split(';').find((c) => c.trim().startsWith(`${SESSION_COOKIE}=`));
   if (!match) return null;
 
-  return match.split('=')[1]?.trim() ?? null;
+  return match.slice(match.indexOf('=') + 1).trim() || null;
 }
 
 export function setSessionCookie(token: string): string {
-  return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${JWT_EXPIRY_SECONDS}`;
+  return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${JWT_EXPIRY_SECONDS}`;
 }
 
 export function clearSessionCookie(): string {
-  return `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`;
+  return `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
 }
 
 // --- User helpers ---
 
+/** Najde uživatele podle e-mailu, nebo ho založí. Jméno existujícího uživatele nemění. */
 export async function findOrCreateUser(
   db: D1Database,
   email: string,
   name: string,
 ): Promise<User> {
-  const existing = await getOne<User>(
-    db,
-    `SELECT * FROM users WHERE email = ? AND deleted_at IS NULL`,
-    email.toLowerCase(),
-  );
-
-  if (existing) return existing;
-
-  const id = generateId();
+  const normalized = email.toLowerCase();
+  // ON CONFLICT: souběžné objednávky se stejným e-mailem nespadnou na UNIQUE.
   await run(
     db,
-    `INSERT INTO users (id, email, name) VALUES (?, ?, ?)`,
-    id,
-    email.toLowerCase(),
+    `INSERT INTO users (id, email, name) VALUES (?, ?, ?) ON CONFLICT(email) DO NOTHING`,
+    generateId(),
+    normalized,
     name,
   );
+  const user = await getOne<User>(db, `SELECT * FROM users WHERE email = ? AND deleted_at IS NULL`, normalized);
+  if (!user) throw new Error('findOrCreateUser: uživatel nenalezen');
+  return user;
+}
 
-  return {
-    id,
-    email: email.toLowerCase(),
-    name,
-    created_at: new Date().toISOString(),
-    verified_at: null,
-    deleted_at: null,
-  };
+/** Označí e-mail jako ověřený (uživatel prokázal přístup ke schránce). */
+export async function markUserVerified(db: D1Database, userId: string): Promise<void> {
+  await run(db, `UPDATE users SET verified_at = datetime('now') WHERE id = ? AND verified_at IS NULL`, userId);
 }
 
 export async function isAdmin(

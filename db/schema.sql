@@ -1,5 +1,6 @@
 -- Letní škola AI - D1 Schema
--- All IDs are TEXT (ULID), all timestamps are ISO 8601 strings
+-- All IDs are TEXT (ULID). Timestamps compared in SQL use SQLite format 'YYYY-MM-DD HH:MM:SS' (UTC).
+-- Tento soubor odpovídá stavu po všech migracích v db/migrations/.
 
 -- Users
 CREATE TABLE IF NOT EXISTS users (
@@ -62,6 +63,7 @@ CREATE TABLE IF NOT EXISTS enrollments (
 
 CREATE INDEX IF NOT EXISTS idx_enrollments_user ON enrollments(user_id);
 CREATE INDEX IF NOT EXISTS idx_enrollments_status_send ON enrollments(status, next_send_at);
+CREATE INDEX IF NOT EXISTS idx_enrollments_course ON enrollments(course_id, current_lesson);
 
 -- Orders
 CREATE TABLE IF NOT EXISTS orders (
@@ -110,6 +112,7 @@ CREATE TABLE IF NOT EXISTS email_log (
 
 CREATE INDEX IF NOT EXISTS idx_email_log_enrollment ON email_log(enrollment_id, template);
 CREATE INDEX IF NOT EXISTS idx_email_log_resend ON email_log(resend_id);
+CREATE INDEX IF NOT EXISTS idx_email_log_lesson ON email_log(lesson_id);
 
 -- Tests
 CREATE TABLE IF NOT EXISTS tests (
@@ -142,13 +145,16 @@ CREATE TABLE IF NOT EXISTS certificates (
 
 CREATE INDEX IF NOT EXISTS idx_certificates_public ON certificates(public_id);
 
--- Magic links
+-- Magic links (token = SHA-256 hash, ne samotný token)
 CREATE TABLE IF NOT EXISTS magic_links (
   token TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id),
   expires_at TEXT NOT NULL,
-  used_at TEXT
+  used_at TEXT,
+  created_at TEXT
 );
+
+CREATE INDEX IF NOT EXISTS idx_magic_links_user_created ON magic_links(user_id, created_at);
 
 -- Audit log
 CREATE TABLE IF NOT EXISTS audit_log (
@@ -162,3 +168,4 @@ CREATE TABLE IF NOT EXISTS audit_log (
 
 CREATE INDEX IF NOT EXISTS idx_audit_log_actor ON audit_log(actor);
 CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action);
+CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at);

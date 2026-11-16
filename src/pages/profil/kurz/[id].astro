@@ -1,7 +1,6 @@
 ---
 import PublicLayout from '@layouts/PublicLayout.astro';
 import { getOne, getAll } from '@lib/db';
-import { renderMarkdown } from '@lib/markdown';
 import type { Enrollment, Course, Lesson, Certificate } from '@lib/types';
 import { env } from "@lib/env";
 
@@ -41,8 +40,17 @@ const certificate = await getOne<Certificate>(
   enrollment.id,
 );
 
+const hasTest = !!(await getOne<{ id: string }>(
+  env.DB,
+  `SELECT id FROM tests WHERE course_id = ? AND questions_json != '[]'`,
+  course.id,
+));
+
+const canContinue = (enrollment.status === 'active' || enrollment.status === 'stalled') && course.delivery_mode === 'on_click';
+const canPause = ['active', 'stalled', 'paused'].includes(enrollment.status);
+
 const statusLabels: Record<string, string> = {
-  pending: 'Čeká na aktivaci',
+  pending: 'Čeká na potvrzení e-mailu',
   active: 'Aktivní',
   paused: 'Pozastaveno',
   stalled: 'Neaktivní',
@@ -67,18 +75,32 @@ const statusLabels: Record<string, string> = {
       </div>
     </header>
 
+    {enrollment.status === 'pending' && (
+      <div class="mt-6 rounded-lg bg-yellow-50 p-4 text-sm text-yellow-900">
+        Zápis čeká na potvrzení e-mailu. Klikněte na odkaz v potvrzovacím e-mailu – lekce začnou chodit hned potom.
+      </div>
+    )}
+
     {enrollment.status === 'completed' && (
       <div class="mt-6 rounded-lg bg-green-50 p-4">
         <p class="font-medium text-green-800">Kurz byl dokončen!</p>
-        <div class="mt-2 flex gap-3">
-          {!certificate && enrollment.score === null && (
+        {enrollment.score !== null && (
+          <p class="mt-1 text-sm text-green-800">Nejlepší výsledek testu: <strong>{enrollment.score} %</strong></p>
+        )}
+        <div class="mt-2 flex flex-wrap gap-3">
+          {hasTest && !certificate && (
             <a href={`/test/${enrollment.id}`} class="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
-              Složit závěrečný test
+              {enrollment.score === null ? 'Složit závěrečný test' : 'Zkusit test znovu'}
             </a>
           )}
           {certificate && (
             <a href={`/certifikat/${certificate.public_id}`} class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
               Zobrazit certifikát
+            </a>
+          )}
+          {hasTest && certificate && (enrollment.score ?? 0) < 100 && (
+            <a href={`/test/${enrollment.id}`} class="rounded-lg border border-green-600 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-100">
+              Zlepšit skóre
             </a>
           )}
         </div>
@@ -112,32 +134,56 @@ const statusLabels: Record<string, string> = {
       </ol>
     </section>
 
-    {enrollment.status === 'active' && course.delivery_mode === 'on_click' && (
+    {canContinue && (
       <div class="mt-6 text-center">
         <button
           id="mark-done"
           class="rounded-lg bg-blue-600 px-6 py-2 font-medium text-white hover:bg-blue-700"
           data-enrollment-id={enrollment.id}
         >
-          Pokračovat na další lekci
+          Mám přečteno – pošlete další lekci
+        </button>
+        <p id="done-msg" class="mt-2 text-sm text-gray-600" role="status"></p>
+      </div>
+    )}
+
+    {canPause && (
+      <div class="mt-6 text-center">
+        <button
+          id="toggle-pause"
+          class="rounded-lg border border-gray-300 px-5 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          data-enrollment-id={enrollment.id}
+        >
+          {enrollment.status === 'paused' ? 'Obnovit kurz' : 'Pozastavit kurz'}
         </button>
       </div>
-      <script>
-        document.getElementById('mark-done')?.addEventListener('click', async (e) => {
-          const btn = e.target as HTMLButtonElement;
-          const id = btn.dataset.enrollmentId;
-          btn.disabled = true;
-          btn.textContent = 'Odesílám...';
-          const res = await fetch(`/api/enrollments/${id}/done`, { method: 'POST' });
-          if (res.ok) {
-            window.location.reload();
-          } else {
-            btn.disabled = false;
-            btn.textContent = 'Pokračovat na další lekci';
-            alert('Nastala chyba.');
-          }
-        });
-      </script>
     )}
+
+    <script>
+      const msg = document.getElementById('done-msg');
+      document.getElementById('mark-done')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget as HTMLButtonElement;
+        const label = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Odesílám…';
+        const res = await fetch(`/api/enrollments/${btn.dataset.enrollmentId}/done`, { method: 'POST' });
+        if (res.ok) {
+          window.location.reload();
+          return;
+        }
+        const data = await res.json().catch(() => ({})) as { error?: string };
+        btn.disabled = false;
+        btn.textContent = label;
+        if (msg) msg.textContent = data.error ?? 'Nastala chyba, zkuste to prosím znovu.';
+      });
+
+      document.getElementById('toggle-pause')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget as HTMLButtonElement;
+        btn.disabled = true;
+        const res = await fetch(`/api/enrollments/${btn.dataset.enrollmentId}/pause`, { method: 'POST' });
+        if (res.ok) window.location.reload();
+        else btn.disabled = false;
+      });
+    </script>
   </div>
 </PublicLayout>

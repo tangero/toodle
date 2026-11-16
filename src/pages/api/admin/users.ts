@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
-import { getAll, getOne, run } from '@lib/db';
+import { getAll, getOne } from '@lib/db';
+import { deleteUserData } from '@lib/users';
 import { logAudit } from '@lib/audit';
 import { env } from "@lib/env";
 
@@ -42,14 +43,15 @@ export const GET: APIRoute = async ({ request, locals }) => {
 };
 
 export const DELETE: APIRoute = async ({ request, locals }) => {
-
   const user = locals.user!;
   const url = new URL(request.url);
   const id = url.searchParams.get('id');
   if (!id) return json({ error: 'ID je povinné' }, 400);
 
-  await run(env.DB, `UPDATE users SET deleted_at = datetime('now') WHERE id = ?`, id);
-  await logAudit(env.DB, user.email, 'user.delete', id);
+  // Stejné mazání jako GDPR – jinak by e-mail zůstal obsazený a člověk se nemohl znovu zapsat.
+  const deleted = await deleteUserData(env, id);
+  if (!deleted) return json({ error: 'Uživatel nenalezen' }, 404);
+  await logAudit(env.DB, user.id, 'user.delete', id);
   return json({ ok: true });
 };
 

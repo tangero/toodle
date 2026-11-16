@@ -1,5 +1,6 @@
 import { baseTemplate } from './base';
 import { renderMarkdown } from '../markdown';
+import { escapeHtml } from '../escape';
 
 export function completionEmail(
   userName: string,
@@ -10,7 +11,7 @@ export function completionEmail(
 ): string {
   const content = completionMd
     ? renderMarkdown(completionMd)
-    : `<p>Skvělá práce! Právě jste dokončili celý kurz <strong>${courseTitle}</strong>.</p>`;
+    : `<p>Skvělá práce! Právě jste dokončili celý kurz <strong>${escapeHtml(courseTitle)}</strong>.</p>`;
 
   return baseTemplate(
     `Dokončili jste kurz ${courseTitle}!`,
@@ -22,7 +23,7 @@ export function completionEmail(
       </div>
     </div>
 
-    <p>Ahoj ${userName},</p>
+    <p>Ahoj ${escapeHtml(userName)},</p>
     ${content}
 
     <div style="text-align: center; margin: 32px 0;">

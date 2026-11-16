@@ -15,13 +15,13 @@ export function adminDigestEmail(data: DigestData): string {
   return baseTemplate(
     `Denní přehled — ${data.date}`,
     `
-    <h3 style="color: #111827; margin: 0 0 16px;">Přehled za dnešek (${data.date})</h3>
+    <h3 style="color: #111827; margin: 0 0 16px;">Přehled za posledních 24 hodin (${data.date})</h3>
 
     <table style="width: 100%; border-collapse: collapse;">
       ${row('Nové enrollmenty', data.newEnrollments)}
       ${row('Dokončené kurzy', data.completedEnrollments)}
       ${row('Zaplacené objednávky', data.paidOrders)}
-      ${row('Tržby dnes', `${data.revenue} Kč`)}
+      ${row('Tržby (24 h)', `${data.revenue} Kč`)}
     </table>
 
     ${data.unmatchedPayments > 0 ? `

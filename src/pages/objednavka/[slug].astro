@@ -127,7 +127,7 @@ const deliveryLabel = course.delivery_mode === 'next_workday'
         });
         const data = await res.json() as {
           ok?: boolean; error?: string; type?: string;
-          vs?: string; amount?: number; free?: boolean; redirectTo?: string;
+          vs?: string; amount?: number; free?: boolean; status?: string; resent?: boolean; enrollmentId?: string;
         };
 
         if (!res.ok) {
@@ -141,22 +141,20 @@ const deliveryLabel = course.delivery_mode === 'next_workday'
         form.classList.add('hidden');
         resultEl.classList.remove('hidden');
 
-        if (data.free || data.type === 'free') {
+        if (data.free && data.status === 'active') {
+          // Přihlášený uživatel – kurz běží hned.
+          window.location.href = `/profil/kurz/${data.enrollmentId}`;
+          return;
+        }
+        if (data.free) {
           resultEl.innerHTML = `
             <div class="rounded-xl border border-green-200 bg-green-50 p-5 text-center">
-              <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-                <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                </svg>
-              </div>
-              <h2 class="text-lg font-semibold text-green-900">Úspěšně zapsáno!</h2>
+              <h2 class="text-lg font-semibold text-green-900">${data.resent ? 'Poslali jsme odkaz znovu' : 'Skoro hotovo!'}</h2>
               <p class="mt-1 text-sm text-green-700">
-                Zkontrolujte email — poslali jsme vám ověřovací odkaz.
-                Po ověření začnou chodit lekce.
+                Na váš e-mail jsme poslali odkaz pro potvrzení zápisu (platí 48 hodin).
+                Po kliknutí na něj začnou chodit lekce.
               </p>
-              <a href="/profil" class="mt-4 inline-block rounded-lg bg-green-600 px-5 py-2 text-sm font-medium text-white hover:bg-green-700">
-                Přejít do profilu
-              </a>
+              <p class="mt-2 text-xs text-green-700">E-mail nepřišel? Zkontrolujte spam, případně se zapište znovu – odkaz pošleme ještě jednou.</p>
             </div>`;
         } else {
           resultEl.innerHTML = `

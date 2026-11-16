@@ -6,10 +6,11 @@ import { welcomeEmail } from '@lib/email-templates/welcome';
 import { logAudit } from '@lib/audit';
 
 import { env } from '@lib/env';
+import { isCronAuthorized } from '@lib/cron';
 
 export const POST: APIRoute = async ({ request }) => {
 
-  if (request.headers.get('X-Cron-Secret') !== env.CRON_SECRET) {
+  if (!isCronAuthorized(request)) {
     return new Response('Unauthorized', { status: 401 });
   }
 

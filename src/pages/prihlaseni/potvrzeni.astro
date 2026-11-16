@@ -1,0 +1,41 @@
+---
+import PublicLayout from '@layouts/PublicLayout.astro';
+import { safeRedirectPath } from '@lib/escape';
+
+// Stránka jen zobrazí tlačítko; token se spotřebuje až po kliknutí (POST na /api/auth/verify).
+// Bezpečnostní skenery pošty, které otevírají odkazy z e-mailů, tak token nevyplýtvají.
+const token = Astro.url.searchParams.get('token') ?? '';
+const next = safeRedirectPath(Astro.url.searchParams.get('next'));
+const isEnrollment = Astro.url.searchParams.get('typ') === 'zapis';
+const validFormat = /^[0-9a-f]{64}$/.test(token);
+---
+
+<PublicLayout title={isEnrollment ? 'Potvrzení zápisu' : 'Potvrzení přihlášení'}>
+  <div class="wrap enroll">
+    <div class="card">
+      {validFormat ? (
+        <>
+          <h1>{isEnrollment ? 'Potvrďte zápis do kurzu' : 'Přihlášení do Školy AI'}</h1>
+          <p class="sub">
+            {isEnrollment
+              ? 'Kliknutím potvrdíte svůj e-mail. Kurz se tím spustí a zároveň se přihlásíte.'
+              : 'Dokončete přihlášení kliknutím na tlačítko.'}
+          </p>
+          <form method="post" action="/api/auth/verify">
+            <input type="hidden" name="token" value={token} />
+            <input type="hidden" name="next" value={next} />
+            <button type="submit" class="btn btn-pink btn-big">
+              {isEnrollment ? 'Potvrdit zápis →' : 'Přihlásit se →'}
+            </button>
+          </form>
+        </>
+      ) : (
+        <>
+          <h1>Neplatný odkaz</h1>
+          <p class="sub">Odkaz je neúplný nebo poškozený. Vyžádejte si nový na stránce přihlášení.</p>
+          <a class="btn btn-purple" href="/prihlaseni">Přejít na přihlášení</a>
+        </>
+      )}
+    </div>
+  </div>
+</PublicLayout>
