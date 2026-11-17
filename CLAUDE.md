@@ -56,6 +56,7 @@ npm run generate-types   # wrangler types → worker-configuration.d.ts
 - Fonty jsou self-hostované přes `@fontsource` (import v `global.css`), Google Fonts se nenačítají. PDF certifikát má vlastní TTF v `src/assets/fonts`.
 - Formuláře: chyby polí až po interakci (`:user-invalid`, `src/scripts/form-errors.ts`), hlášky ve stálé `aria-live` oblasti, cíle aspoň 44 px. U webového kódu používej skill `modern-web-guidance`.
 - React jen pro interaktivní ostrůvky: editory v adminu (`src/components/admin/`) a formulář testu (`TestForm.tsx`). Zbytek jsou Astro stránky renderované na serveru.
+- Tělo lekce se v adminu upravuje vizuálně (Tiptap, `RichTextEditor.tsx`) nebo ve zdrojovém kódu. Editor umí jen značky z `EDITOR_TAGS` (`src/lib/lesson-editor.ts`, nadpis jen `<h3>`); lekci s jinou značkou otevře jen ve zdrojovém kódu. Dokud se text nezmění, ukládá původní řetězec znak po znaku, aby se nezvedla `lessons.version`. Nové rozšíření editoru přidej do `lesson-editor-extensions.ts` i do `EDITOR_TAGS`, `tests/lesson-editor.test.ts` prožene editorem všechny lekce z `docs/course-content/`.
 - URL jsou česky (`/kurz/[slug]`, `/objednavka/[slug]`, `/prihlaseni`, `/profil`, `/admin/kurzy`, `/admin/uzivatele` …).
 
 ## Nabídky a hodnocení

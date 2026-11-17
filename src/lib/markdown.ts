@@ -26,7 +26,10 @@ function sanitizeMarkup(html: string): string {
       if (VOID_TAGS.has(name)) return `<${name}>`;
 
       if (name === 'a') {
-        const href = getAttribute(String(attrs), 'href');
+        // Hodnota atributu přichází už zakódovaná (marked i vizuální editor píšou & jako &amp;).
+        // Bez dekódování by ji escapeAttribute zakódoval podruhé a z ?a=1&b=2 by vzniklo ?a=1&amp;b=2.
+        const rawHref = getAttribute(String(attrs), 'href');
+        const href = rawHref === null ? null : decodeAttribute(rawHref);
         if (!href || !isAllowedHref(href)) {
           return '<a>';
         }
@@ -61,6 +64,16 @@ function isAllowedHref(href: string): boolean {
     || trimmed.startsWith('http://')
     || trimmed.startsWith('mailto:')
     || trimmed.startsWith('/');
+}
+
+/** Opak `escapeAttribute`. `&amp;` jde poslední, aby se `&amp;lt;` nerozbalilo dvakrát. */
+function decodeAttribute(value: string): string {
+  return value
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
 }
 
 function escapeAttribute(value: string): string {

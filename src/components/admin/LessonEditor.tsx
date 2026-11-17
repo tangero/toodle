@@ -1,4 +1,10 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
+import { unsupportedTags } from '@lib/lesson-editor';
+
+// Editor se stáhne až při první úpravě lekce, seznam lekcí ho nepotřebuje.
+const RichTextEditor = lazy(() => import('./RichTextEditor'));
+
+type EditMode = 'visual' | 'source';
 
 interface Lesson {
   id: string;
@@ -18,6 +24,25 @@ export default function LessonEditor({ courseId, initialLessons }: LessonEditorP
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [mode, setMode] = useState<EditMode>('visual');
+  /** Značky, kvůli kterým lekci nejde otevřít ve vizuálním režimu (zahodil by je). */
+  const [blockedTags, setBlockedTags] = useState<string[]>([]);
+
+  const startEditing = (lesson: Lesson) => {
+    const blocked = unsupportedTags(lesson.content_md);
+    setBlockedTags(blocked);
+    setMode(blocked.length > 0 ? 'source' : 'visual');
+    setEditingId(lesson.id);
+  };
+
+  const switchMode = (next: EditMode, lesson: Lesson) => {
+    if (next === 'visual') {
+      const blocked = unsupportedTags(lesson.content_md);
+      setBlockedTags(blocked);
+      if (blocked.length > 0) return;
+    }
+    setMode(next);
+  };
 
   const editing = lessons.find((l) => l.id === editingId);
 
@@ -68,7 +93,7 @@ export default function LessonEditor({ courseId, initialLessons }: LessonEditorP
         reading_minutes: 5,
       };
       setLessons((prev) => [...prev, newLesson]);
-      setEditingId(data.id!);
+      startEditing(newLesson);
     } catch {
       setError('Nastala chyba.');
     } finally {
@@ -123,40 +148,79 @@ export default function LessonEditor({ courseId, initialLessons }: LessonEditorP
                   </div>
                 </div>
                 <div>
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-medium text-gray-600">Obsah lekce (Markdown)</label>
-                    <label className="cursor-pointer rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50">
-                      + Obrázek
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          const fd = new FormData();
-                          fd.append('file', file);
-                          try {
-                            const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
-                            const data = await res.json() as { url?: string; error?: string };
-                            if (data.url) {
-                              setEditField('content_md', lesson.content_md + `\n\n![${file.name}](${data.url})\n`);
-                            } else {
-                              setError(data.error ?? 'Chyba uploadu');
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span id={`content-label-${lesson.id}`} className="block text-xs font-medium text-gray-600">Obsah lekce</span>
+                    <div className="flex items-center gap-2">
+                      {mode === 'source' && (
+                        <label className="cursor-pointer rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50">
+                          + Obrázek
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const fd = new FormData();
+                              fd.append('file', file);
+                              try {
+                                const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
+                                const data = await res.json() as { url?: string; error?: string };
+                                if (data.url) {
+                                  setEditField('content_md', lesson.content_md + `\n\n![${file.name}](${data.url})\n`);
+                                } else {
+                                  setError(data.error ?? 'Chyba uploadu');
+                                }
+                              } catch { setError('Chyba uploadu obrázku'); }
+                              e.target.value = '';
+                            }}
+                          />
+                        </label>
+                      )}
+                      <div role="group" aria-label="Režim úprav" className="flex rounded-lg border border-gray-300 p-0.5 text-xs">
+                        {(['visual', 'source'] as const).map((item) => (
+                          <button
+                            key={item}
+                            type="button"
+                            aria-pressed={mode === item}
+                            onClick={() => switchMode(item, lesson)}
+                            className={
+                              'rounded-md px-2.5 py-1 font-medium ' +
+                              (mode === item ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100')
                             }
-                          } catch { setError('Chyba uploadu obrázku'); }
-                          e.target.value = '';
-                        }}
-                      />
-                    </label>
+                          >
+                            {item === 'visual' ? 'Vizuálně' : 'Zdrojový kód'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                  <textarea
-                    rows={12}
-                    value={lesson.content_md}
-                    onChange={(e) => setEditField('content_md', e.target.value)}
-                    className={inputClass + ' font-mono text-xs'}
-                    placeholder="# Nadpis lekce&#10;&#10;Text lekce v Markdown formátu..."
-                  />
+                  <p role="status" className="mt-1 text-xs text-amber-800">
+                    {blockedTags.length > 0 &&
+                      `Lekce obsahuje značky, které vizuální režim neumí a zahodil by je (${blockedTags.map((t) => `<${t}>`).join(', ')}). Upravujte ji ve zdrojovém kódu.`}
+                  </p>
+                  {mode === 'visual' ? (
+                    <Suspense fallback={<div className="mt-1 rounded-lg border border-gray-300 px-3 py-6 text-sm text-gray-500">Načítám editor…</div>}>
+                      <RichTextEditor
+                        key={lesson.id}
+                        value={lesson.content_md}
+                        onChange={(content) => setEditField('content_md', content)}
+                      />
+                    </Suspense>
+                  ) : (
+                    <textarea
+                      rows={20}
+                      aria-labelledby={`content-label-${lesson.id}`}
+                      value={lesson.content_md}
+                      onChange={(e) => setEditField('content_md', e.target.value)}
+                      spellCheck={false}
+                      className={inputClass + ' font-mono text-xs'}
+                    />
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Zdrojem lekcí jsou soubory v <code>docs/course-content/</code>. Příští import úpravu z adminu přepíše,
+                    opravu proto přeneste i do souboru lekce (zdrojový kód má stejný tvar).
+                  </p>
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -182,7 +246,7 @@ export default function LessonEditor({ courseId, initialLessons }: LessonEditorP
                 <span className="flex-1 text-sm font-medium text-gray-900">{lesson.title}</span>
                 <span className="text-xs text-gray-400">{lesson.reading_minutes} min</span>
                 <button
-                  onClick={() => setEditingId(lesson.id)}
+                  onClick={() => startEditing(lesson)}
                   className="rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50"
                 >
                   Upravit
