@@ -43,6 +43,4 @@
 .lesson-rte strong { font-weight: 600; }
 .lesson-rte blockquote { padding: 0.5rem 0.875rem; border-left: 3px solid #9ca3af; background: #f9fafb; }
 .lesson-rte code { font-family: "IBM Plex Mono", monospace; font-size: 0.875em; background: #f3f4f6; padding: 0.0625rem 0.25rem; }
-.lesson-rte pre { padding: 0.75rem 1rem; background: #f3f4f6; white-space: pre-wrap; overflow-wrap: anywhere; }
-.lesson-rte pre code { background: none; padding: 0; }
 .lesson-rte hr { border: 0; border-top: 1px solid #d1d5db; margin: 1rem 0; }

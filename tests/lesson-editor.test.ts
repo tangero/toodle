@@ -82,14 +82,18 @@ describe('vizuální editor lekcí', () => {
     expect(unsupportedTags('# Nadpis\n\nText ~~pryč~~')).toEqual(['del', 'h1']);
   });
 
-  it('nevytvoří přeškrtnutí, podtržení ani jiný nadpis než h3', () => {
-    const out = roundTrip('<p>a</p>');
-    expect(out).toBe('<p>a</p>');
+  it('schéma editoru obsahuje jen vyjmenované bloky a značky', () => {
+    // Nový uzel nebo značka (třeba po povýšení Tiptapu) musí nejdřív do EDITOR_TAGS a filtru v markdown.ts.
     const editor = new Editor({ extensions: lessonEditorExtensions(), content: '<p>a</p>' });
-    const names = editor.extensionManager.extensions.map((e) => e.name);
+    const nodes = Object.keys(editor.schema.nodes).sort();
+    const marks = Object.keys(editor.schema.marks).sort();
     editor.destroy();
-    expect(names).not.toContain('strike');
-    expect(names).not.toContain('underline');
+    expect(nodes).toEqual([
+      'blockquote', 'bulletList', 'doc', 'hardBreak', 'heading', 'horizontalRule', 'listItem', 'orderedList',
+      'paragraph', 'text',
+    ]);
+    expect(marks).toEqual(['bold', 'code', 'italic', 'link']);
+    expect(unsupportedTags('<pre><code>a</code></pre>')).toEqual(['pre']);
   });
 
   it('otevření lekce samo nic nezmění (verze lekce se nesmí zvednout bez úpravy)', () => {
@@ -117,7 +121,6 @@ describe('vizuální editor lekcí', () => {
       '<p>Jedna</p>\n\n<h3>Část</h3>\n\n<ul>\n  <li><p>a</p></li>\n  <li><p>b</p></li>\n</ul>\n\n<p>Dva</p>',
     );
     expect(formatLessonHtml('<p></p>')).toBe('');
-    expect(formatLessonHtml('<pre><code>a\n\nb</code></pre><p>c</p>')).toBe('<pre><code>a\n\nb</code></pre>\n\n<p>c</p>');
   });
 
   it('zachová vnořený seznam a položku s více odstavci', () => {

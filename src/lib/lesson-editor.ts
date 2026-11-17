@@ -8,9 +8,10 @@ import { renderMarkdown } from './markdown';
 /**
  * Značky, které editor umí zobrazit i uložit. Všechny jsou ve whitelistu `renderMarkdown`.
  * Nadpis je jen <h3>: podle něj se lekce dělí na části pro zpětnou vazbu na srozumitelnost.
+ * Blok kódu <pre> chybí záměrně: s prázdným řádkem uvnitř seznamu nebo citace ho Markdown při zobrazení rozbije.
  */
 export const EDITOR_TAGS = new Set([
-  'a', 'blockquote', 'br', 'code', 'em', 'h3', 'hr', 'li', 'ol', 'p', 'pre', 'strong', 'ul',
+  'a', 'blockquote', 'br', 'code', 'em', 'h3', 'hr', 'li', 'ol', 'p', 'strong', 'ul',
 ]);
 
 /** Odkaz, který filtr značek propustí (stejné pravidlo jako `isAllowedHref` v markdown.ts). */

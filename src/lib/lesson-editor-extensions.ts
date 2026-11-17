@@ -12,6 +12,8 @@ export function lessonEditorExtensions() {
       // <s> a <u> filtr značek zahazuje, proto je editor vůbec nenabízí.
       strike: false,
       underline: false,
+      // Blok kódu s prázdným řádkem uvnitř seznamu by Markdown při zobrazení rozbil; lekce ho nepoužívají.
+      codeBlock: false,
       // Prázdný odstavec doplňovaný na konec by se ukládal a měnil by lekci už při otevření.
       trailingNode: false,
       link: {
