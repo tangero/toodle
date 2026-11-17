@@ -116,6 +116,13 @@ describe('vizuální editor lekcí', () => {
     expect(updates).toBe(0);
   });
 
+  it('odkaz s více parametry projde editorem a filtrem beze změny adresy', () => {
+    const source = '<p><a href="https://example.com/?a=1&b=2">x</a></p>';
+    const saved = roundTrip(source);
+    expect(renderMarkdown(saved)).toContain('href="https://example.com/?a=1&amp;b=2"');
+    expect(renderMarkdown(roundTrip(saved))).toBe(renderMarkdown(saved));
+  });
+
   it('rozepíše výstup do tvaru souborů s lekcemi', () => {
     expect(formatLessonHtml('<p>Jedna</p><h3>Část</h3><ul><li><p>a</p></li><li><p>b</p></li></ul><p>Dva</p>')).toBe(
       '<p>Jedna</p>\n\n<h3>Část</h3>\n\n<ul>\n  <li><p>a</p></li>\n  <li><p>b</p></li>\n</ul>\n\n<p>Dva</p>',
