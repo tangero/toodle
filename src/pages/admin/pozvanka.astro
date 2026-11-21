@@ -144,6 +144,11 @@ const btn = 'inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-medi
           status.textContent = `Odesláno v tomto běhu: ${sent}. Čeká: ${waiting}. Chyb celkem: ${data.counts.failed}.`;
           if (data.result.throttled) await new Promise((r) => setTimeout(r, 5000));
           else if (data.result.sent + data.result.failed + data.result.skipped === 0) break;
+          // Celá dávka selhala: nejspíš chyba nastavení (klíč, doména), dalšími dávkami by se jen hromadily chyby.
+          else if (data.result.sent === 0 && data.result.failed > 0) {
+            status.textContent += ' Zastaveno: celá dávka selhala, podívejte se do logu.';
+            return;
+          }
         }
         status.textContent += ' Hotovo.';
         setTimeout(() => location.reload(), 1500);

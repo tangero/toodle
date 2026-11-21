@@ -69,3 +69,14 @@ describe('podklady pro model', () => {
     expect(payload.text_lekce).toContain('Jiný text.');
   });
 });
+
+describe('oslovení v pozvánce', () => {
+  it('nepoužije jméno, které je jen částí e-mailu', async () => {
+    const { greetingName } = await import('@lib/campaign');
+    expect(greetingName('Jana', 'jana.novakova@example.cz')).toBe('Jana');
+    expect(greetingName('jnovak', 'JNovak@example.cz')).toBe('');
+    expect(greetingName('J', 'x@example.cz')).toBe('');
+    const html = invitationEmail({ name: '', courses: [], appUrl: APP, optOutUrl: `${APP}/x` });
+    expect(html).toContain('>Dobrý den,</p>');
+  });
+});

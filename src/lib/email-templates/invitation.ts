@@ -9,6 +9,7 @@ export interface InvitationCourse {
 }
 
 interface InvitationParams {
+  /** Jméno do oslovení; prázdné = „Dobrý den,“ bez jména. */
   name: string;
   courses: InvitationCourse[];
   appUrl: string;
@@ -31,7 +32,7 @@ export function invitationEmail(p: InvitationParams): string {
   return baseTemplate(
     INVITATION_SUBJECT,
     `
-    <p style="${P}">Dobrý den, ${escapeHtml(p.name)},</p>
+    <p style="${P}">${p.name ? `Dobrý den, ${escapeHtml(p.name)},` : 'Dobrý den,'}</p>
     <p style="${P}">v létě 2025 jste se registrovali v Letní škole AI a souhlasili jste, že se vám ozveme,
        až budou nové kurzy. Teď jsou hotové. Všechny jsou zdarma a lekce vám chodí e-mailem:</p>
     <ul style="margin:0 0 16px;padding-left:22px;font-size:16px;line-height:1.6;">${items}</ul>

@@ -18,7 +18,7 @@ import { logAudit } from './audit';
 export const PILOT_CAMPAIGN = 'pilot-2026-11';
 
 /** Kolik e-mailů pošle jeden požadavek (Resend snese 2 za sekundu, Worker má limit podpožadavků). */
-export const CAMPAIGN_BATCH = 10;
+export const CAMPAIGN_BATCH = 5;
 const SEND_GAP_MS = 600;
 const STALE_LOCK = `datetime('now', '-10 minutes')`;
 
@@ -47,16 +47,26 @@ export async function campaignCounts(db: D1Database, campaign: string): Promise<
 export async function invitationCourses(db: D1Database): Promise<InvitationCourse[]> {
   return getAll<InvitationCourse>(
     db,
-    `SELECT c.slug, c.title, (SELECT COUNT(*) FROM lessons l WHERE l.course_id = c.id) AS lesson_count
-       FROM courses c WHERE c.status = 'published' ORDER BY c.sort_order, c.title`,
+    // Stejný počet lekcí jako v katalogu (courses.lesson_count).
+    `SELECT slug, title, lesson_count FROM courses WHERE status = 'published' ORDER BY sort_order, title`,
   );
 }
 
-async function renderInvitation(env: AppEnv, user: { id: string; name: string }, courses: InvitationCourse[]) {
+/**
+ * Jméno do oslovení. Import ze staré aplikace dával při prázdném jménu část e-mailu před
+ * zavináčem; takové „jméno“ ani jednopísmenné se nepoužije a oslovení bude bez jména.
+ */
+export function greetingName(name: string, email: string): string {
+  const n = name.trim();
+  const local = email.split('@')[0]?.trim().toLowerCase() ?? '';
+  return n.length < 2 || n.toLowerCase() === local ? '' : n;
+}
+
+async function renderInvitation(env: AppEnv, user: { id: string; name: string; email: string }, courses: InvitationCourse[]) {
   const token = await createPromoOptOutToken(user.id, env.JWT_SECRET);
   return {
     html: invitationEmail({
-      name: user.name,
+      name: greetingName(user.name, user.email),
       courses,
       appUrl: env.APP_URL,
       optOutUrl: `${env.APP_URL}/odhlaseni-nabidek/${token}`,
@@ -71,11 +81,11 @@ async function renderInvitation(env: AppEnv, user: { id: string; name: string },
 
 /** Zkušební pozvánka na adresu admina. Do seznamu příjemců se nezapisuje. */
 export async function sendTestInvitation(env: AppEnv, adminEmail: string): Promise<string> {
-  const admin = await getOne<{ id: string; name: string }>(
-    env.DB, `SELECT id, name FROM users WHERE email = ? AND deleted_at IS NULL`, adminEmail,
+  const admin = await getOne<{ id: string; name: string; email: string }>(
+    env.DB, `SELECT id, name, email FROM users WHERE email = ? AND deleted_at IS NULL`, adminEmail,
   );
   const courses = await invitationCourses(env.DB);
-  const { html, headers } = await renderInvitation(env, admin ?? { id: 'test', name: 'Patricku' }, courses);
+  const { html, headers } = await renderInvitation(env, admin ?? { id: 'test', name: '', email: adminEmail }, courses);
   const result = await sendEmail(env, {
     to: adminEmail,
     subject: `[Zkouška] ${INVITATION_SUBJECT}`,
@@ -117,13 +127,13 @@ export async function sendInvitationBatch(env: AppEnv, campaign: string, actor: 
     );
     if (!claimed.meta.changes) continue;
 
-    // Stav uživatele se mohl od zmrazení seznamu změnit.
+    // Stav uživatele se mohl od zmrazení seznamu změnit. Admin pozvánku nedostává (zkouška má vlastní tlačítko).
     const user = await getOne<{ id: string; email: string; name: string }>(
       env.DB,
       `SELECT id, email, name FROM users WHERE id = ? AND deleted_at IS NULL AND promo_opt_out_at IS NULL`,
       user_id,
     );
-    if (!user) {
+    if (!user || user.email.toLowerCase() === env.ADMIN_EMAIL.trim().toLowerCase()) {
       await run(env.DB, `UPDATE campaign_recipients SET status = 'skipped' WHERE campaign = ? AND user_id = ?`, campaign, user_id);
       result.skipped++;
       continue;
