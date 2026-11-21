@@ -6,6 +6,9 @@ dist/
 # dependencies
 node_modules/
 
+# obsah
+data-ze-stare/
+
 # logs
 npm-debug.log*
 yarn-debug.log*

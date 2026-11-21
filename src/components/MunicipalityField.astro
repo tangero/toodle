@@ -1,0 +1,112 @@
+---
+/**
+ * Nepovinné pole „Obec, kde žijete“ s našeptávačem.
+ *
+ * Nativní <input list> + <datalist>; seznam všech obcí (public/data/obce.json, asi 80 kB po kompresi)
+ * se načte až při prvním zaměření pole a do datalistu se vkládá jen nejvýš 30 obcí odpovídajících
+ * zadanému textu (bez ohledu na diakritiku, větší obce první). Text možnosti je
+ * „Název (okres Okres)“, u stejnojmenných obcí v jednom okrese i s kódem obce; podle něj se
+ * dohledá kód obce do skrytého pole, které formulář odesílá.
+ */
+interface Props {
+  /** Název skrytého pole s kódem obce. */
+  name?: string;
+  /** Předvyplněná obec. */
+  value?: { code: number; label: string } | null;
+  hint?: string;
+}
+
+const { name = 'municipality_code', value = null, hint = 'Nepovinné. Do statistiky obcí ji započítáme jen souhrnně, bez jména.' } = Astro.props;
+---
+
+<div class="field" data-municipality-field>
+  <label for="municipality">Obec, kde žijete</label>
+  <span class="hint" id="municipality-hint">{hint}</span>
+  <input
+    type="text"
+    id="municipality"
+    list="municipality-list"
+    autocomplete="off"
+    spellcheck="false"
+    maxlength="120"
+    enterkeyhint="next"
+    aria-describedby="municipality-hint"
+    data-error="municipality-error"
+    value={value?.label ?? ''}
+    data-municipality-input
+  />
+  <span class="error-msg" id="municipality-error">Tuto obec neznáme. Vyberte ji ze seznamu, nebo pole nechte prázdné.</span>
+  <datalist id="municipality-list"></datalist>
+  <input type="hidden" name={name} value={value?.code ?? ''} data-municipality-code />
+</div>
+
+<script>
+  type Row = [code: number, name: string, district: string, population: number];
+
+  const fold = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+
+  let loading: Promise<{ rows: Row[]; labels: Map<string, number>; folded: string[]; labelOf: Map<number, string> }> | null = null;
+
+  function load() {
+    loading ??= fetch('/data/obce.json')
+      .then((r) => r.json() as Promise<Row[]>)
+      .then((rows) => {
+        const counts = new Map<string, number>();
+        for (const [, n, d] of rows) counts.set(`${n}|${d}`, (counts.get(`${n}|${d}`) ?? 0) + 1);
+        const labels = new Map<string, number>();
+        const labelOf = new Map<number, string>();
+        const folded: string[] = [];
+        for (const [code, n, d] of rows) {
+          const label = counts.get(`${n}|${d}`)! > 1 ? `${n} (okres ${d}, kód ${code})` : `${n} (okres ${d})`;
+          labels.set(label, code);
+          labelOf.set(code, label);
+          folded.push(fold(n));
+        }
+        return { rows, labels, folded, labelOf };
+      });
+    return loading;
+  }
+
+  for (const field of document.querySelectorAll<HTMLElement>('[data-municipality-field]')) {
+    const input = field.querySelector<HTMLInputElement>('[data-municipality-input]')!;
+    const hidden = field.querySelector<HTMLInputElement>('[data-municipality-code]')!;
+    const list = field.querySelector<HTMLDataListElement>('datalist')!;
+
+    input.addEventListener('focus', () => void load(), { once: true });
+
+    input.addEventListener('input', async () => {
+      const data = await load();
+      const text = input.value;
+      const exact = data.labels.get(text);
+      hidden.value = exact ? String(exact) : '';
+      input.setCustomValidity('');
+      if (exact) return;
+
+      const q = fold(text.replace(/\s*\(.*$/, ''));
+      list.replaceChildren();
+      if (q.length < 2) return;
+      const starts: number[] = [];
+      const contains: number[] = [];
+      // Řádky jsou seřazené podle počtu obyvatel, takže větší obce jdou první.
+      for (let i = 0; i < data.folded.length && starts.length < 30; i++) {
+        const f = data.folded[i];
+        if (f.startsWith(q)) starts.push(i);
+        else if (contains.length < 30 && f.includes(q)) contains.push(i);
+      }
+      for (const i of [...starts, ...contains].slice(0, 30)) {
+        const option = document.createElement('option');
+        option.value = data.labelOf.get(data.rows[i][0])!;
+        list.appendChild(option);
+      }
+    });
+
+    // Text, který neodpovídá žádné obci, formulář neodešle. Chybu ukáže CSS přes :user-invalid
+    // a ohlásí ji form-errors.ts, stejně jako u ostatních polí.
+    input.addEventListener('change', async () => {
+      const data = await load();
+      const code = data.labels.get(input.value);
+      hidden.value = code ? String(code) : '';
+      input.setCustomValidity(input.value.trim() !== '' && !code ? 'Vyberte obec ze seznamu.' : '');
+    });
+  }
+</script>

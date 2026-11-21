@@ -46,7 +46,7 @@ export async function deleteUserData(env: AppEnv, userId: string): Promise<boole
     db.prepare(`UPDATE audit_log SET payload_json = NULL WHERE instr(payload_json, ?) > 0`).bind(user.email),
     db.prepare(
       `UPDATE users SET deleted_at = datetime('now'), email = 'deleted-' || id || '@deleted.invalid',
-       name = 'Smazaný uživatel', promo_opt_out_at = NULL WHERE id = ?`,
+       name = 'Smazaný uživatel', promo_opt_out_at = NULL, municipality_code = NULL WHERE id = ?`,
     ).bind(userId),
     db.prepare(
       `INSERT INTO audit_log (id, actor, action, target, created_at) VALUES (?, 'gdpr', 'user.deleted', ?, datetime('now'))`,

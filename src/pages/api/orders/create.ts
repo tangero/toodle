@@ -10,6 +10,7 @@ import { normalizeEmail, normalizeName } from '@lib/escape';
 import { toSqlDateTime } from '@lib/time';
 import type { Course, Enrollment, User } from '@lib/types';
 import { env } from '@lib/env';
+import { getMunicipality, parseMunicipalityCode } from '@lib/municipalities';
 
 function generateVS(): string {
   const bytes = new Uint32Array(1);
@@ -24,7 +25,7 @@ function generateVS(): string {
  *   Bez potvrzení se nikomu nic neposílá – formulář tak nejde zneužít k zapisování cizích adres.
  */
 export const POST: APIRoute = async ({ request, locals }) => {
-  let body: { slug?: string; email?: string; name?: string };
+  let body: { slug?: string; email?: string; name?: string; municipality_code?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -58,6 +59,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
     slug,
   );
   if (!course) return json({ error: 'Kurz nenalezen' }, 404);
+
+  // Obec je nepovinná. Přihlášenému ji uložíme vždy (vlastnictví účtu prokázal), nepřihlášenému
+  // jen do účtu, který ještě nemá ověřený e-mail ani obec – jinak by šlo měnit obec cizím účtům.
+  const municipalityCode = parseMunicipalityCode(body.municipality_code);
+  if (municipalityCode !== null && (await getMunicipality(env.DB, municipalityCode))) {
+    await run(
+      env.DB,
+      loggedIn
+        ? `UPDATE users SET municipality_code = ? WHERE id = ?`
+        : `UPDATE users SET municipality_code = ? WHERE id = ? AND verified_at IS NULL AND municipality_code IS NULL`,
+      municipalityCode,
+      user.id,
+    );
+  }
 
   const existing = await getOne<Enrollment>(
     env.DB,

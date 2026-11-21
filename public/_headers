@@ -7,3 +7,7 @@
 
 /_astro/*
   Cache-Control: public, max-age=31536000, immutable
+
+# Seznam obcí pro našeptávač; mění se jednou ročně s daty ČSÚ.
+/data/*
+  Cache-Control: public, max-age=86400

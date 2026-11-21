@@ -266,6 +266,19 @@
 .site .prose th, .site .prose td { border: 1px solid var(--line); padding: 0.375rem 0.625rem; text-align: left; vertical-align: top; }
 .site .prose a { overflow-wrap: anywhere; }
 
+/* Statistika obcí: tabulky žebříčků. Na úzkém displeji se tabulka posouvá uvnitř obalu, ne celá stránka. */
+.site .table-wrap { max-width: 100%; overflow-x: auto; border: 1px solid var(--ink); background: var(--surface); }
+.site .stat-table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; }
+.site .stat-table caption { text-align: left; font-family: var(--mono); font-size: 0.8125rem; color: var(--muted); padding: 0.625rem 0.875rem; border-bottom: 1px solid var(--line); }
+.site .stat-table th, .site .stat-table td { padding: 0.5rem clamp(0.5rem, 2cqi, 0.875rem); border-bottom: 1px solid var(--line); text-align: left; vertical-align: baseline; }
+.site .stat-table thead th { font-family: var(--mono); font-size: 0.8125rem; font-weight: 500; color: var(--muted); white-space: nowrap; }
+.site .stat-table tbody tr:last-child > * { border-bottom: 0; }
+.site .stat-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.site .stat-table .rank { width: 1%; color: var(--muted); font-family: var(--mono); font-size: 0.8125rem; }
+.site .stat-table .sub { display: block; font-size: 0.8125rem; font-weight: 400; color: var(--muted); }
+/* Na úzkém displeji sloupec s počtem obyvatel vypadne, aby se tabulka vešla bez posouvání. */
+@container (width < 34rem) { .site .stat-table .wide-only { display: none; } }
+
 @media (prefers-reduced-motion: no-preference) {
   .site .btn, .site a.card, .site .nav .nav-btn { transition: background-color 0.15s ease, color 0.15s ease; }
 }

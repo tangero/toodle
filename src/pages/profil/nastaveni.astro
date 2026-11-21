@@ -3,6 +3,8 @@ import SiteLayout from '@layouts/SiteLayout.astro';
 
 import { getOne } from '@lib/db';
 import { env } from '@lib/env';
+import { getUserMunicipality } from '@lib/municipalities';
+import MunicipalityField from '@components/MunicipalityField.astro';
 
 const user = Astro.locals.user!;
 const promo = await getOne<{ promo_opt_out_at: string | null }>(
@@ -10,6 +12,14 @@ const promo = await getOne<{ promo_opt_out_at: string | null }>(
 );
 const promoOn = !promo?.promo_opt_out_at;
 const promoSaved = Astro.url.searchParams.get('nabidky') === 'ulozeno';
+const municipality = await getUserMunicipality(env.DB, user.id);
+const municipalityState = Astro.url.searchParams.get('obec');
+const municipalityMessages: Record<string, { text: string; ok: boolean }> = {
+  ulozeno: { text: 'Obec je uložená.', ok: true },
+  smazano: { text: 'Obec jsme z vašeho účtu odebrali.', ok: true },
+  neznama: { text: 'Tuto obec neznáme. Vyberte ji ze seznamu.', ok: false },
+};
+const municipalityMessage = municipalityState ? municipalityMessages[municipalityState] : undefined;
 ---
 
 <SiteLayout title="Nastavení účtu">
@@ -27,6 +37,26 @@ const promoSaved = Astro.url.searchParams.get('nabidky') === 'ulozeno';
           <div><dt>Jméno</dt><dd>{user.name}</dd></div>
           <div><dt>E-mail</dt><dd>{user.email}</dd></div>
         </dl>
+      </section>
+
+      <section id="obec">
+        <h2>Obec</h2>
+        <p class="measure muted">
+          Podle obcí sestavujeme veřejnou <a href="/obce">statistiku</a>: kolik obyvatel se v každé obci
+          vzdělává s námi. Ukazujeme jen souhrnná čísla a jen obce, kde je nás aspoň pět.
+        </p>
+        {municipalityMessage && (
+          <p class={`note narrow ${municipalityMessage.ok ? 'ok' : 'err'}`} role="status">{municipalityMessage.text}</p>
+        )}
+        <form id="municipality-form" method="post" action="/api/profile/municipality" class="form narrow">
+          <MunicipalityField
+            value={municipality ? { code: municipality.code, label: municipality.label } : null}
+            hint="Nepovinné. Když pole vymažete a uložíte, obec z účtu odebereme."
+          />
+          <div class="actions">
+            <button type="submit" class="btn btn-line">Uložit obec</button>
+          </div>
+        </form>
       </section>
 
       <section>
@@ -62,6 +92,11 @@ const promoSaved = Astro.url.searchParams.get('nabidky') === 'ulozeno';
   </div>
 
   <script>
+    import { initFormErrors } from '../../scripts/form-errors';
+
+    const municipalityForm = document.getElementById('municipality-form') as HTMLFormElement | null;
+    if (municipalityForm) initFormErrors(municipalityForm);
+
     const msg = document.getElementById('delete-msg');
 
     document.getElementById('delete-account')?.addEventListener('click', async (e) => {

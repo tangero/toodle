@@ -3,6 +3,16 @@
 -- Tento soubor odpovídá stavu po všech migracích v db/migrations/.
 
 -- Users
+-- Číselník obcí ČR (kód obce ČSÚ/RÚIAN). Data plní migrace 0009, zdroj počtu obyvatel ČSÚ.
+CREATE TABLE IF NOT EXISTS municipalities (
+  code INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  district TEXT NOT NULL,
+  region TEXT NOT NULL,
+  population INTEGER NOT NULL,
+  ico TEXT
+);
+
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
@@ -11,10 +21,13 @@ CREATE TABLE IF NOT EXISTS users (
   verified_at TEXT,
   deleted_at TEXT,
   -- Odhlášení nabídek dalšího vzdělávání v e-mailech. NULL = nabídky chce.
-  promo_opt_out_at TEXT
+  promo_opt_out_at TEXT,
+  -- Obec, kde uživatel žije (nepovinná); veřejně jen souhrnně ve statistice obcí.
+  municipality_code INTEGER REFERENCES municipalities(code)
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_municipality ON users(municipality_code);
 
 -- Courses
 CREATE TABLE IF NOT EXISTS courses (

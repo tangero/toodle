@@ -1,0 +1,146 @@
+---
+import SiteLayout from '@layouts/SiteLayout.astro';
+import { env } from '@lib/env';
+import { getMunicipalityStats, MIN_PUBLIC_USERS } from '@lib/municipalities';
+
+const stats = await getMunicipalityStats(env.DB, 20);
+
+const int = new Intl.NumberFormat('cs-CZ');
+// Podíly jsou malé (setiny procenta), proto dvě až tři platné číslice.
+const pct = (v: number) =>
+  `${new Intl.NumberFormat('cs-CZ', { maximumSignificantDigits: 2 }).format(v)} %`;
+
+// Souhrnná čísla se mění pomalu; hodina v cache sdílené mezi návštěvníky stačí.
+Astro.response.headers.set('Cache-Control', 'public, max-age=300, s-maxage=3600');
+---
+
+<SiteLayout
+  title="Obce, kde se vzdělávají s námi"
+  description="Ve kterých obcích se s námi vzdělává nejvíc lidí, v počtu i v poměru k počtu obyvatel."
+>
+  <div class="wrap">
+    <a class="back" href="/">← Zpět na hlavní stránku</a>
+
+    <header class="page-head">
+      <p class="mono">Statistika obcí</p>
+      <h1>Obce, kde se vzdělávají s námi</h1>
+      <p class="lead">
+        Kde žijí lidé, kteří se se Školou AI učí pracovat s umělou inteligencí. Žebříček podle podílu
+        ukazuje, kolik procent obyvatel obce se s námi vzdělává.
+      </p>
+    </header>
+
+    <div class="page-body">
+      <dl class="facts">
+        <div><dt>Lidí s vyplněnou obcí</dt><dd>{int.format(stats.usersWithMunicipality)}</dd></div>
+        <div><dt>Obcí</dt><dd>{int.format(stats.municipalitiesWithUsers)}</dd></div>
+        <div><dt>Krajů</dt><dd>{int.format(stats.regions.length)}</dd></div>
+      </dl>
+
+      {stats.byShare.length === 0 ? (
+        <p class="note">Zatím nemáme dost údajů. Žebříček ukážeme, až bude aspoň v jedné obci {MIN_PUBLIC_USERS} lidí.</p>
+      ) : (
+        <>
+          <section class="stack">
+            <h2>Podle podílu obyvatel</h2>
+            <div class="table-wrap">
+              <table class="stat-table">
+                <caption>Prvních 20 obcí s nejméně {MIN_PUBLIC_USERS} lidmi</caption>
+                <thead>
+                  <tr>
+                    <th scope="col" class="rank">#</th>
+                    <th scope="col">Obec</th>
+                    <th scope="col" class="num">Podíl</th>
+                    <th scope="col" class="num">Lidí</th>
+                    <th scope="col" class="num wide-only">Obyvatel</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.byShare.map((m, i) => (
+                    <tr>
+                      <td class="rank">{i + 1}.</td>
+                      <th scope="row">{m.name}<span class="sub">okres {m.district}</span></th>
+                      <td class="num">{pct(m.share)}</td>
+                      <td class="num">{int.format(m.users)}</td>
+                      <td class="num wide-only">{int.format(m.population)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="stack">
+            <h2>Podle počtu lidí</h2>
+            <div class="table-wrap">
+              <table class="stat-table">
+                <caption>Prvních 20 obcí podle počtu lidí</caption>
+                <thead>
+                  <tr>
+                    <th scope="col" class="rank">#</th>
+                    <th scope="col">Obec</th>
+                    <th scope="col" class="num">Lidí</th>
+                    <th scope="col" class="num">Podíl</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.byCount.map((m, i) => (
+                    <tr>
+                      <td class="rank">{i + 1}.</td>
+                      <th scope="row">{m.name}<span class="sub">okres {m.district}</span></th>
+                      <td class="num">{int.format(m.users)}</td>
+                      <td class="num">{pct(m.share)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {stats.regions.length > 0 && (
+            <section class="stack">
+              <h2>Podle krajů</h2>
+              <div class="table-wrap">
+                <table class="stat-table">
+                  <caption>Kraje seřazené podle podílu obyvatel</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Kraj</th>
+                      <th scope="col" class="num">Podíl</th>
+                      <th scope="col" class="num">Lidí</th>
+                      <th scope="col" class="num wide-only">Obyvatel</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.regions.map((r) => (
+                      <tr>
+                        <th scope="row">{r.region}</th>
+                        <td class="num">{pct(r.share)}</td>
+                        <td class="num">{int.format(r.users)}</td>
+                        <td class="num wide-only">{int.format(r.population)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+        </>
+      )}
+
+      <section class="stack">
+        <h2>Jak počítáme</h2>
+        <p class="measure muted">
+          Počítáme lidi s ověřeným e-mailem, kteří při zápisu do kurzu nebo v nastavení účtu uvedli,
+          v které obci žijí. Obec je nepovinná, statistika proto zachycuje jen část našich čtenářů.
+          Obce a kraje s méně než {MIN_PUBLIC_USERS} lidmi neukazujeme: malá čísla nic nevypovídají
+          a v malé obci by mohla prozradit konkrétního člověka.
+        </p>
+        <p class="measure muted">
+          Počet obyvatel je podle Českého statistického úřadu k 1. 1. 2025. Obec si můžete uvést nebo
+          změnit v <a href="/profil/nastaveni#obec">nastavení účtu</a>.
+        </p>
+      </section>
+    </div>
+  </div>
+</SiteLayout>

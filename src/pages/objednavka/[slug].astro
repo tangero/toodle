@@ -4,6 +4,8 @@ import { getOne } from '@lib/db';
 import type { Course, Enrollment } from '@lib/types';
 import { env } from '@lib/env';
 import { deliveryLabel, lessonCountLabel, priceLabel } from '@lib/labels';
+import { getUserMunicipality } from '@lib/municipalities';
+import MunicipalityField from '@components/MunicipalityField.astro';
 
 const { slug } = Astro.params;
 
@@ -33,6 +35,9 @@ const free = course.price_czk === 0;
 // uživatel dostane formulář znovu a odesláním kurz spustí, API ho aktivuje bez dalšího e-mailu.
 const resumesPending = !!existingEnrollment && existingEnrollment.status === 'pending' && free;
 if (resumesPending) existingEnrollment = null;
+// Přihlášený bez vyplněné obce dostane pole obce, kdo ji má, ten ho neuvidí (změní ji v nastavení).
+const userMunicipality = user ? await getUserMunicipality(env.DB, user.id) : null;
+const askMunicipality = !userMunicipality;
 const submitLabel = free ? 'Zapsat se zdarma' : `Objednat za ${priceLabel(course.price_czk)}`;
 ---
 
@@ -100,7 +105,7 @@ const submitLabel = free ? 'Zapsat se zdarma' : `Objednat za ${priceLabel(course
                     autocomplete="email"
                     inputmode="email"
                     spellcheck="false"
-                    enterkeyhint="done"
+                    enterkeyhint="next"
                     aria-describedby="email-hint"
                     data-error="email-error"
                   />
@@ -112,6 +117,8 @@ const submitLabel = free ? 'Zapsat se zdarma' : `Objednat za ${priceLabel(course
             {user && (
               <div class="note"><p>Zapisujete se jako <strong>{user.email}</strong>.</p></div>
             )}
+
+            {askMunicipality && <MunicipalityField />}
 
             <p class="hint">
               Součástí lekcí je krátká nabídka našeho dalšího vzdělávání. Odhlásit se můžete jedním kliknutím.
@@ -198,6 +205,8 @@ const submitLabel = free ? 'Zapsat se zdarma' : `Objednat za ${priceLabel(course
         const body: Record<string, string> = { slug };
         if (emailEl) body.email = emailEl.value;
         if (nameEl) body.name = nameEl.value;
+        const municipalityEl = form.querySelector<HTMLInputElement>('[name="municipality_code"]');
+        if (municipalityEl?.value) body.municipality_code = municipalityEl.value;
 
         try {
           const res = await fetch('/api/orders/create', {
