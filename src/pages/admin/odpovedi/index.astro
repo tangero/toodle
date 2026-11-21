@@ -1,0 +1,61 @@
+---
+/**
+ * Připomínky čtenářů k lekcím (odpovědi 2 a 3 s upřesněním) a stav odpovědí na ně.
+ * Text připomínek píše uživatel: vypisuje se jen jako `{text}`, nikdy přes set:html.
+ */
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { getAll } from '@lib/db';
+import { env } from '@lib/env';
+import { FEEDBACK_LABELS, parseSectionsJson, type FeedbackAnswer } from '@lib/feedback';
+
+const rows = await getAll<{
+  id: string; answer: FeedbackAnswer; comment: string; sections_json: string; updated_at: string;
+  lesson_title: string; position: number; course_title: string; user_name: string; reply_status: string | null;
+}>(
+  env.DB,
+  `SELECT f.id, f.answer, f.comment, f.sections_json, f.updated_at, l.title AS lesson_title, l.position,
+          c.title AS course_title, u.name AS user_name, r.status AS reply_status
+     FROM lesson_feedback f
+     JOIN enrollments e ON e.id = f.enrollment_id
+     JOIN users u ON u.id = e.user_id AND u.deleted_at IS NULL
+     JOIN lessons l ON l.id = f.lesson_id
+     JOIN courses c ON c.id = l.course_id
+     LEFT JOIN feedback_replies r ON r.feedback_id = f.id
+    WHERE f.answer IN (2, 3) AND (f.comment <> '' OR f.sections_json <> '[]')
+    ORDER BY (r.status = 'sent'), f.updated_at DESC
+    LIMIT 300`,
+);
+const waiting = rows.filter((r) => r.reply_status !== 'sent').length;
+const formatDate = (v: string) => v.slice(0, 10).split('-').reverse().map(Number).join('. ');
+const badge: Record<string, string> = { draft: 'koncept', sending: 'odesílá se', sent: 'odesláno' };
+---
+
+<AdminLayout title="Odpovědi na připomínky">
+  <p class="mb-6 max-w-3xl text-sm text-gray-600">
+    Čtenáři, kteří u lekce odpověděli „{FEEDBACK_LABELS[2]}“ nebo „{FEEDBACK_LABELS[3]}“ a upřesnili, čemu nerozuměli.
+    Na každou připomínku můžete poslat vysvětlení. Návrh připraví jazykový model, vy ho upravíte a odešlete.
+    Bez odpovědi: {waiting}.
+  </p>
+
+  {rows.length === 0 ? <p class="text-sm text-gray-500">Zatím žádné připomínky.</p> : (
+    <ul class="max-w-4xl divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white">
+      {rows.map((r) => {
+        const sections = parseSectionsJson(r.sections_json).map((s) => s.title);
+        return (
+          <li>
+            <a href={`/admin/odpovedi/${r.id}`} class="block px-4 py-3 hover:bg-gray-50">
+              <span class="flex flex-wrap items-baseline justify-between gap-2">
+                <span class="font-medium text-gray-900">{r.course_title}, {r.position}. {r.lesson_title}</span>
+                <span class={`rounded-full px-2 py-0.5 text-xs font-medium ${r.reply_status === 'sent' ? 'bg-green-100 text-green-800' : r.reply_status ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-700'}`}>
+                  {r.reply_status ? badge[r.reply_status] : 'bez odpovědi'}
+                </span>
+              </span>
+              <span class="block text-xs text-gray-500">{formatDate(r.updated_at)}, {r.user_name}, odpověď {r.answer}{sections.length > 0 && `, části: ${sections.join(', ')}`}</span>
+              {r.comment && <span class="mt-1 block break-words whitespace-pre-wrap text-sm text-gray-700">{r.comment}</span>}
+            </a>
+          </li>
+        );
+      })}
+    </ul>
+  )}
+</AdminLayout>
