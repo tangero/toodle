@@ -82,6 +82,8 @@ CREATE TABLE IF NOT EXISTS enrollments (
   rating_requested_at TEXT,
   run_no INTEGER NOT NULL DEFAULT 1,
   sending_at TEXT,
+  -- Obec ze zápisu bez přihlášení; do users.municipality_code ji přenese potvrzení odkazu.
+  pending_municipality_code INTEGER REFERENCES municipalities(code),
   UNIQUE(user_id, course_id)
 );
 

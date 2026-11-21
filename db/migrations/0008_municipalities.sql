@@ -17,3 +17,7 @@ CREATE TABLE IF NOT EXISTS municipalities (
 ALTER TABLE users ADD COLUMN municipality_code INTEGER REFERENCES municipalities(code);
 
 CREATE INDEX IF NOT EXISTS idx_users_municipality ON users(municipality_code);
+
+-- Obec zadaná při zápisu bez přihlášení. Do users.municipality_code se přenese až potvrzením
+-- e-mailového odkazu, aby cizí člověk nemohl měnit obec existujícímu účtu.
+ALTER TABLE enrollments ADD COLUMN pending_municipality_code INTEGER REFERENCES municipalities(code);

@@ -9,7 +9,8 @@ Rozhodnutí s důvodem. Novější nahoře. Pravidla, která z nich plynou pro k
 - **Počítají se jen ověřené účty**, jinak by nepotvrzený zápis cizí adresy přidával obci „obyvatele“. Veřejně jen obce a kraje s aspoň 5 lidmi (šum malých čísel a soukromí v malých obcích). Text říká „vzdělává se s námi“, ne „prošlo kurzem“: stará data dokončení kurzů neobsahují.
 - **Počty obyvatel jsou od ČSÚ (k 1. 1. 2025), ne ze staré tabulky**, která u 911 stejnojmenných obcí přiřadila všem počet té nejmenší (Kladno 232). Klíčem je kód obce; IČO ze staré aplikace se převádí podle názvu a okresu, zbytek přes ARES (`scripts/obce/build_obce.py`).
 - **Import neověřených (406) i neaktivních (126) účtů** si vyžádal Patrick. Neověření se do statistiky nepočítají.
-- **Zamítnuto:** hledání obce dotazem do D1 při psaní (limit 10 požadavků za minutu na IP, `LIKE` nehledá bez diakritiky); celý seznam v `<datalist>` (6 tisíc možností).
+- **Obec z nepřihlášeného zápisu čeká u zápisu** (`enrollments.pending_municipality_code`) a do účtu se zapíše až po potvrzení odkazu. Kdyby se zapsala hned, mohl by kdokoli změnit obec cizímu účtu; kdyby se ukládala jen novým účtům, ztratila by se u 4 tisíc převzatých ověřených účtů bez obce.
+- **Zamítnuto:** hledání obce dotazem do D1 při psaní (limit 10 požadavků za minutu na IP, `LIKE` nehledá bez diakritiky); `<datalist>` (prohlížeč si možnosti filtruje sám a diakritiku neignoruje, „ceske bud“ nenabídne nic).
 
 ## 2026-11-16 · Zpětná vazba na srozumitelnost lekcí
 

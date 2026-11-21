@@ -118,3 +118,28 @@ export async function getMunicipalityStats(db: D1Database, limit = 30): Promise<
     municipalitiesWithUsers: rows.length,
   };
 }
+
+const STATS_CACHE_SECONDS = 3600;
+
+/**
+ * Statistika obcí přes Cache API Workeru (hodina na datacentrum). Celá stránka se do sdílené
+ * cache dát nesmí, protože hlavička webu se liší podle přihlášení. Lokálně a v testech Cache API
+ * není, pak se počítá pokaždé.
+ */
+export async function getCachedMunicipalityStats(db: D1Database, appUrl: string, limit = 20): Promise<MunicipalityStats> {
+  const cache = typeof caches !== 'undefined' ? (caches as unknown as { default?: Cache }).default : undefined;
+  const key = new Request(`${appUrl}/__cache/obce-stats?limit=${limit}`);
+  if (cache) {
+    const hit = await cache.match(key).catch(() => undefined);
+    if (hit) return (await hit.json()) as MunicipalityStats;
+  }
+  const stats = await getMunicipalityStats(db, limit);
+  if (cache) {
+    await cache
+      .put(key, new Response(JSON.stringify(stats), {
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': `public, max-age=${STATS_CACHE_SECONDS}` },
+      }))
+      .catch(() => undefined);
+  }
+  return stats;
+}

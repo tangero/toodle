@@ -60,19 +60,24 @@ export const POST: APIRoute = async ({ request, locals }) => {
   );
   if (!course) return json({ error: 'Kurz nenalezen' }, 404);
 
-  // Obec je nepovinná. Přihlášenému ji uložíme vždy (vlastnictví účtu prokázal), nepřihlášenému
-  // jen do účtu, který ještě nemá ověřený e-mail ani obec – jinak by šlo měnit obec cizím účtům.
+  // Obec je nepovinná. Přihlášenému ji uložíme hned (vlastnictví účtu prokázal). Nepřihlášenému
+  // ji zapíšeme k čekajícímu zápisu a do účtu ji přenese až potvrzení odkazu
+  // (activateConfirmedEnrollment), jinak by šlo měnit obec cizím účtům.
   const municipalityCode = parseMunicipalityCode(body.municipality_code);
-  if (municipalityCode !== null && (await getMunicipality(env.DB, municipalityCode))) {
-    await run(
-      env.DB,
-      loggedIn
-        ? `UPDATE users SET municipality_code = ? WHERE id = ?`
-        : `UPDATE users SET municipality_code = ? WHERE id = ? AND verified_at IS NULL AND municipality_code IS NULL`,
-      municipalityCode,
-      user.id,
-    );
+  const validMunicipality = municipalityCode !== null && !!(await getMunicipality(env.DB, municipalityCode));
+  if (validMunicipality && loggedIn) {
+    await run(env.DB, `UPDATE users SET municipality_code = ? WHERE id = ?`, municipalityCode, user.id);
   }
+  const rememberMunicipality = async (enrollmentId: string) => {
+    if (validMunicipality && !loggedIn) {
+      await run(
+        env.DB,
+        `UPDATE enrollments SET pending_municipality_code = ? WHERE id = ? AND status = 'pending'`,
+        municipalityCode,
+        enrollmentId,
+      );
+    }
+  };
 
   const existing = await getOne<Enrollment>(
     env.DB,
@@ -83,6 +88,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   // Čekající zápis nepřihlášeného uživatele: pošleme potvrzovací odkaz znovu.
   if (existing && existing.status === 'pending' && !loggedIn && course.price_czk === 0) {
+    await rememberMunicipality(existing.id);
     let sent: boolean;
     try {
       sent = await sendConfirmation(user, course, existing.id);
@@ -125,6 +131,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       enrollmentId, user.id, course.id,
     );
   }
+
+  await rememberMunicipality(enrollmentId);
 
   // Bezplatný kurz
   if (course.price_czk === 0) {

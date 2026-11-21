@@ -332,13 +332,21 @@ export async function activateEnrollment(
  * čekat na potvrzení a být do bezplatného kurzu (placené aktivuje až spárovaná platba).
  */
 export async function activateConfirmedEnrollment(env: AppEnv, userId: string, enrollmentId: string): Promise<boolean> {
-  const pending = await getOne<{ id: string }>(
+  const pending = await getOne<{ id: string; pending_municipality_code: number | null }>(
     env.DB,
-    `SELECT e.id FROM enrollments e JOIN courses c ON c.id = e.course_id
+    `SELECT e.id, e.pending_municipality_code FROM enrollments e JOIN courses c ON c.id = e.course_id
      WHERE e.id = ? AND e.user_id = ? AND e.status = 'pending' AND c.price_czk = 0`,
     enrollmentId,
     userId,
   );
   if (!pending) return false;
+  // Obec zadaná při nepřihlášeném zápisu se uživateli zapíše až teď, kdy potvrzením odkazu
+  // prokázal přístup ke schránce. Do té doby by ji mohl změnit kdokoli, kdo zná adresu.
+  if (pending.pending_municipality_code !== null) {
+    await env.DB.batch([
+      env.DB.prepare(`UPDATE users SET municipality_code = ? WHERE id = ?`).bind(pending.pending_municipality_code, userId),
+      env.DB.prepare(`UPDATE enrollments SET pending_municipality_code = NULL WHERE id = ?`).bind(pending.id),
+    ]);
+  }
   return activateEnrollment(env, pending.id);
 }

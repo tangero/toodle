@@ -1,17 +1,15 @@
 ---
 import SiteLayout from '@layouts/SiteLayout.astro';
 import { env } from '@lib/env';
-import { getMunicipalityStats, MIN_PUBLIC_USERS } from '@lib/municipalities';
+import { getCachedMunicipalityStats, MIN_PUBLIC_USERS } from '@lib/municipalities';
 
-const stats = await getMunicipalityStats(env.DB, 20);
+// Souhrnná čísla se mění pomalu, počítají se nejvýš jednou za hodinu (Cache API, viz lib).
+const stats = await getCachedMunicipalityStats(env.DB, env.APP_URL, 20);
 
 const int = new Intl.NumberFormat('cs-CZ');
 // Podíly jsou malé (setiny procenta), proto dvě až tři platné číslice.
 const pct = (v: number) =>
   `${new Intl.NumberFormat('cs-CZ', { maximumSignificantDigits: 2 }).format(v)} %`;
-
-// Souhrnná čísla se mění pomalu; hodina v cache sdílené mezi návštěvníky stačí.
-Astro.response.headers.set('Cache-Control', 'public, max-age=300, s-maxage=3600');
 ---
 
 <SiteLayout
