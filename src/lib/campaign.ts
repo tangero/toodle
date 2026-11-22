@@ -102,11 +102,13 @@ export interface BatchResult {
   skipped: number;
   /** Resend vrátil 429, zbytek dávky se nechal na příště. */
   throttled: boolean;
+  /** Resend odmítl kvůli denní nebo měsíční kvótě tarifu: čekání nepomůže, rozesílka se má zastavit. */
+  quotaExceeded: boolean;
 }
 
 /** Pošle další dávku čekajících pozvánek. */
 export async function sendInvitationBatch(env: AppEnv, campaign: string, actor: string): Promise<BatchResult> {
-  const result: BatchResult = { sent: 0, failed: 0, skipped: 0, throttled: false };
+  const result: BatchResult = { sent: 0, failed: 0, skipped: 0, throttled: false, quotaExceeded: false };
   const courses = await invitationCourses(env.DB);
   const candidates = await getAll<{ user_id: string }>(
     env.DB,
@@ -161,6 +163,7 @@ export async function sendInvitationBatch(env: AppEnv, campaign: string, actor: 
       } else if (err instanceof EmailSendError && err.status === 429) {
         await run(env.DB, `UPDATE campaign_recipients SET status = 'pending', sending_at = NULL WHERE campaign = ? AND user_id = ?`, campaign, user.id);
         result.throttled = true;
+        result.quotaExceeded = /quota_exceeded/.test(err.body);
         break;
       } else {
         const message = err instanceof Error ? err.message.slice(0, 500) : String(err);
