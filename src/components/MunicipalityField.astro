@@ -1,0 +1,212 @@
+---
+/**
+ * Nepovinné pole „Obec, kde žijete“ s našeptávačem.
+ *
+ * Vlastní combobox (vzor ARIA combobox + listbox), ne <datalist>: datalist si prohlížeč filtruje
+ * sám podle napsaného textu a diakritiku přitom neignoruje, takže „ceske bud“ by nic nenabídl.
+ * Seznam všech obcí (public/data/obce.json, asi 80 kB po kompresi) se načte až při prvním
+ * zaměření pole. Nabídka ukáže nejvýš 8 obcí odpovídajících textu bez ohledu na diakritiku
+ * (u stejnojmenných obcí jde za název připsat okres),
+ * větší obce první. Text vybrané obce je „Název (okres Okres)“, u stejnojmenných obcí v jednom
+ * okrese i s kódem obce (stejně skládá municipalityLabel na serveru); kód obce jde do skrytého pole.
+ */
+interface Props {
+  /** Název skrytého pole s kódem obce. */
+  name?: string;
+  /** Předvyplněná obec. */
+  value?: { code: number; label: string } | null;
+  hint?: string;
+}
+
+const { name = 'municipality_code', value = null, hint = 'Nepovinné. Do statistiky obcí ji započítáme jen souhrnně, bez jména.' } = Astro.props;
+---
+
+<div class="field combo" data-municipality-field>
+  <label for="municipality">Obec, kde žijete</label>
+  <span class="hint" id="municipality-hint">{hint}</span>
+  <input
+    type="text"
+    id="municipality"
+    role="combobox"
+    aria-autocomplete="list"
+    aria-expanded="false"
+    aria-controls="municipality-list"
+    autocomplete="off"
+    spellcheck="false"
+    maxlength="120"
+    enterkeyhint="next"
+    aria-describedby="municipality-hint"
+    data-error="municipality-error"
+    value={value?.label ?? ''}
+    data-municipality-input
+  />
+  <span class="error-msg" id="municipality-error">Tuto obec neznáme. Vyberte ji ze seznamu, nebo pole nechte prázdné.</span>
+  <ul id="municipality-list" role="listbox" aria-label="Nalezené obce" class="combo-list" hidden></ul>
+  <span class="sr-only" aria-live="polite" data-municipality-status></span>
+  <input type="hidden" name={name} value={value?.code ?? ''} data-municipality-code />
+</div>
+
+<script>
+  type Row = [code: number, name: string, district: string, population: number];
+  interface Data { rows: Row[]; labels: Map<string, number>; folded: string[]; withDistrict: string[]; labelOf: Map<number, string> }
+
+  const MAX_OPTIONS = 8;
+  const fold = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+
+  let loading: Promise<Data> | null = null;
+
+  function load(): Promise<Data> {
+    loading ??= fetch('/data/obce.json')
+      .then((r) => r.json() as Promise<Row[]>)
+      .then((rows) => {
+        const counts = new Map<string, number>();
+        for (const [, n, d] of rows) counts.set(`${n}|${d}`, (counts.get(`${n}|${d}`) ?? 0) + 1);
+        const labels = new Map<string, number>();
+        const labelOf = new Map<number, string>();
+        const folded: string[] = [];
+        const withDistrict: string[] = [];
+        for (const [code, n, d] of rows) {
+          const label = counts.get(`${n}|${d}`)! > 1 ? `${n} (okres ${d}, kód ${code})` : `${n} (okres ${d})`;
+          labels.set(label, code);
+          labelOf.set(code, label);
+          folded.push(fold(n));
+          withDistrict.push(fold(`${n} ${d}`));
+        }
+        return { rows, labels, folded, withDistrict, labelOf };
+      });
+    return loading;
+  }
+
+  /**
+   * Indexy obcí: nejdřív ty, jejichž název (případně s okresem za ním, „Nová Ves Rychnov“) textem
+   * začíná, pak ty, jejichž název ho obsahuje; větší první. Okres jde psát i v závorce jako v nabídce.
+   */
+  function search(data: Data, text: string): number[] {
+    const q = fold(text.replace(/\(\s*(okres\s+)?/, ' ').replace(/,?\s*kód.*$|[(),]/g, ' ')).replace(/\s+/g, ' ');
+    if (q.length < 2) return [];
+    const starts: number[] = [];
+    const contains: number[] = [];
+    for (let i = 0; i < data.folded.length && starts.length < MAX_OPTIONS; i++) {
+      if (data.withDistrict[i].startsWith(q)) starts.push(i);
+      else if (contains.length < MAX_OPTIONS && data.folded[i].includes(q)) contains.push(i);
+    }
+    return [...starts, ...contains].slice(0, MAX_OPTIONS);
+  }
+
+  for (const field of document.querySelectorAll<HTMLElement>('[data-municipality-field]')) {
+    const input = field.querySelector<HTMLInputElement>('[data-municipality-input]')!;
+    const hidden = field.querySelector<HTMLInputElement>('[data-municipality-code]')!;
+    const list = field.querySelector<HTMLUListElement>('[role="listbox"]')!;
+    const status = field.querySelector<HTMLElement>('[data-municipality-status]')!;
+    let active = -1;
+    let statusTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const options = () => Array.from(list.querySelectorAll<HTMLLIElement>('[role="option"]'));
+
+    const close = () => {
+      list.hidden = true;
+      input.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-activedescendant');
+      active = -1;
+    };
+
+    const setActive = (i: number) => {
+      const opts = options();
+      if (!opts.length) return;
+      active = (i + opts.length) % opts.length;
+      opts.forEach((o, n) => o.setAttribute('aria-selected', String(n === active)));
+      input.setAttribute('aria-activedescendant', opts[active].id);
+      opts[active].scrollIntoView({ block: 'nearest' });
+    };
+
+    const choose = (opt: HTMLLIElement) => {
+      input.value = opt.dataset.label!;
+      hidden.value = opt.dataset.code!;
+      input.setCustomValidity('');
+      close();
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+
+    const render = (data: Data) => {
+      const found = search(data, input.value);
+      list.replaceChildren();
+      found.forEach((i, n) => {
+        const [code, name, district] = data.rows[i];
+        const li = document.createElement('li');
+        li.id = `municipality-opt-${n}`;
+        li.setAttribute('role', 'option');
+        li.setAttribute('aria-selected', 'false');
+        li.dataset.code = String(code);
+        li.dataset.label = data.labelOf.get(code)!;
+        const strong = document.createElement('span');
+        strong.textContent = name;
+        const sub = document.createElement('span');
+        sub.className = 'sub';
+        sub.textContent = data.labelOf.get(code)!.slice(name.length).replace(/^ \(|\)$/g, '');
+        li.appendChild(strong);
+        li.appendChild(sub);
+        list.appendChild(li);
+      });
+      active = -1;
+      input.removeAttribute('aria-activedescendant');
+      const open = found.length > 0;
+      list.hidden = !open;
+      input.setAttribute('aria-expanded', String(open));
+      // Počet nabídek čtečce oznámíme se zpožděním, ať při psaní nemluví po každém písmenu.
+      clearTimeout(statusTimer);
+      statusTimer = setTimeout(() => {
+        status.textContent = input.value.trim().length < 2 ? '' : found.length ? `Nabídka: ${found.length} obcí` : 'Žádná obec neodpovídá';
+      }, 600);
+    };
+
+    input.addEventListener('focus', () => void load(), { once: true });
+
+    input.addEventListener('input', async (e) => {
+      const data = await load();
+      const exact = data.labels.get(input.value);
+      hidden.value = exact ? String(exact) : '';
+      input.setCustomValidity('');
+      // Výběr z nabídky posílá syntetický input jen kvůli form-errors.ts; nabídku znovu neotvírá.
+      if (exact || !e.isTrusted) { close(); return; }
+      render(data);
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        if (list.hidden) return;
+        e.preventDefault();
+        setActive(active + (e.key === 'ArrowDown' ? 1 : -1));
+      } else if (e.key === 'Enter' && !list.hidden && active >= 0) {
+        e.preventDefault();
+        choose(options()[active]);
+      } else if (e.key === 'Enter' && input.value.trim() !== '' && !hidden.value) {
+        // Text bez vybrané obce by odeslal prázdný kód a server by uloženou obec smazal.
+        e.preventDefault();
+        input.setCustomValidity('Vyberte obec ze seznamu.');
+        input.reportValidity();
+        void load().then(render);
+      } else if (e.key === 'Escape' && !list.hidden) {
+        e.preventDefault();
+        close();
+      }
+    });
+
+    // mousedown místo click: pole by jinak dřív ztratilo focus a nabídka by zmizela.
+    list.addEventListener('mousedown', (e) => {
+      const opt = (e.target as HTMLElement).closest<HTMLLIElement>('[role="option"]');
+      if (!opt) return;
+      e.preventDefault();
+      choose(opt);
+    });
+
+    // Text, který neodpovídá žádné obci, formulář neodešle. Chybu ukáže CSS přes :user-invalid
+    // a ohlásí ji form-errors.ts, stejně jako u ostatních polí.
+    input.addEventListener('blur', async () => {
+      close();
+      const data = await load();
+      const code = data.labels.get(input.value);
+      hidden.value = code ? String(code) : '';
+      input.setCustomValidity(input.value.trim() !== '' && !code ? 'Vyberte obec ze seznamu.' : '');
+    });
+  }
+</script>

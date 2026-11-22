@@ -13,13 +13,13 @@ describe('escapeHtml', () => {
 describe('e-mailové šablony neposílají HTML ze vstupu', () => {
   const evil = '<a href="https://phish.example">Klikněte</a>';
   it('potvrzovací e-mail', () => {
-    const html = verificationEmail('https://skola.example/x', evil, 'Kurz', 'https://skola.example');
+    const html = verificationEmail('https://skola.example/x', evil, 'https://skola.example');
     expect(html).not.toContain('<a href="https://phish.example">');
     expect(html).toContain('&lt;a href=&quot;https://phish.example&quot;&gt;');
   });
   it('uvítací e-mail a lekce', () => {
     const welcome = welcomeEmail({
-      name: evil, courseTitle: evil, welcomeMd: '', firstLessonInfo: evil, appUrl: 'https://skola.example',
+      courseTitle: evil, welcomeMd: '', firstLessonInfo: evil, appUrl: 'https://skola.example',
     });
     expect(welcome).not.toContain('<a href="https://phish');
     expect(welcome).toContain('&lt;a href=&quot;https://phish.example&quot;&gt;');

@@ -11,10 +11,17 @@ Věci, které při práci na projektu stály čas. Každá s tím, jak se jí vy
 
 ## E-maily
 
+- **Hláška Resendu „domain is not verified“ může znamenat klíč z jiného účtu.** 21. 11. 2026 byla doména v Resendu ověřená, ale produkční `RESEND_API_KEY` patřil jinému účtu nebo týmu. Pomohl nový klíč z účtu s doménou (`wrangler secret put RESEND_API_KEY`). Přesnou odpověď Resendu ukáže `npx wrangler tail`.
 - **Resend vrací 403, dokud není odesílací doména ověřená.** Zápis nepřihlášeného čtenáře pak končí chybou (502 s hláškou). Ověř skutečným odesláním, ne jen kontrolou DNS.
 - **Limit tří přihlašovacích odkazů za hodinu na adresu** se počítá i za neúspěšné pokusy. Opakované testování zápisu na jednu adresu se rychle zablokuje (odpověď 429).
 - **`/api/auth/magic-link` vrací vždy stejnou odpověď**, i když e-mail neodejde. Odeslání z ní nepoznáš.
 - **Resend při stejném klíči proti dvojímu odeslání a jiném těle vrací 409.** U lekcí se to bere jako „už odesláno“ (`isAlreadySentConflict`), protože blok nabídek se mezi pokusy může změnit.
+
+## Data obcí
+
+- **Stará tabulka obcí (`data-ze-stare/cities.json`) má chybné počty obyvatel** u stejnojmenných obcí a u několika obcí useknutý název („Nové nad Metují“). Bere se z ní jen převod IČO → kód obce.
+- **Vojenské újezdy mají 0 obyvatel.** Podíl se pro ně nepočítá (`sharePercent` vrací 0).
+- **Nová data ČSÚ = nová migrace.** `scripts/obce/build_obce.py` přepíše `db/migrations/0009_obce_2025.sql`; pro aktualizaci soubor přejmenuj na další číslo migrace, jinak se na existující databáze nepustí.
 
 ## Ověřování vzhledu
 

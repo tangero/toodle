@@ -48,6 +48,7 @@ const path = Astro.url.pathname;
         </div>
         <nav aria-label="Patička">
           <ul>
+            <li><a href="/obce" aria-current={path === '/obce' ? 'page' : undefined}>Statistika obcí</a></li>
             <li><a href="/ochrana-osobnich-udaju" aria-current={path === '/ochrana-osobnich-udaju' ? 'page' : undefined}>Zásady zpracování osobních údajů</a></li>
             <li><a href="mailto:patrick@zandl.cz">patrick@zandl.cz</a></li>
             <li><a href="https://www.aivefirmach.cz/">AI ve firmách</a></li>

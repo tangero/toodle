@@ -2,6 +2,16 @@
 
 Rozhodnutí s důvodem. Novější nahoře. Pravidla, která z nich plynou pro kód, jsou v `CLAUDE.md`.
 
+## 2026-11-21 · Statistika obcí a převzetí uživatelů ze staré aplikace
+
+- **Co:** nepovinná obec u uživatele (`users.municipality_code`, kód obce ČSÚ), našeptávač při zápisu a v nastavení účtu, veřejná stránka `/obce` (podíl obyvatel, počet lidí, kraje). Převzetí všech 7 162 unikátních uživatelů ze staré aplikace (jméno, e-mail, datum registrace, ověření, obec), bez hesel a rolí.
+- **Proč:** stará aplikace ukazovala žebříček měst podle počtu i podílu obyvatel; uživatelé ho znali.
+- **Počítají se jen ověřené účty**, jinak by nepotvrzený zápis cizí adresy přidával obci „obyvatele“. Veřejně jen obce a kraje s aspoň 5 lidmi (šum malých čísel a soukromí v malých obcích). Text říká „vzdělává se s námi“, ne „prošlo kurzem“: stará data dokončení kurzů neobsahují.
+- **Počty obyvatel jsou od ČSÚ (k 1. 1. 2025), ne ze staré tabulky**, která u 911 stejnojmenných obcí přiřadila všem počet té nejmenší (Kladno 232). Klíčem je kód obce; IČO ze staré aplikace se převádí podle názvu a okresu, zbytek přes ARES (`scripts/obce/build_obce.py`).
+- **Import neověřených (406) i neaktivních (126) účtů** si vyžádal Patrick. Neověření se do statistiky nepočítají.
+- **Obec z nepřihlášeného zápisu čeká u zápisu** (`enrollments.pending_municipality_code`) a do účtu se zapíše až po potvrzení odkazu. Kdyby se zapsala hned, mohl by kdokoli změnit obec cizímu účtu; kdyby se ukládala jen novým účtům, ztratila by se u 4 tisíc převzatých ověřených účtů bez obce.
+- **Zamítnuto:** hledání obce dotazem do D1 při psaní (limit 10 požadavků za minutu na IP, `LIKE` nehledá bez diakritiky); `<datalist>` (prohlížeč si možnosti filtruje sám a diakritiku neignoruje, „ceske bud“ nenabídne nic).
+
 ## 2026-11-16 · Zpětná vazba na srozumitelnost lekcí
 
 - **Co:** u každé lekce tři stejně výrazné odpovědi (Rozuměl jsem · Něco mi nesedělo · Nerozuměl jsem, potřebuji to vysvětlit lépe). U kurzů na potvrzení jedno kliknutí zapíše odpověď a pošle další lekci; „nerozuměl jsem“ postup neblokuje. Po druhé a třetí odpovědi dobrovolné upřesnění (části lekce, jedna věta). Po třetí odpovědi okamžitá pomoc: zadání ke zkopírování do ChatGPT nebo Claude.
@@ -46,3 +56,10 @@ Rozhodnutí s důvodem. Novější nahoře. Pravidla, která z nich plynou pro k
 - **Patička a právní texty** podle Vibecoding.cz (provozovatel Patrick Zandl, IČO 43943420).
 - **Kurzy zdarma;** placené „možná časem“.
 - Podklad: https://claude.ai/artifact/9go6sSt4QRn34VQEvjQvWA, návrhy vzhledu: https://claude.ai/artifact/TF6g5fWLTojW32kobUGQz1.
+
+## 2026-11-21 Pilotní běh kurzů
+
+- **Pozvánka 100 nejstarším ověřeným účtům** ze staré aplikace, s odkazem na jejich dřívější souhlas s oslovením o nových kurzech. Starý název „Letní škola AI“ smí pozvánka jednou zmínit (schválil Patrick), jinde ne. Oslovení je ve všech e-mailech jen „Dobrý den,“ bez jména: jméno by se muselo správně skloňovat do 5. pádu a automaticky to spolehlivě nejde (Patrick, 22. 11. 2026).
+- **Seznam příjemců se zmrazí jednou** (`campaign_recipients`), aby opakované odeslání nepokračovalo dalšími lidmi a šlo měřit, kdo z pozvaných se zapsal a odpověděl. Neaktivní a admin účty se vynechávají podle starých dat, protože import tyto příznaky nepřenesl.
+- **Vysvětlení na připomínky navrhuje model, posílá člověk.** Model `anthropic/claude-sonnet-5.5` (vybral Patrick), volá se jen kliknutím u konkrétní připomínky, nikdy hromadně. Bez schválení nic neodejde. Zásady ochrany údajů to popisují v bodě 4.
+- **Otázka na srozumitelnost zůstává od první lekce** (Patrick).

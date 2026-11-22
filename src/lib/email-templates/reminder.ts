@@ -2,7 +2,6 @@ import { baseTemplate, button, courseUnsubscribeLine, P } from './base';
 import { escapeHtml } from '../escape';
 
 export function reminderEmail(
-  userName: string,
   courseTitle: string,
   lessonPosition: number,
   enrollmentId: string,
@@ -12,7 +11,7 @@ export function reminderEmail(
   return baseTemplate(
     `Pokračujte v kurzu ${courseTitle}`,
     `
-    <p style="${P}">Dobrý den, ${escapeHtml(userName)},</p>
+    <p style="${P}">Dobrý den,</p>
     <p style="${P}">
       v kurzu <strong>${escapeHtml(courseTitle)}</strong> jste se zastavili u lekce ${lessonPosition}.
       Další lekci vám pošleme, jakmile si o ni řeknete tlačítkem na stránce kurzu.

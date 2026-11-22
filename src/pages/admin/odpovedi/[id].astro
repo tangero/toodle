@@ -1,0 +1,78 @@
+---
+/**
+ * Odpověď na jednu připomínku: připomínka, označené části lekce, koncept vysvětlení
+ * (návrh od modelu nebo vlastní text) a odeslání. Odeslaný text už měnit nejde.
+ */
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { env } from '@lib/env';
+import { FEEDBACK_LABELS, parseSectionsJson, type FeedbackAnswer } from '@lib/feedback';
+import { loadReplyContext, REPLY_MAX_LENGTH, REPLY_MODEL } from '@lib/feedback-reply';
+
+const { id = '' } = Astro.params;
+const ctx = await loadReplyContext(env.DB, id);
+if (!ctx) return new Response('Připomínka nenalezena', { status: 404 });
+
+const sections = parseSectionsJson(ctx.sections_json).map((s) => s.title);
+const sent = ctx.reply_status === 'sent';
+const notices: Record<string, [string, string]> = {
+  navrh: ['ok', 'Návrh je připravený. Přečtěte ho a upravte, než ho odešlete.'],
+  ulozeno: ['ok', 'Koncept je uložený.'],
+  odeslano: ['ok', 'Vysvětlení odešlo čtenáři.'],
+  'chyba-modelu': ['err', 'Model návrh nepřipravil. Zkuste to znovu, nebo napište vysvětlení sami.'],
+  'chyba-odeslani': ['err', 'E-mail se nepodařilo odeslat, koncept zůstal uložený. Zkuste to znovu.'],
+  prazdne: ['err', 'Text vysvětlení je prázdný.'],
+  'odesila-se': ['err', 'Vysvětlení se právě odesílá, nebo se odeslání přerušilo. Za 10 minut můžete znovu kliknout na Odeslat čtenáři. Resend stejný e-mail během 24 hodin podruhé neodešle.'],
+};
+const notice = notices[Astro.url.searchParams.get('stav') ?? ''];
+const formatDate = (v: string) => v.slice(0, 10).split('-').reverse().map(Number).join('. ');
+const btn = 'inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-medium';
+---
+
+<AdminLayout title="Odpověď na připomínku">
+  <a href="/admin/odpovedi" class="mb-4 inline-block text-sm text-gray-600 hover:text-gray-900">&larr; Všechny připomínky</a>
+
+  {notice && (
+    <p role="status" class={`mb-4 max-w-3xl rounded-lg border p-3 text-sm ${notice[0] === 'ok' ? 'border-green-200 bg-green-50 text-green-900' : 'border-red-200 bg-red-50 text-red-900'}`}>{notice[1]}</p>
+  )}
+
+  <section class="mb-6 max-w-3xl rounded-xl border border-gray-200 bg-white p-4">
+    <h2 class="font-bold text-gray-900">{ctx.course_title}: {ctx.lesson_title}</h2>
+    <p class="mt-1 text-sm text-gray-600">
+      {ctx.user_name}, {formatDate(ctx.updated_at)}, odpověď „{FEEDBACK_LABELS[ctx.answer as FeedbackAnswer]}“.
+      {ctx.lesson_version !== ctx.current_version && ` Připomínka je ke starší verzi lekce (${ctx.lesson_version}, teď ${ctx.current_version}).`}
+    </p>
+    {sections.length > 0 && <p class="mt-3 text-sm"><span class="font-medium">Označené části:</span> {sections.join(', ')}</p>}
+    {ctx.comment
+      ? <p class="mt-3 break-words whitespace-pre-wrap border-l-4 border-gray-300 pl-3 text-gray-900">{ctx.comment}</p>
+      : <p class="mt-3 text-sm text-gray-500">Bez slovní připomínky.</p>}
+  </section>
+
+  {sent ? (
+    <section class="max-w-3xl rounded-xl border border-gray-200 bg-white p-4">
+      <h2 class="mb-2 font-bold text-gray-900">Odeslané vysvětlení</h2>
+      <p class="mb-3 text-xs text-gray-500">Odesláno {ctx.reply_sent_at && formatDate(ctx.reply_sent_at)}{ctx.reply_model && `, návrh: ${ctx.reply_model}`}.</p>
+      <p class="break-words whitespace-pre-wrap text-gray-900">{ctx.reply_body}</p>
+    </section>
+  ) : (
+    <section class="max-w-3xl">
+      <form method="post" action={`/api/admin/feedback-replies/${ctx.feedback_id}`} class="mb-4">
+        <input type="hidden" name="action" value="draft" />
+        <button type="submit" class={`${btn} border border-gray-300 bg-white text-gray-900`}>
+          {ctx.reply_body ? 'Navrhnout znovu' : 'Navrhnout vysvětlení'}
+        </button>
+        <span class="ml-2 text-xs text-gray-500">Model {REPLY_MODEL}, placené volání, trvá desítky sekund. Přepíše koncept.</span>
+      </form>
+
+      <form method="post" action={`/api/admin/feedback-replies/${ctx.feedback_id}`} class="space-y-3">
+        <label for="body" class="block text-sm font-medium text-gray-900">Vysvětlení pro čtenáře</label>
+        <p id="body-hint" class="text-xs text-gray-500">Prostý text, odstavce oddělte prázdným řádkem. Oslovení a podpis doplní e-mail sám.</p>
+        <textarea id="body" name="body" rows="14" maxlength={REPLY_MAX_LENGTH} aria-describedby="body-hint"
+          class="w-full rounded-lg border border-gray-300 p-3 text-sm">{ctx.reply_body ?? ''}</textarea>
+        <div class="flex flex-wrap gap-3">
+          <button type="submit" name="action" value="save" class={`${btn} border border-gray-300 bg-white text-gray-900`}>Uložit koncept</button>
+          <button type="submit" name="action" value="send" class={`${btn} bg-gray-900 text-white`}>Odeslat čtenáři</button>
+        </div>
+      </form>
+    </section>
+  )}
+</AdminLayout>

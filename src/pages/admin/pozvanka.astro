@@ -1,0 +1,177 @@
+---
+/**
+ * Pilotní pozvánka k novým kurzům: náhled, zkušební e-mail a rozesílka po dávkách ze
+ * zmrazeného seznamu příjemců (campaign_recipients, scripts/pilot/zmrazit_prijemce.py).
+ * Odeslání spouští admin; stránka volá /api/admin/campaign opakovaně, dokud nikdo nečeká.
+ */
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { getAll } from '@lib/db';
+import { env } from '@lib/env';
+import { campaignCounts, invitationCourses, PILOT_CAMPAIGN } from '@lib/campaign';
+import { INVITATION_SUBJECT, invitationEmail } from '@lib/email-templates/invitation';
+
+const counts = await campaignCounts(env.DB, PILOT_CAMPAIGN);
+const courses = await invitationCourses(env.DB);
+const preview = invitationEmail({
+  courses,
+  appUrl: env.APP_URL,
+  optOutUrl: `${env.APP_URL}/odhlaseni-nabidek/ukazka`,
+});
+
+const recipients = await getAll<{
+  name: string; email: string; created_at: string; status: string; sent_at: string | null; error: string | null;
+  enrolled: number; answers: number;
+}>(
+  env.DB,
+  `SELECT u.name, u.email, u.created_at, r.status, r.sent_at, r.error,
+          -- Pozvánce se připisuje jen to, co přišlo po jejím odeslání (dřívější zápisy s ní nesouvisí).
+          (SELECT COUNT(*) FROM enrollments e WHERE e.user_id = u.id AND e.status <> 'pending'
+              AND r.status = 'sent' AND datetime(e.started_at) >= datetime(r.sent_at)) AS enrolled,
+          (SELECT COUNT(*) FROM lesson_feedback f JOIN enrollments e ON e.id = f.enrollment_id WHERE e.user_id = u.id
+              AND r.status = 'sent' AND datetime(f.created_at) >= datetime(r.sent_at)) AS answers
+     FROM campaign_recipients r JOIN users u ON u.id = r.user_id
+    WHERE r.campaign = ?
+    ORDER BY u.created_at`,
+  PILOT_CAMPAIGN,
+);
+const enrolledCount = recipients.filter((r) => r.enrolled > 0).length;
+const answeredCount = recipients.filter((r) => r.answers > 0).length;
+const statusLabel: Record<string, string> = {
+  pending: 'čeká', sending: 'odesílá se', sent: 'odesláno', failed: 'chyba', skipped: 'vynecháno',
+};
+const formatDate = (v: string) => v.slice(0, 10).split('-').reverse().map(Number).join('. ');
+const btn = 'inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50';
+---
+
+<AdminLayout title="Pilotní pozvánka">
+  <p class="mb-6 max-w-3xl text-sm text-gray-600">
+    Pozvánka k novým kurzům pro první skupinu čtenářů (kampaň <code>{PILOT_CAMPAIGN}</code>). Posílá se jen lidem
+    ze zmrazeného seznamu a každému jednou. Před odesláním si pošlete zkušební e-mail.
+  </p>
+
+  <dl class="mb-6 grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-4">
+    <div class="rounded-xl border border-gray-200 bg-white p-3"><dt class="text-xs text-gray-500">V seznamu</dt><dd class="text-xl font-bold" data-count="total">{counts.total}</dd></div>
+    <div class="rounded-xl border border-gray-200 bg-white p-3"><dt class="text-xs text-gray-500">Čeká</dt><dd class="text-xl font-bold" data-count="pending">{counts.pending + counts.sending}</dd></div>
+    <div class="rounded-xl border border-gray-200 bg-white p-3"><dt class="text-xs text-gray-500">Odesláno</dt><dd class="text-xl font-bold" data-count="sent">{counts.sent}</dd></div>
+    <div class="rounded-xl border border-gray-200 bg-white p-3"><dt class="text-xs text-gray-500">Chyba / vynecháno</dt><dd class="text-xl font-bold" data-count="failed">{counts.failed} / {counts.skipped}</dd></div>
+  </dl>
+  {counts.sent > 0 && (
+    <p class="mb-6 text-sm text-gray-700">Po pozvánce se z odeslaných zapsalo do kurzu {enrolledCount}, na srozumitelnost odpovědělo {answeredCount}.</p>
+  )}
+
+  {counts.total === 0 ? (
+    <p class="mb-6 max-w-3xl rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+      Seznam příjemců je prázdný. Vytvoří ho skript <code>scripts/pilot/zmrazit_prijemce.py</code>.
+    </p>
+  ) : null}
+
+  <div class="mb-3 flex flex-wrap gap-3" data-campaign>
+    <button type="button" class={`${btn} border border-gray-300 bg-white text-gray-900`} data-action="test">Poslat zkoušku na můj e-mail</button>
+    <button type="button" class={`${btn} bg-gray-900 text-white`} data-action="send" disabled={counts.pending + counts.sending === 0}>
+      Odeslat pozvánky ({counts.pending + counts.sending})
+    </button>
+    {counts.failed > 0 && <button type="button" class={`${btn} border border-gray-300 bg-white text-gray-900`} data-action="retry">Vrátit chyby do fronty</button>}
+  </div>
+  <p class="mb-8 min-h-6 text-sm text-gray-700" role="status" aria-live="polite" data-campaign-status></p>
+
+  <section class="mb-10">
+    <h2 class="mb-2 text-lg font-bold text-gray-900">Náhled</h2>
+    <p class="mb-2 text-sm text-gray-600">Předmět: <strong>{INVITATION_SUBJECT}</strong></p>
+    <iframe title="Náhled pozvánky" srcdoc={preview} class="h-[760px] w-full max-w-3xl rounded-xl border border-gray-200 bg-white" sandbox=""></iframe>
+  </section>
+
+  {recipients.length > 0 && (
+    <section>
+      <h2 class="mb-2 text-lg font-bold text-gray-900">Příjemci</h2>
+      <div class="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+        <table class="w-full text-sm">
+          <thead class="border-b border-gray-200 bg-gray-50 text-left text-gray-700">
+            <tr><th class="px-3 py-2 font-medium">Jméno</th><th class="px-3 py-2 font-medium">E-mail</th><th class="px-3 py-2 font-medium">Registrace</th><th class="px-3 py-2 font-medium">Stav</th><th class="px-3 py-2 text-right font-medium">Kurzů</th><th class="px-3 py-2 text-right font-medium">Odpovědí</th></tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {recipients.map((r) => (
+              <tr>
+                <td class="px-3 py-2">{r.name}</td>
+                <td class="px-3 py-2 break-all">{r.email}</td>
+                <td class="px-3 py-2 whitespace-nowrap">{formatDate(r.created_at)}</td>
+                <td class="px-3 py-2">{statusLabel[r.status] ?? r.status}{r.error && <span class="block text-xs text-red-700">{r.error.slice(0, 120)}</span>}</td>
+                <td class="px-3 py-2 text-right">{r.enrolled}</td>
+                <td class="px-3 py-2 text-right">{r.answers}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )}
+</AdminLayout>
+
+<script>
+  const root = document.querySelector<HTMLElement>('[data-campaign]');
+  const status = document.querySelector<HTMLElement>('[data-campaign-status]')!;
+  const buttons = () => Array.from(root?.querySelectorAll<HTMLButtonElement>('button') ?? []);
+
+  interface Counts { pending: number; sending: number; failed: number }
+  interface Reply {
+    error?: string;
+    message?: string;
+    counts: Counts;
+    result: { sent: number; failed: number; skipped: number; throttled: boolean; quotaExceeded: boolean };
+  }
+
+  async function call(action: string): Promise<Reply> {
+    const res = await fetch('/api/admin/campaign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    });
+    const data = (await res.json().catch(() => ({ error: 'Neplatná odpověď serveru' }))) as Reply;
+    if (!res.ok) throw new Error(data.error ?? `Chyba ${res.status}`);
+    return data;
+  }
+
+  root?.addEventListener('click', async (e) => {
+    const button = (e.target as HTMLElement).closest<HTMLButtonElement>('button[data-action]');
+    if (!button) return;
+    const action = button.dataset.action!;
+    if (action === 'send' && !confirm('Opravdu odeslat pozvánky všem čekajícím příjemcům?')) return;
+    buttons().forEach((b) => (b.disabled = true));
+    try {
+      if (action === 'send') {
+        let sent = 0;
+        let throttledInRow = 0;
+        for (;;) {
+          const data = await call('batch');
+          sent += data.result.sent;
+          const waiting = data.counts.pending + data.counts.sending;
+          status.textContent = `Odesláno v tomto běhu: ${sent}. Čeká: ${waiting}. Chyb celkem: ${data.counts.failed}.`;
+          if (!data.result.throttled) throttledInRow = 0;
+          // Vyčerpanou kvótu tarifu čekání nespraví. Omezení trvající přes minutu (12 × 5 s) také zastaví.
+          if (data.result.quotaExceeded || (data.result.throttled && ++throttledInRow >= 12)) {
+            status.textContent += data.result.quotaExceeded
+              ? ' Zastaveno: Resend hlásí vyčerpaný limit e-mailů tarifu. Zbytek pošlete, až se limit obnoví.'
+              : ' Zastaveno: Resend dlouho omezuje odesílání. Zkuste to později.';
+            return;
+          }
+          if (data.result.throttled) await new Promise((r) => setTimeout(r, 5000));
+          else if (data.result.sent + data.result.failed + data.result.skipped === 0) break;
+          // Celá dávka selhala: nejspíš chyba nastavení (klíč, doména), dalšími dávkami by se jen hromadily chyby.
+          else if (data.result.sent === 0 && data.result.failed > 0) {
+            status.textContent += ' Zastaveno: celá dávka selhala, podívejte se do logu.';
+            return;
+          }
+        }
+        status.textContent += ' Hotovo.';
+        setTimeout(() => location.reload(), 1500);
+      } else {
+        const data = await call(action);
+        status.textContent = data.message ?? '';
+        if (action === 'retry') setTimeout(() => location.reload(), 1000);
+      }
+    } catch (err) {
+      status.textContent = `Nepovedlo se: ${(err as Error).message}`;
+    } finally {
+      buttons().forEach((b) => (b.disabled = false));
+    }
+  });
+</script>

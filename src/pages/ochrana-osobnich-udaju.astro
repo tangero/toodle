@@ -17,7 +17,7 @@ import SiteLayout from '@layouts/SiteLayout.astro';
     <header class="page-head">
       <h1>Zásady zpracování osobních údajů</h1>
       <p class="lead">Jak nakládáme s vašimi osobními údaji na webu Škola AI.</p>
-      <p class="mono">Účinné od 16. 11. 2026</p>
+      <p class="mono">Účinné od 21. 11. 2026</p>
     </header>
 
     <div class="prose" style="padding-top:2rem">
@@ -37,11 +37,13 @@ import SiteLayout from '@layouts/SiteLayout.astro';
       <h2>2. Jaké údaje zpracováváme</h2>
       <ul>
         <li><strong>Jméno a e-mail</strong>, které zadáte při zápisu do kurzu.</li>
+        <li><strong>Obec, kde žijete</strong>, pokud ji při zápisu nebo v nastavení účtu uvedete. Je nepovinná.</li>
         <li><strong>Průběh kurzu:</strong> do kterých kurzů jste zapsáni, které lekce jsme vám poslali a kdy.</li>
         <li><strong>Odpovědi v závěrečném testu</strong>, jejich hodnocení a výsledné skóre.</li>
         <li><strong>Certifikát:</strong> vaše jméno, název kurzu, datum vydání a veřejný kód certifikátu.</li>
         <li><strong>Hodnocení kurzu</strong>, pokud nám ho po skončení kurzu pošlete.</li>
         <li><strong>Zpětná vazba k lekcím</strong>, pokud nám ji dáte: vaše odpověď na otázku, jak srozumitelná lekce byla, části lekce, které označíte, a vaše připomínka.</li>
+        <li><strong>Naše odpovědi na vaše připomínky</strong>: vysvětlení, které vám k lekci pošleme, a kdy jsme ho poslali.</li>
         <li><strong>Údaje o doručení e-mailů:</strong> zda byl e-mail doručen, otevřen a zda jste klikli na odkaz.</li>
         <li><strong>IP adresa</strong> krátkodobě, k omezení počtu požadavků a ochraně proti zneužití.</li>
       </ul>
@@ -51,7 +53,8 @@ import SiteLayout from '@layouts/SiteLayout.astro';
         <li><strong>Poskytnutí kurzu</strong>, o který jste požádali: zasílání lekcí, test a certifikát. Právním základem je plnění smlouvy.</li>
         <li><strong>Bezpečnost webu</strong> a ochrana proti zneužití. Právním základem je náš oprávněný zájem.</li>
         <li><strong>Nabídka našeho dalšího vzdělávání</strong> v e-mailech s lekcemi a po skončení kurzu. Právním základem je náš oprávněný zájem nabízet vlastní podobné služby. Nabídky můžete kdykoli odmítnout odkazem v každém e-mailu.</li>
-        <li><strong>Zlepšování lekcí</strong> podle vaší zpětné vazby na jejich srozumitelnost. Právním základem je náš oprávněný zájem zjistit, kterým pasážím čtenáři nerozumějí, a přepsat je.</li>
+        <li><strong>Zlepšování lekcí</strong> podle vaší zpětné vazby na jejich srozumitelnost. Když napíšete, čemu jste nerozuměli, můžeme vám poslat vysvětlení e-mailem. Právním základem je náš oprávněný zájem zjistit, kterým pasážím čtenáři nerozumějí, a přepsat je.</li>
+        <li><strong>Statistika obcí:</strong> z uvedených obcí sestavujeme veřejný přehled, kolik lidí z které obce se s námi vzdělává. Zveřejňujeme jen souhrnná čísla a jen u obcí a krajů, kde je takových lidí aspoň pět, nikdy jména ani jiné údaje o jednotlivcích. Obec uvádíte dobrovolně, právním základem je váš souhlas. Odvoláte ho tak, že obec v nastavení účtu smažete.</li>
         <li><strong>Zveřejnění vašeho hodnocení kurzu</strong> jen s vaším výslovným souhlasem, který můžete kdykoli odvolat.</li>
       </ul>
       <p>
@@ -59,7 +62,15 @@ import SiteLayout from '@layouts/SiteLayout.astro';
         a kurz spustíme až po jeho potvrzení.
       </p>
 
-      <h2>4. Hodnocení testů pomocí umělé inteligence</h2>
+      <p>
+        Pokud jste se registrovali v předchozí verzi Školy AI, převzali jsme z ní vaše jméno, e-mail,
+        datum registrace a obec, pokud jste ji uvedli. Hesla jsme nepřevzali, přihlašujete se odkazem
+        zaslaným na e-mail. Účet můžete kdykoli smazat v nastavení účtu. Při registraci jste souhlasili,
+        že vám dáme vědět o nových kurzech; pozvánku k nim vám proto můžeme poslat e-mailem. Další
+        pozvánky odmítnete odkazem v každé z nich.
+      </p>
+
+      <h2>4. Umělá inteligence: hodnocení testů a vysvětlení k lekcím</h2>
       <p>
         Otevřené odpovědi v závěrečném testu hodnotí jazykový model. K hodnocení posíláme pouze název
         kurzu, text otázky a vaši odpověď. Vaše jméno ani e-mail se k hodnocení neposílají. Do odpovědí
@@ -68,6 +79,11 @@ import SiteLayout from '@layouts/SiteLayout.astro';
       <p>
         Výsledek testu rozhoduje jen o vydání certifikátu o absolvování kurzu. Test můžete opakovat.
         Pokud s hodnocením nesouhlasíte, napište nám a odpovědi posoudí člověk.
+      </p>
+      <p>
+        Když u lekce napíšete, čemu jste nerozuměli, může nám návrh vysvětlení připravit jazykový model.
+        Posíláme mu název kurzu a lekce, text lekce, části, které jste označili, a vaši připomínku, nikdy
+        jméno ani e-mail. Návrh vždy přečte a upraví člověk a teprve potom vám ho pošleme.
       </p>
 
       <h2>5. Veřejné ověření certifikátu</h2>
@@ -81,7 +97,7 @@ import SiteLayout from '@layouts/SiteLayout.astro';
       <ul>
         <li><strong>Cloudflare</strong>: provoz webu, databáze a úložiště certifikátů.</li>
         <li><strong>Resend</strong>: odesílání e-mailů.</li>
-        <li><strong>OpenRouter</strong> a poskytovatel jazykového modelu: hodnocení otevřených odpovědí v testu podle bodu 4.</li>
+        <li><strong>OpenRouter</strong> a poskytovatel jazykového modelu: hodnocení otevřených odpovědí v testu a návrhy vysvětlení k lekcím podle bodu 4.</li>
       </ul>
       <p>
         Někteří zpracovatelé sídlí ve Spojených státech nebo tam údaje zpracovávají. Údaje neprodáváme

@@ -5,7 +5,7 @@ import { getAll, getOne } from './db';
  * Smazání uživatele podle GDPR (volá ho uživatel i admin).
  *
  * - Osobní data průběhu (zápisy, e-mailový log, testy, certifikáty, hodnocení kurzů,
- *   zpětná vazba k lekcím, přihlašovací odkazy) se mažou.
+ *   zpětná vazba k lekcím a odpovědi na ni, záznamy o pozvánkách, přihlašovací odkazy) se mažou.
  * - Objednávky zůstávají kvůli účetnictví, jen se odpojí od smazaného zápisu.
  * - Řádek uživatele se anonymizuje unikátním e-mailem (sloupec email je UNIQUE),
  *   takže se člověk může později znovu registrovat stejnou adresou.
@@ -39,14 +39,19 @@ export async function deleteUserData(env: AppEnv, userId: string): Promise<boole
     db.prepare(`DELETE FROM test_attempts WHERE enrollment_id IN (${userEnrollments})`).bind(userId),
     db.prepare(`DELETE FROM certificates WHERE enrollment_id IN (${userEnrollments})`).bind(userId),
     db.prepare(`DELETE FROM course_ratings WHERE enrollment_id IN (${userEnrollments})`).bind(userId),
+    // Odpovědi na připomínky odkazují na lesson_feedback (cizí klíč), proto se mažou dřív.
+    db.prepare(
+      `DELETE FROM feedback_replies WHERE feedback_id IN (SELECT id FROM lesson_feedback WHERE enrollment_id IN (${userEnrollments}))`,
+    ).bind(userId),
     db.prepare(`DELETE FROM lesson_feedback WHERE enrollment_id IN (${userEnrollments})`).bind(userId),
+    db.prepare(`DELETE FROM campaign_recipients WHERE user_id = ?`).bind(userId),
     db.prepare(`DELETE FROM enrollments WHERE user_id = ?`).bind(userId),
     db.prepare(`DELETE FROM magic_links WHERE user_id = ?`).bind(userId),
     db.prepare(`UPDATE audit_log SET actor = 'deleted-user' WHERE actor = ?`).bind(user.email),
     db.prepare(`UPDATE audit_log SET payload_json = NULL WHERE instr(payload_json, ?) > 0`).bind(user.email),
     db.prepare(
       `UPDATE users SET deleted_at = datetime('now'), email = 'deleted-' || id || '@deleted.invalid',
-       name = 'Smazaný uživatel', promo_opt_out_at = NULL WHERE id = ?`,
+       name = 'Smazaný uživatel', promo_opt_out_at = NULL, municipality_code = NULL WHERE id = ?`,
     ).bind(userId),
     db.prepare(
       `INSERT INTO audit_log (id, actor, action, target, created_at) VALUES (?, 'gdpr', 'user.deleted', ?, datetime('now'))`,

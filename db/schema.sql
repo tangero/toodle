@@ -3,6 +3,16 @@
 -- Tento soubor odpovídá stavu po všech migracích v db/migrations/.
 
 -- Users
+-- Číselník obcí ČR (kód obce ČSÚ/RÚIAN). Data plní migrace 0009, zdroj počtu obyvatel ČSÚ.
+CREATE TABLE IF NOT EXISTS municipalities (
+  code INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  district TEXT NOT NULL,
+  region TEXT NOT NULL,
+  population INTEGER NOT NULL,
+  ico TEXT
+);
+
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
@@ -11,10 +21,13 @@ CREATE TABLE IF NOT EXISTS users (
   verified_at TEXT,
   deleted_at TEXT,
   -- Odhlášení nabídek dalšího vzdělávání v e-mailech. NULL = nabídky chce.
-  promo_opt_out_at TEXT
+  promo_opt_out_at TEXT,
+  -- Obec, kde uživatel žije (nepovinná); veřejně jen souhrnně ve statistice obcí.
+  municipality_code INTEGER REFERENCES municipalities(code)
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_municipality ON users(municipality_code);
 
 -- Courses
 CREATE TABLE IF NOT EXISTS courses (
@@ -69,6 +82,8 @@ CREATE TABLE IF NOT EXISTS enrollments (
   rating_requested_at TEXT,
   run_no INTEGER NOT NULL DEFAULT 1,
   sending_at TEXT,
+  -- Obec ze zápisu bez přihlášení; do users.municipality_code ji přenese potvrzení odkazu.
+  pending_municipality_code INTEGER REFERENCES municipalities(code),
   UNIQUE(user_id, course_id)
 );
 
@@ -188,6 +203,35 @@ CREATE TABLE IF NOT EXISTS lesson_feedback (
 );
 
 CREATE INDEX IF NOT EXISTS idx_lesson_feedback_lesson ON lesson_feedback(lesson_id, lesson_version);
+
+-- Vysvětlení na připomínku k lekci; návrh píše model, odeslání schvaluje člověk.
+CREATE TABLE IF NOT EXISTS feedback_replies (
+  id TEXT PRIMARY KEY,
+  feedback_id TEXT NOT NULL UNIQUE REFERENCES lesson_feedback(id),
+  body TEXT NOT NULL DEFAULT '',
+  model TEXT,
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'sending', 'sent')),
+  sending_at TEXT,
+  sent_at TEXT,
+  resend_id TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Příjemci rozesílky (kampaně), seznam se zmrazí jednou a posílá se jen z něj.
+CREATE TABLE IF NOT EXISTS campaign_recipients (
+  campaign TEXT NOT NULL,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sending', 'sent', 'failed', 'skipped')),
+  sending_at TEXT,
+  sent_at TEXT,
+  resend_id TEXT,
+  error TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (campaign, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_campaign_recipients_user ON campaign_recipients(user_id);
 
 -- Magic links (token = SHA-256 hash, ne samotný token)
 CREATE TABLE IF NOT EXISTS magic_links (

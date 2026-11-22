@@ -12,6 +12,7 @@ export interface User {
   created_at: string;
   verified_at: string | null;
   deleted_at: string | null;
+  municipality_code?: number | null;
 }
 
 export interface Course {

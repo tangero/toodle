@@ -10,6 +10,7 @@ import { normalizeEmail, normalizeName } from '@lib/escape';
 import { toSqlDateTime } from '@lib/time';
 import type { Course, Enrollment, User } from '@lib/types';
 import { env } from '@lib/env';
+import { getMunicipality, parseMunicipalityCode } from '@lib/municipalities';
 
 function generateVS(): string {
   const bytes = new Uint32Array(1);
@@ -24,7 +25,7 @@ function generateVS(): string {
  *   Bez potvrzení se nikomu nic neposílá – formulář tak nejde zneužít k zapisování cizích adres.
  */
 export const POST: APIRoute = async ({ request, locals }) => {
-  let body: { slug?: string; email?: string; name?: string };
+  let body: { slug?: string; email?: string; name?: string; municipality_code?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -59,6 +60,25 @@ export const POST: APIRoute = async ({ request, locals }) => {
   );
   if (!course) return json({ error: 'Kurz nenalezen' }, 404);
 
+  // Obec je nepovinná. Přihlášenému ji uložíme hned (vlastnictví účtu prokázal). Nepřihlášenému
+  // ji zapíšeme k čekajícímu zápisu a do účtu ji přenese až potvrzení odkazu
+  // (activateConfirmedEnrollment), jinak by šlo měnit obec cizím účtům.
+  const municipalityCode = parseMunicipalityCode(body.municipality_code);
+  const validMunicipality = municipalityCode !== null && !!(await getMunicipality(env.DB, municipalityCode));
+  if (validMunicipality && loggedIn) {
+    await run(env.DB, `UPDATE users SET municipality_code = ? WHERE id = ?`, municipalityCode, user.id);
+  }
+  const rememberMunicipality = async (enrollmentId: string) => {
+    if (validMunicipality && !loggedIn) {
+      await run(
+        env.DB,
+        `UPDATE enrollments SET pending_municipality_code = ? WHERE id = ? AND status = 'pending'`,
+        municipalityCode,
+        enrollmentId,
+      );
+    }
+  };
+
   const existing = await getOne<Enrollment>(
     env.DB,
     `SELECT * FROM enrollments WHERE user_id = ? AND course_id = ?`,
@@ -68,6 +88,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   // Čekající zápis nepřihlášeného uživatele: pošleme potvrzovací odkaz znovu.
   if (existing && existing.status === 'pending' && !loggedIn && course.price_czk === 0) {
+    await rememberMunicipality(existing.id);
     let sent: boolean;
     try {
       sent = await sendConfirmation(user, course, existing.id);
@@ -110,6 +131,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       enrollmentId, user.id, course.id,
     );
   }
+
+  await rememberMunicipality(enrollmentId);
 
   // Bezplatný kurz
   if (course.price_czk === 0) {
@@ -157,7 +180,7 @@ async function sendConfirmation(user: User, course: Course, enrollmentId: string
     await sendEmail(env, {
       to: user.email,
       subject: `Potvrďte zápis do kurzu ${course.title}`,
-      html: verificationEmail(url, user.name, course.title, env.APP_URL),
+      html: verificationEmail(url, course.title, env.APP_URL),
       tags: [{ name: 'type', value: 'verification' }],
     });
   } catch (err) {
