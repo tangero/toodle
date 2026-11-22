@@ -56,3 +56,10 @@ Rozhodnutí s důvodem. Novější nahoře. Pravidla, která z nich plynou pro k
 - **Patička a právní texty** podle Vibecoding.cz (provozovatel Patrick Zandl, IČO 43943420).
 - **Kurzy zdarma;** placené „možná časem“.
 - Podklad: https://claude.ai/artifact/9go6sSt4QRn34VQEvjQvWA, návrhy vzhledu: https://claude.ai/artifact/TF6g5fWLTojW32kobUGQz1.
+
+## 2026-11-21 Pilotní běh kurzů
+
+- **Pozvánka 100 nejstarším ověřeným účtům** ze staré aplikace, s odkazem na jejich dřívější souhlas s oslovením o nových kurzech. Starý název „Letní škola AI“ smí pozvánka jednou zmínit (schválil Patrick), jinde ne.
+- **Seznam příjemců se zmrazí jednou** (`campaign_recipients`), aby opakované odeslání nepokračovalo dalšími lidmi a šlo měřit, kdo z pozvaných se zapsal a odpověděl. Neaktivní a admin účty se vynechávají podle starých dat, protože import tyto příznaky nepřenesl.
+- **Vysvětlení na připomínky navrhuje model, posílá člověk.** Model `anthropic/claude-sonnet-5.5` (vybral Patrick), volá se jen kliknutím u konkrétní připomínky, nikdy hromadně. Bez schválení nic neodejde. Zásady ochrany údajů to popisují v bodě 4.
+- **Otázka na srozumitelnost zůstává od první lekce** (Patrick).

@@ -104,6 +104,8 @@ export const DELETE: APIRoute = async ({ request, locals }) => {
     // email_log.lesson_id odkazuje na lekci (FK) – historii odeslání zachováme bez vazby.
     db.prepare(`UPDATE email_log SET lesson_id = NULL WHERE lesson_id = ?`).bind(id),
     // Zpětná vazba ke smazané lekci nemá k čemu patřit (a cizí klíč by mazání zablokoval).
+    // Nejdřív odpovědi na připomínky, které na ni odkazují (feedback_replies.feedback_id).
+    db.prepare(`DELETE FROM feedback_replies WHERE feedback_id IN (SELECT id FROM lesson_feedback WHERE lesson_id = ?)`).bind(id),
     db.prepare(`DELETE FROM lesson_feedback WHERE lesson_id = ?`).bind(id),
     db.prepare(`DELETE FROM lessons WHERE id = ?`).bind(id),
     // Přečíslování ve dvou krocích, aby UPDATE nenarazil na UNIQUE(course_id, position).

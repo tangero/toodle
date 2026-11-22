@@ -204,6 +204,35 @@ CREATE TABLE IF NOT EXISTS lesson_feedback (
 
 CREATE INDEX IF NOT EXISTS idx_lesson_feedback_lesson ON lesson_feedback(lesson_id, lesson_version);
 
+-- Vysvětlení na připomínku k lekci; návrh píše model, odeslání schvaluje člověk.
+CREATE TABLE IF NOT EXISTS feedback_replies (
+  id TEXT PRIMARY KEY,
+  feedback_id TEXT NOT NULL UNIQUE REFERENCES lesson_feedback(id),
+  body TEXT NOT NULL DEFAULT '',
+  model TEXT,
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'sending', 'sent')),
+  sending_at TEXT,
+  sent_at TEXT,
+  resend_id TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Příjemci rozesílky (kampaně), seznam se zmrazí jednou a posílá se jen z něj.
+CREATE TABLE IF NOT EXISTS campaign_recipients (
+  campaign TEXT NOT NULL,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sending', 'sent', 'failed', 'skipped')),
+  sending_at TEXT,
+  sent_at TEXT,
+  resend_id TEXT,
+  error TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (campaign, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_campaign_recipients_user ON campaign_recipients(user_id);
+
 -- Magic links (token = SHA-256 hash, ne samotný token)
 CREATE TABLE IF NOT EXISTS magic_links (
   token TEXT PRIMARY KEY,
