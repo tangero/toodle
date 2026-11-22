@@ -13,7 +13,6 @@ import { INVITATION_SUBJECT, invitationEmail } from '@lib/email-templates/invita
 const counts = await campaignCounts(env.DB, PILOT_CAMPAIGN);
 const courses = await invitationCourses(env.DB);
 const preview = invitationEmail({
-  name: 'Jana Nováková',
   courses,
   appUrl: env.APP_URL,
   optOutUrl: `${env.APP_URL}/odhlaseni-nabidek/ukazka`,

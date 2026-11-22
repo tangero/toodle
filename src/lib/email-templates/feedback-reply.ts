@@ -2,7 +2,6 @@ import { baseTemplate, P, SIGNATURE, SMALL } from './base';
 import { escapeHtml } from '../escape';
 
 interface FeedbackReplyParams {
-  name: string;
   courseTitle: string;
   lessonTitle: string;
   /** Připomínka čtenáře (prostý text, může být prázdná). */
@@ -40,7 +39,7 @@ export function feedbackReplyEmail(p: FeedbackReplyParams): string {
   return baseTemplate(
     feedbackReplySubject(p.lessonTitle),
     `
-    <p style="${P}">Dobrý den, ${escapeHtml(p.name)},</p>
+    <p style="${P}">Dobrý den,</p>
     ${what}
     <p style="${P}">Děkujeme, přesně tohle potřebujeme vědět. Zkusíme to vysvětlit jinak:</p>
     ${plainTextToParagraphs(p.body)}

@@ -7,14 +7,13 @@ const APP = 'https://skola.example';
 
 describe('pozvánka', () => {
   const html = invitationEmail({
-    name: '<b>Jana</b>',
     courses: [{ slug: 'chatgpt', title: 'Začínáme s ChatGPT', lesson_count: 15 }, { slug: 'b', title: 'A & B', lesson_count: 3 }],
     appUrl: APP,
     optOutUrl: `${APP}/odhlaseni-nabidek/tok`,
   });
 
-  it('escapuje jméno a názvy, vypíše kurzy s počtem lekcí', () => {
-    expect(html).toContain('&lt;b&gt;Jana&lt;/b&gt;');
+  it('osloví bez jména, escapuje názvy, vypíše kurzy s počtem lekcí', () => {
+    expect(html).toContain('>Dobrý den,</p>');
     expect(html).toContain('A &amp; B');
     expect(html).toContain('15 lekcí');
     expect(html).toContain('3 lekce');
@@ -70,13 +69,3 @@ describe('podklady pro model', () => {
   });
 });
 
-describe('oslovení v pozvánce', () => {
-  it('nepoužije jméno, které je jen částí e-mailu', async () => {
-    const { greetingName } = await import('@lib/campaign');
-    expect(greetingName('Jana', 'jana.novakova@example.cz')).toBe('Jana');
-    expect(greetingName('jnovak', 'JNovak@example.cz')).toBe('');
-    expect(greetingName('J', 'x@example.cz')).toBe('');
-    const html = invitationEmail({ name: '', courses: [], appUrl: APP, optOutUrl: `${APP}/x` });
-    expect(html).toContain('>Dobrý den,</p>');
-  });
-});

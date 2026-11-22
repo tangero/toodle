@@ -88,7 +88,6 @@ export const POST: APIRoute = async ({ request }) => {
             to: userRow.email,
             subject: `Vítejte v kurzu ${courseRow.title}`,
             html: welcomeEmail({
-              name: userRow.name,
               courseTitle: courseRow.title,
               welcomeMd: courseRow.welcome_email_md,
               appUrl: env.APP_URL,

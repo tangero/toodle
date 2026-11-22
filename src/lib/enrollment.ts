@@ -243,7 +243,6 @@ export async function deliverNextLesson(
         to: row.user_email,
         subject: `Dokončili jste kurz ${row.course_title}`,
         html: completionEmail({
-          userName: row.user_name,
           courseTitle: row.course_title,
           completionMd: row.completion_email_md,
           enrollmentId: row.id,
@@ -299,7 +298,6 @@ export async function activateEnrollment(
       to: row.user_email,
       subject: `Vítejte v kurzu ${row.course_title}`,
       html: welcomeEmail({
-        name: row.user_name,
         courseTitle: row.course_title,
         welcomeMd: course?.welcome_email_md ?? '',
         firstLessonInfo,

@@ -180,7 +180,7 @@ async function sendConfirmation(user: User, course: Course, enrollmentId: string
     await sendEmail(env, {
       to: user.email,
       subject: `Potvrďte zápis do kurzu ${course.title}`,
-      html: verificationEmail(url, user.name, course.title, env.APP_URL),
+      html: verificationEmail(url, course.title, env.APP_URL),
       tags: [{ name: 'type', value: 'verification' }],
     });
   } catch (err) {

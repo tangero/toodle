@@ -3,7 +3,6 @@ import { renderMarkdown } from '../markdown';
 import { escapeHtml } from '../escape';
 
 interface WelcomeEmailParams {
-  name: string;
   courseTitle: string;
   /** Uvítací text kurzu z adminu (Markdown). Prázdný = výchozí věta. */
   welcomeMd: string;
@@ -22,7 +21,7 @@ export function welcomeEmail(p: WelcomeEmailParams): string {
   return baseTemplate(
     `Vítejte v kurzu ${p.courseTitle}`,
     `
-    <p style="${P}">Dobrý den, ${escapeHtml(p.name)},</p>
+    <p style="${P}">Dobrý den,</p>
     ${content}
     ${p.firstLessonInfo ? infoBox(escapeHtml(p.firstLessonInfo)) : ''}
     <p style="${P}">Přejeme vám, ať se kurz dobře čte.</p>

@@ -105,8 +105,8 @@ describe('šablony e-mailů', () => {
   it('blok nabídek je pod lekcí, v uvítacím a závěrečném e-mailu, jen když jsou podklady', () => {
     const withPromo = [
       lessonEmail({ ...lessonBase, deliveryMode: 'next_workday', promo }),
-      welcomeEmail({ name: 'Jana', courseTitle: 'Kurz', welcomeMd: '', appUrl: APP, promo }),
-      completionEmail({ userName: 'Jana', courseTitle: 'Kurz', completionMd: '', enrollmentId: 'E1', appUrl: APP, promo }),
+      welcomeEmail({ courseTitle: 'Kurz', welcomeMd: '', appUrl: APP, promo }),
+      completionEmail({ courseTitle: 'Kurz', completionMd: '', enrollmentId: 'E1', appUrl: APP, promo }),
     ];
     for (const html of withPromo) {
       expect(html).toContain(HEADING);
@@ -115,8 +115,8 @@ describe('šablony e-mailů', () => {
 
     const withoutPromo = [
       lessonEmail({ ...lessonBase, deliveryMode: 'next_workday' }),
-      welcomeEmail({ name: 'Jana', courseTitle: 'Kurz', welcomeMd: '', appUrl: APP }),
-      completionEmail({ userName: 'Jana', courseTitle: 'Kurz', completionMd: '', enrollmentId: 'E1', appUrl: APP }),
+      welcomeEmail({ courseTitle: 'Kurz', welcomeMd: '', appUrl: APP }),
+      completionEmail({ courseTitle: 'Kurz', completionMd: '', enrollmentId: 'E1', appUrl: APP }),
       lessonEmail({ ...lessonBase, deliveryMode: 'next_workday', promo: { tips: [], optOutUrl: OPT_OUT } }),
     ];
     for (const html of withoutPromo) {
@@ -128,10 +128,10 @@ describe('šablony e-mailů', () => {
   it('ostatní e-maily blok nabídek nemají', () => {
     const others = [
       magicLinkEmail(`${APP}/prihlaseni/potvrzeni?token=t`, APP),
-      verificationEmail(`${APP}/prihlaseni/potvrzeni?token=t`, 'Jana', 'Kurz', APP),
-      reminderEmail('Jana', 'Kurz', 3, 'E1', APP, 'E1.sig'),
-      certificateEmail('Jana', 'Kurz', 90, `${APP}/certifikat/abc`, APP),
-      ratingRequestEmail({ name: 'Jana', courseTitle: 'Kurz', ratingUrl: `${APP}/hodnoceni/E1.sig`, appUrl: APP }),
+      verificationEmail(`${APP}/prihlaseni/potvrzeni?token=t`, 'Kurz', APP),
+      reminderEmail('Kurz', 3, 'E1', APP, 'E1.sig'),
+      certificateEmail('Kurz', 90, `${APP}/certifikat/abc`, APP),
+      ratingRequestEmail({ courseTitle: 'Kurz', ratingUrl: `${APP}/hodnoceni/E1.sig`, appUrl: APP }),
     ];
     for (const html of others) expect(html).not.toContain(HEADING);
   });
@@ -159,13 +159,13 @@ describe('šablony e-mailů', () => {
     const all = [
       lessonEmail({ ...lessonBase, deliveryMode: 'on_click', promo }),
       lessonEmail({ ...lessonBase, lessonPosition: 5, deliveryMode: 'next_workday', feedbackUrl: `${APP}/srozumitelnost/E1.5.sig` }),
-      welcomeEmail({ name: 'Jana', courseTitle: 'Kurz', welcomeMd: '', firstLessonInfo: 'První lekce přijde zítra.', appUrl: APP, promo }),
-      completionEmail({ userName: 'Jana', courseTitle: 'Kurz', completionMd: '', enrollmentId: 'E1', appUrl: APP, promo }),
+      welcomeEmail({ courseTitle: 'Kurz', welcomeMd: '', firstLessonInfo: 'První lekce přijde zítra.', appUrl: APP, promo }),
+      completionEmail({ courseTitle: 'Kurz', completionMd: '', enrollmentId: 'E1', appUrl: APP, promo }),
       magicLinkEmail(`${APP}/x`, APP),
-      verificationEmail(`${APP}/x`, 'Jana', 'Kurz', APP),
-      reminderEmail('Jana', 'Kurz', 3, 'E1', APP, 'E1.sig'),
-      certificateEmail('Jana', 'Kurz', 90, `${APP}/certifikat/abc`, APP),
-      ratingRequestEmail({ name: 'Jana', courseTitle: 'Kurz', ratingUrl: `${APP}/hodnoceni/E1.sig`, appUrl: APP }),
+      verificationEmail(`${APP}/x`, 'Kurz', APP),
+      reminderEmail('Kurz', 3, 'E1', APP, 'E1.sig'),
+      certificateEmail('Kurz', 90, `${APP}/certifikat/abc`, APP),
+      ratingRequestEmail({ courseTitle: 'Kurz', ratingUrl: `${APP}/hodnoceni/E1.sig`, appUrl: APP }),
       adminDigestEmail({
         newEnrollments: 1, completedEnrollments: 2, paidOrders: 0, revenue: 0,
         unmatchedPayments: 1, bouncedEmails: 1, date: '16. 11. 2026', appUrl: APP,
@@ -207,10 +207,11 @@ describe('šablony e-mailů', () => {
 
   it('žádost o hodnocení vede na formulář s tokenem', () => {
     const html = ratingRequestEmail({
-      name: '<Jana>', courseTitle: 'Kurz', ratingUrl: `${APP}/hodnoceni/E1.sig`, appUrl: APP,
+      courseTitle: '<Kurz>', ratingUrl: `${APP}/hodnoceni/E1.sig`, appUrl: APP,
     });
     expect(html).toContain(`href="${APP}/hodnoceni/E1.sig"`);
-    expect(html).toContain('&lt;Jana&gt;');
+    expect(html).toContain('&lt;Kurz&gt;');
+    expect(html).toContain('>Dobrý den,</p>');
     expect(html).toContain('Tým Školy AI, Patrick a Andrea');
   });
 });

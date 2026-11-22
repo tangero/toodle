@@ -9,8 +9,6 @@ export interface InvitationCourse {
 }
 
 interface InvitationParams {
-  /** Jméno do oslovení; prázdné = „Dobrý den,“ bez jména. */
-  name: string;
   courses: InvitationCourse[];
   appUrl: string;
   /** Stránka /odhlaseni-nabidek/[token] pro tohoto čtenáře. */
@@ -23,6 +21,8 @@ export const INVITATION_SUBJECT = 'Nové kurzy Školy AI a prosba o pomoc';
  * Pozvánka pro první skupinu čtenářů (pilotní běh). Jde lidem, kteří při registraci ve staré
  * aplikaci souhlasili, že se jim ozveme s novými kurzy. Starý název „Letní škola AI“ je tu
  * jedinou výjimkou z pravidla značky (schválil Patrick 21. 11. 2026), aby nás lidé poznali.
+ * Oslovení je jen „Dobrý den,“ bez jména: jména ze staré aplikace nejdou spolehlivě skloňovat
+ * do 5. pádu (rozhodl Patrick 22. 11. 2026).
  */
 export function invitationEmail(p: InvitationParams): string {
   const items = p.courses
@@ -32,9 +32,9 @@ export function invitationEmail(p: InvitationParams): string {
   return baseTemplate(
     INVITATION_SUBJECT,
     `
-    <p style="${P}">${p.name ? `Dobrý den, ${escapeHtml(p.name)},` : 'Dobrý den,'}</p>
+    <p style="${P}">Dobrý den,</p>
     <p style="${P}">v létě 2025 jste se registrovali v Letní škole AI a souhlasili jste, že se vám ozveme,
-       až budou nové kurzy. Teď jsou hotové. Všechny jsou zdarma a lekce vám chodí e-mailem:</p>
+       až budou nové kurzy. Teď jsou hotové. Všechny jsou zdarma a lekce vám zase mohou chodit e-mailem:</p>
     <ul style="margin:0 0 16px;padding-left:22px;font-size:16px;line-height:1.6;">${items}</ul>
     <p style="${P}">Píšeme vám jako jedněm z prvních a máme prosbu. Než kurzy nabídneme všem, chceme vědět,
        jestli jim rozumíte. Na konci každé lekce je otázka, jak srozumitelná byla, a tři tlačítka:

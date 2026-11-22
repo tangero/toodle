@@ -178,7 +178,6 @@ export async function sendReply(env: AppEnv, ctx: FeedbackReplyContext): Promise
   if (!claimed.meta.changes) return 'not-draft';
 
   const html = feedbackReplyEmail({
-    name: ctx.user_name,
     courseTitle: ctx.course_title,
     lessonTitle: ctx.lesson_title,
     comment: ctx.comment,

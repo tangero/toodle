@@ -3,7 +3,6 @@ import { renderMarkdown } from '../markdown';
 import { escapeHtml } from '../escape';
 
 interface CompletionEmailParams {
-  userName: string;
   courseTitle: string;
   /** Závěrečný text kurzu z adminu (Markdown). Prázdný = výchozí věta. */
   completionMd: string;
@@ -22,7 +21,7 @@ export function completionEmail(p: CompletionEmailParams): string {
   return baseTemplate(
     `Dokončili jste kurz ${p.courseTitle}`,
     `
-    <p style="${P}">Dobrý den, ${escapeHtml(p.userName)},</p>
+    <p style="${P}">Dobrý den,</p>
     ${content}
     ${button(`${p.appUrl}/profil/kurz/${p.enrollmentId}`, 'Složit závěrečný test')}
     ${SIGNATURE}

@@ -52,21 +52,10 @@ export async function invitationCourses(db: D1Database): Promise<InvitationCours
   );
 }
 
-/**
- * Jméno do oslovení. Import ze staré aplikace dával při prázdném jménu část e-mailu před
- * zavináčem; takové „jméno“ ani jednopísmenné se nepoužije a oslovení bude bez jména.
- */
-export function greetingName(name: string, email: string): string {
-  const n = name.trim();
-  const local = email.split('@')[0]?.trim().toLowerCase() ?? '';
-  return n.length < 2 || n.toLowerCase() === local ? '' : n;
-}
-
 async function renderInvitation(env: AppEnv, user: { id: string; name: string; email: string }, courses: InvitationCourse[]) {
   const token = await createPromoOptOutToken(user.id, env.JWT_SECRET);
   return {
     html: invitationEmail({
-      name: greetingName(user.name, user.email),
       courses,
       appUrl: env.APP_URL,
       optOutUrl: `${env.APP_URL}/odhlaseni-nabidek/${token}`,

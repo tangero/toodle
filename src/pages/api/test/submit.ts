@@ -143,7 +143,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         const { id } = await sendEmail(env, {
           to: userRow?.email ?? user.email,
           subject: `Váš certifikát: ${courseRow?.title ?? ''}`,
-          html: certificateEmail(userRow?.name ?? user.name, courseRow?.title ?? '', score,
+          html: certificateEmail(courseRow?.title ?? '', score,
             `${env.APP_URL}/certifikat/${certificatePublicId}`, env.APP_URL),
           tags: [{ name: 'type', value: 'certificate' }],
         });

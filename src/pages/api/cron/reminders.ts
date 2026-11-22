@@ -80,7 +80,6 @@ async function sendStalledReminders(): Promise<number> {
         to: enrollment.user_email,
         subject: `Pokračujte v kurzu ${enrollment.course_title}`,
         html: reminderEmail(
-          enrollment.user_name,
           enrollment.course_title,
           enrollment.current_lesson,
           enrollment.id,
@@ -148,7 +147,6 @@ async function sendRatingRequests(now: Date = new Date()): Promise<{ due: number
           to: enrollment.user_email,
           subject: 'Jak se vám kurz líbil?',
           html: ratingRequestEmail({
-            name: enrollment.user_name,
             courseTitle: enrollment.course_title,
             ratingUrl: `${env.APP_URL}/hodnoceni/${token}`,
             appUrl: env.APP_URL,
