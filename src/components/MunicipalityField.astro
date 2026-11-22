@@ -5,7 +5,8 @@
  * Vlastní combobox (vzor ARIA combobox + listbox), ne <datalist>: datalist si prohlížeč filtruje
  * sám podle napsaného textu a diakritiku přitom neignoruje, takže „ceske bud“ by nic nenabídl.
  * Seznam všech obcí (public/data/obce.json, asi 80 kB po kompresi) se načte až při prvním
- * zaměření pole. Nabídka ukáže nejvýš 8 obcí odpovídajících textu bez ohledu na diakritiku,
+ * zaměření pole. Nabídka ukáže nejvýš 8 obcí odpovídajících textu bez ohledu na diakritiku
+ * (u stejnojmenných obcí jde za název připsat okres),
  * větší obce první. Text vybrané obce je „Název (okres Okres)“, u stejnojmenných obcí v jednom
  * okrese i s kódem obce (stejně skládá municipalityLabel na serveru); kód obce jde do skrytého pole.
  */
@@ -47,7 +48,7 @@ const { name = 'municipality_code', value = null, hint = 'Nepovinné. Do statist
 
 <script>
   type Row = [code: number, name: string, district: string, population: number];
-  interface Data { rows: Row[]; labels: Map<string, number>; folded: string[]; labelOf: Map<number, string> }
+  interface Data { rows: Row[]; labels: Map<string, number>; folded: string[]; withDistrict: string[]; labelOf: Map<number, string> }
 
   const MAX_OPTIONS = 8;
   const fold = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
@@ -63,27 +64,31 @@ const { name = 'municipality_code', value = null, hint = 'Nepovinné. Do statist
         const labels = new Map<string, number>();
         const labelOf = new Map<number, string>();
         const folded: string[] = [];
+        const withDistrict: string[] = [];
         for (const [code, n, d] of rows) {
           const label = counts.get(`${n}|${d}`)! > 1 ? `${n} (okres ${d}, kód ${code})` : `${n} (okres ${d})`;
           labels.set(label, code);
           labelOf.set(code, label);
           folded.push(fold(n));
+          withDistrict.push(fold(`${n} ${d}`));
         }
-        return { rows, labels, folded, labelOf };
+        return { rows, labels, folded, withDistrict, labelOf };
       });
     return loading;
   }
 
-  /** Indexy obcí: nejdřív ty, jejichž název textem začíná, pak ty, které ho obsahují; větší první. */
+  /**
+   * Indexy obcí: nejdřív ty, jejichž název (případně s okresem za ním, „Nová Ves Rychnov“) textem
+   * začíná, pak ty, jejichž název ho obsahuje; větší první. Okres jde psát i v závorce jako v nabídce.
+   */
   function search(data: Data, text: string): number[] {
-    const q = fold(text.replace(/\s*\(.*$/, ''));
+    const q = fold(text.replace(/\(\s*(okres\s+)?/, ' ').replace(/,?\s*kód.*$|[(),]/g, ' ')).replace(/\s+/g, ' ');
     if (q.length < 2) return [];
     const starts: number[] = [];
     const contains: number[] = [];
     for (let i = 0; i < data.folded.length && starts.length < MAX_OPTIONS; i++) {
-      const f = data.folded[i];
-      if (f.startsWith(q)) starts.push(i);
-      else if (contains.length < MAX_OPTIONS && f.includes(q)) contains.push(i);
+      if (data.withDistrict[i].startsWith(q)) starts.push(i);
+      else if (contains.length < MAX_OPTIONS && data.folded[i].includes(q)) contains.push(i);
     }
     return [...starts, ...contains].slice(0, MAX_OPTIONS);
   }
@@ -174,6 +179,12 @@ const { name = 'municipality_code', value = null, hint = 'Nepovinné. Do statist
       } else if (e.key === 'Enter' && !list.hidden && active >= 0) {
         e.preventDefault();
         choose(options()[active]);
+      } else if (e.key === 'Enter' && input.value.trim() !== '' && !hidden.value) {
+        // Text bez vybrané obce by odeslal prázdný kód a server by uloženou obec smazal.
+        e.preventDefault();
+        input.setCustomValidity('Vyberte obec ze seznamu.');
+        input.reportValidity();
+        void load().then(render);
       } else if (e.key === 'Escape' && !list.hidden) {
         e.preventDefault();
         close();
