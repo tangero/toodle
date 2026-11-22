@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { env } from '@lib/env';
 import { logAudit } from '@lib/audit';
-import { draftReply, loadReplyContext, ReplyDraftError, REPLY_MAX_LENGTH, saveReplyDraft, sendReply } from '@lib/feedback-reply';
+import { draftReply, loadReplyContext, ReplyDraftError, REPLY_MAX_LENGTH, saveReplyDraft, sendReply, type SendReplyResult } from '@lib/feedback-reply';
 
 /**
  * Odpověď na připomínku čtenáře. Formulář z /admin/odpovedi/[id] posílá `action`:
@@ -22,7 +22,15 @@ export const POST: APIRoute = async ({ params, request, locals, redirect }) => {
   const action = String(form.get('action') ?? '');
   const body = String(form.get('body') ?? '').replace(/\r\n/g, '\n').trim().slice(0, REPLY_MAX_LENGTH);
 
-  if (ctx.reply_status && ctx.reply_status !== 'draft') return back('odeslano');
+  if (ctx.reply_status === 'sent') return back('odeslano');
+  // Rozpracované odeslání (souběžné, nebo přerušené před zápisem výsledku): text už neměníme.
+  // Odeslat jde znovu, sendReply řádek zabere až po vypršení zámku a Resend ho pod stejným klíčem nezdvojí.
+  if (ctx.reply_status === 'sending') {
+    if (action !== 'send') return back('odesila-se');
+    const result = await sendReply(env, ctx);
+    if (result === 'sent') await logAudit(env.DB, actor, 'feedback_reply.send', id);
+    return back(statusFor(result));
+  }
 
   if (action === 'draft') {
     try {
@@ -43,8 +51,12 @@ export const POST: APIRoute = async ({ params, request, locals, redirect }) => {
     const fresh = await loadReplyContext(env.DB, id);
     const result = fresh ? await sendReply(env, fresh) : 'empty';
     if (result === 'sent') await logAudit(env.DB, actor, 'feedback_reply.send', id);
-    return back(result === 'sent' ? 'odeslano' : result === 'failed' ? 'chyba-odeslani' : 'prazdne');
+    return back(statusFor(result));
   }
 
   return back('neznama-akce');
 };
+
+function statusFor(result: SendReplyResult): string {
+  return { sent: 'odeslano', failed: 'chyba-odeslani', 'not-draft': 'odesila-se', empty: 'prazdne' }[result];
+}

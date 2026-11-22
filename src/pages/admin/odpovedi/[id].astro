@@ -21,6 +21,7 @@ const notices: Record<string, [string, string]> = {
   'chyba-modelu': ['err', 'Model návrh nepřipravil. Zkuste to znovu, nebo napište vysvětlení sami.'],
   'chyba-odeslani': ['err', 'E-mail se nepodařilo odeslat, koncept zůstal uložený. Zkuste to znovu.'],
   prazdne: ['err', 'Text vysvětlení je prázdný.'],
+  'odesila-se': ['err', 'Vysvětlení se právě odesílá, nebo se odeslání přerušilo. Za 10 minut můžete znovu kliknout na Odeslat čtenáři. Resend stejný e-mail během 24 hodin podruhé neodešle.'],
 };
 const notice = notices[Astro.url.searchParams.get('stav') ?? ''];
 const formatDate = (v: string) => v.slice(0, 10).split('-').reverse().map(Number).join('. ');
