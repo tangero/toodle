@@ -9,6 +9,7 @@
 - Preheader: Šablona zadání pro samostatnou práci a první úloha podle ní.
 - Délka čtení: 6 minut + asi 20 minut práce
 - Režim doručení: on_click
+- Ověřit v aplikaci před publikací: zda se při připojení složky volí povolení úprav (pokyn „povolte i úpravy“ v kroku 2; nápověda to nepopisuje)
 
 ## Tělo e-mailu
 
@@ -69,7 +70,11 @@ Nejdřív mi napiš plán a počkej na souhlas. Na konci napiš, co jsi udělal,
 
 <h3><strong>Krok 3: zkuste to schválně špatně</strong></h3>
 
-<p>V nové konverzaci se stejnou složkou pošlete jen: <strong>„Udělej mi přehled těch dat.“</strong> Soubor, který vznikne, pojmenujte jinak nebo ho pak smažte. Porovnejte oba výsledky. Kam se uložil? Jak je dlouhý? Je v něm zdroj a licence? Rozdíl mezi nimi je přesně to, co dělá brief.</p>
+<p>Nejdřív přesuňte soubor <strong>pruvodce-daty.docx</strong> ze složky Kurz AI dočasně na plochu. Jinak by ho Claude našel a výsledek z něj opsal. Pak v nové konverzaci se stejnou složkou pošlete jen: <strong>„Udělej mi přehled těch dat.“</strong></p>
+
+<p>Všimněte si, co se stane. Zadání neříká, jestli chcete soubor, nebo odpověď v konverzaci, ani kam ho uložit. Claude si to musí domyslet. Možná odpoví jen v konverzaci, možná vytvoří soubor s vlastním názvem. Obojí je správný výsledek pokusu. Porovnejte ho s průvodcem z kroku 2: Kde výsledek skončil? Jak je dlouhý? Je v něm zdroj a licence? Rozdíl mezi nimi je přesně to, co dělá brief.</p>
+
+<p>Nakonec vraťte pruvodce-daty.docx zpět do složky Kurz AI. Pokud v kroku 3 vznikl soubor, smažte ho.</p>
 
 <h3><strong>Pro vaši práci</strong></h3>
 

@@ -2,6 +2,12 @@
 
 Rozhodnutí s důvodem. Novější nahoře. Pravidla, která z nich plynou pro kód, jsou v `CLAUDE.md`.
 
+## 2026-11-24 · Odpověď na srozumitelnost odděleně od další lekce (kurzy na potvrzení)
+
+- **Co:** u kurzů na potvrzení tři odpovědi jen ukládají hodnocení; další lekci pošle samostatné tlačítko „Mám přečteno, pošlete další lekci“. Seznam lekcí ukazuje poslední odeslanou jako „čtete teď“ a odeslané lekce jdou číst na webu.
+- **Proč:** oba čtenáři kurzu Claude jako pracovní agent v pilotu odpověděli „nerozuměl jsem“ kvůli ovládání: odpověď je posunula o lekci dál, lekci viděli jako „hotovou“ dřív, než ji četli, a nemohli se k ní vrátit.
+- **Mění rozhodnutí ze 16. 11.** („jedno kliknutí zapíše odpověď a pošle další lekci“). Cena je jedno kliknutí navíc; odpověď je dál dobrovolná a postup neblokuje.
+
 ## 2026-11-21 · Statistika obcí a převzetí uživatelů ze staré aplikace
 
 - **Co:** nepovinná obec u uživatele (`users.municipality_code`, kód obce ČSÚ), našeptávač při zápisu a v nastavení účtu, veřejná stránka `/obce` (podíl obyvatel, počet lidí, kraje). Převzetí všech 7 162 unikátních uživatelů ze staré aplikace (jméno, e-mail, datum registrace, ověření, obec), bez hesel a rolí.
