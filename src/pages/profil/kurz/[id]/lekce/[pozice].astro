@@ -3,7 +3,8 @@
  * Text lekce, která už čtenáři odešla e-mailem. Čtenáři se tak mohou k lekci vrátit, i když
  * e-mail nemají po ruce. Lekce, které ještě neodešly, se nezobrazí (přesměrování na kurz).
  * Přihlášení hlídá middleware (/profil/*), zápis musí patřit přihlášenému uživateli.
- * Ukazuje se aktuální znění lekce; pokud jsme ji od odeslání upravili, liší se od e-mailu.
+ * Ukazuje se aktuální znění lekce. Když jsme ji od odeslání upravili, stránka na to upozorní
+ * (odpověď na srozumitelnost se dál ukládá k verzi z e-mailu).
  */
 import SiteLayout from '@layouts/SiteLayout.astro';
 import { getOne } from '@lib/db';
@@ -22,14 +23,14 @@ const enrollment = await getOne<{ id: string; course_id: string; status: string;
 if (!enrollment) return Astro.redirect('/profil');
 
 const position = /^[1-9]\d{0,2}$/.test(pozice) ? Number(pozice) : 0;
-const sent = enrollment.status !== 'pending'
-  && position > 0
-  && (position < enrollment.current_lesson || enrollment.status === 'completed');
+// Odeslané jsou lekce před `current_lesson` (ukazuje na tu, která se pošle příště; po poslední
+// lekci je o jednu za koncem). Lekce přidaná do kurzu po jeho dokončení tak čtenáři neodešla.
+const sent = enrollment.status !== 'pending' && position > 0 && position < enrollment.current_lesson;
 if (!sent) return Astro.redirect(coursePath);
 
-const lesson = await getOne<{ title: string; position: number; content_md: string }>(
+const lesson = await getOne<{ id: string; title: string; position: number; content_md: string; version: number }>(
   env.DB,
-  `SELECT title, position, content_md FROM lessons WHERE course_id = ? AND position = ?`,
+  `SELECT id, title, position, content_md, version FROM lessons WHERE course_id = ? AND position = ?`,
   enrollment.course_id, position,
 );
 const course = await getOne<{ title: string; lesson_count: number }>(
@@ -37,7 +38,13 @@ const course = await getOne<{ title: string; lesson_count: number }>(
 );
 if (!lesson || !course) return Astro.redirect(coursePath);
 
-const lastSent = enrollment.status === 'completed' ? course.lesson_count : enrollment.current_lesson - 1;
+const delivered = await getOne<{ v: number | null }>(
+  env.DB,
+  `SELECT MAX(lesson_version) AS v FROM email_log WHERE enrollment_id = ? AND lesson_id = ? AND template = 'lesson'`,
+  enrollment.id, lesson.id,
+);
+const changedSinceSent = delivered?.v != null && delivered.v !== lesson.version;
+const lastSent = Math.min(enrollment.current_lesson - 1, course.lesson_count);
 const prev = position > 1 ? position - 1 : null;
 const next = position < lastSent ? position + 1 : null;
 const lessonPath = (n: number) => `${coursePath}/lekce/${n}`;
@@ -54,6 +61,9 @@ const html = renderMarkdown(lesson.content_md);
     </header>
 
     <div class="page-body narrow">
+      {changedSinceSent && (
+        <p class="note">Lekci jsme od odeslání upravili. Tady je její aktuální znění, v e-mailu máte starší.</p>
+      )}
       <article class="prose" set:html={html} />
 
       <nav class="actions" aria-label="Další lekce kurzu">

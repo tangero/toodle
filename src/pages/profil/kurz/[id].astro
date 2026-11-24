@@ -77,9 +77,11 @@ const readAnswer = readToken && readLesson
   : null;
 const answerSaved = Astro.url.searchParams.get('srozumitelnost') === 'ulozeno';
 
-// Lekce, které už odešly, jdou číst i na webu. `current_lesson` ukazuje na lekci, která se pošle příště.
-const isSent = (position: number) =>
-  enrollment.status !== 'pending' && (position < enrollment.current_lesson || enrollment.status === 'completed');
+// Lekce, které už odešly, jdou číst i na webu. `current_lesson` ukazuje na lekci, která se pošle
+// příště (po poslední je o jednu za koncem), takže lekce přidaná po dokončení kurzu odeslaná není.
+const isSent = (position: number) => enrollment.status !== 'pending' && position < enrollment.current_lesson;
+// Hlavička ukazuje lekci, kterou čtenář má (poslední odeslanou), ne tu, která přijde příště.
+const shownLesson = Math.min(Math.max(enrollment.current_lesson - 1, 1), course.lesson_count);
 
 const TEST_LABELS: Record<FeedbackAnswer, string> = {
   1: 'Rozuměl jsem, přejít k testu',
@@ -106,7 +108,7 @@ const doneError = doneErrors[Astro.url.searchParams.get('chyba') ?? ''];
       <h1>{course.title}</h1>
       <p class="meta-row">
         <span class="tag">{enrollmentStatusLabel(enrollment.status)}</span>
-        <span class="mono">Lekce {Math.min(enrollment.current_lesson, course.lesson_count)} z {course.lesson_count}</span>
+        <span class="mono">Lekce {shownLesson} z {course.lesson_count}</span>
       </p>
     </header>
 
@@ -223,9 +225,12 @@ const doneError = doneErrors[Astro.url.searchParams.get('chyba') ?? ''];
           )}
           <div class="actions">
             {canContinue && (
-              <button type="button" id="mark-done" class="btn" data-enrollment-id={enrollment.id}>
-                {readLesson ? 'Mám přečteno, pošlete další lekci' : 'Pošlete mi další lekci'}
-              </button>
+              <form method="post" action={`/api/enrollments/${enrollment.id}/done`}>
+                {/* Bez JavaScriptu se formulář odešle běžně a endpoint přesměruje zpět na kurz. */}
+                <button type="submit" id="mark-done" class="btn" data-enrollment-id={enrollment.id}>
+                  {readLesson ? 'Mám přečteno, pošlete další lekci' : 'Pošlete mi další lekci'}
+                </button>
+              </form>
             )}
             {canPause && (
               <button type="button" id="toggle-pause" class="btn btn-line" data-enrollment-id={enrollment.id}>
@@ -285,6 +290,7 @@ const doneError = doneErrors[Astro.url.searchParams.get('chyba') ?? ''];
     });
 
     document.getElementById('mark-done')?.addEventListener('click', async (e) => {
+      e.preventDefault();
       const btn = e.currentTarget as HTMLButtonElement;
       const label = btn.textContent;
       btn.disabled = true;
