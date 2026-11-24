@@ -7,7 +7,7 @@ import { toSqlDateTime } from './time';
 import { logAudit } from './audit';
 
 /**
- * Rozesílka pozvánky k novým kurzům (pilotní běh). Příjemci jsou zmrazení v tabulce
+ * Rozesílka pozvánky k novým kurzům (pilotní běh a další vlny). Příjemci jsou zmrazení v tabulce
  * campaign_recipients (scripts/pilot/zmrazit_prijemce.py), posílá se jen z ní: každé
  * spuštění vezme další dávku čekajících, nikdy nové lidi.
  *
@@ -15,7 +15,18 @@ import { logAudit } from './audit';
  * s Idempotency-Key z kampaně a uživatele. Zámek starší 10 minut je opuštěný a řádek
  * jde znovu; díky klíči Resend druhý e-mail nepošle.
  */
-export const PILOT_CAMPAIGN = 'pilot-2026-11';
+/**
+ * Vlny pozvánky, od nejstarší. Každá má vlastní zmrazený seznam a vlastní Idempotency-Key;
+ * skript zmrazení do nové vlny nepustí nikoho, kdo už je v jiné. Novou vlnu přidejte na konec.
+ */
+export const CAMPAIGNS = ['pilot-2026-11', 'vlna2-2026-11'] as const;
+export type Campaign = (typeof CAMPAIGNS)[number];
+/** Výchozí vlna v adminu: poslední v seznamu. */
+export const CURRENT_CAMPAIGN: Campaign = CAMPAIGNS[CAMPAIGNS.length - 1];
+
+export function parseCampaign(value: unknown): Campaign | null {
+  return (CAMPAIGNS as readonly unknown[]).includes(value) ? (value as Campaign) : null;
+}
 
 /** Kolik e-mailů pošle jeden požadavek (Resend snese 2 za sekundu, Worker má limit podpožadavků). */
 export const CAMPAIGN_BATCH = 5;
