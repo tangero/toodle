@@ -1,16 +1,18 @@
 ---
 /**
- * Pilotní pozvánka k novým kurzům: náhled, zkušební e-mail a rozesílka po dávkách ze
- * zmrazeného seznamu příjemců (campaign_recipients, scripts/pilot/zmrazit_prijemce.py).
+ * Pozvánka k novým kurzům: náhled, zkušební e-mail a rozesílka po dávkách ze zmrazeného
+ * seznamu příjemců (campaign_recipients, scripts/pilot/zmrazit_prijemce.py). Vlnu vybírá
+ * parametr ?kampan= (hodnoty z CAMPAIGNS), bez něj se ukáže poslední vlna.
  * Odeslání spouští admin; stránka volá /api/admin/campaign opakovaně, dokud nikdo nečeká.
  */
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { getAll } from '@lib/db';
 import { env } from '@lib/env';
-import { campaignCounts, invitationCourses, PILOT_CAMPAIGN } from '@lib/campaign';
+import { CAMPAIGNS, campaignCounts, CURRENT_CAMPAIGN, invitationCourses, parseCampaign } from '@lib/campaign';
 import { INVITATION_SUBJECT, invitationEmail } from '@lib/email-templates/invitation';
 
-const counts = await campaignCounts(env.DB, PILOT_CAMPAIGN);
+const campaign = parseCampaign(Astro.url.searchParams.get('kampan')) ?? CURRENT_CAMPAIGN;
+const counts = await campaignCounts(env.DB, campaign);
 const courses = await invitationCourses(env.DB);
 const preview = invitationEmail({
   courses,
@@ -32,7 +34,7 @@ const recipients = await getAll<{
      FROM campaign_recipients r JOIN users u ON u.id = r.user_id
     WHERE r.campaign = ?
     ORDER BY u.created_at`,
-  PILOT_CAMPAIGN,
+  campaign,
 );
 const enrolledCount = recipients.filter((r) => r.enrolled > 0).length;
 const answeredCount = recipients.filter((r) => r.answers > 0).length;
@@ -43,11 +45,18 @@ const formatDate = (v: string) => v.slice(0, 10).split('-').reverse().map(Number
 const btn = 'inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50';
 ---
 
-<AdminLayout title="Pilotní pozvánka">
+<AdminLayout title="Pozvánka">
   <p class="mb-6 max-w-3xl text-sm text-gray-600">
-    Pozvánka k novým kurzům pro první skupinu čtenářů (kampaň <code>{PILOT_CAMPAIGN}</code>). Posílá se jen lidem
-    ze zmrazeného seznamu a každému jednou. Před odesláním si pošlete zkušební e-mail.
+    Pozvánka k novým kurzům, kampaň <code>{campaign}</code>. Posílá se jen lidem ze zmrazeného seznamu této vlny
+    a každému jednou. Před odesláním si pošlete zkušební e-mail.
   </p>
+
+  <nav class="mb-6 flex flex-wrap gap-2 text-sm" aria-label="Vlny pozvánky">
+    {CAMPAIGNS.map((c) => (
+      <a href={`/admin/pozvanka?kampan=${c}`} aria-current={c === campaign ? 'page' : undefined}
+         class={`inline-flex min-h-11 items-center rounded-lg border px-3 ${c === campaign ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-300 bg-white text-gray-900'}`}>{c}</a>
+    ))}
+  </nav>
 
   <dl class="mb-6 grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-4">
     <div class="rounded-xl border border-gray-200 bg-white p-3"><dt class="text-xs text-gray-500">V seznamu</dt><dd class="text-xl font-bold" data-count="total">{counts.total}</dd></div>
@@ -61,11 +70,11 @@ const btn = 'inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-medi
 
   {counts.total === 0 ? (
     <p class="mb-6 max-w-3xl rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-      Seznam příjemců je prázdný. Vytvoří ho skript <code>scripts/pilot/zmrazit_prijemce.py</code>.
+      Seznam příjemců je prázdný. Vytvoří ho skript <code>scripts/pilot/zmrazit_prijemce.py --campaign {campaign}</code>.
     </p>
   ) : null}
 
-  <div class="mb-3 flex flex-wrap gap-3" data-campaign>
+  <div class="mb-3 flex flex-wrap gap-3" data-campaign={campaign}>
     <button type="button" class={`${btn} border border-gray-300 bg-white text-gray-900`} data-action="test">Poslat zkoušku na můj e-mail</button>
     <button type="button" class={`${btn} bg-gray-900 text-white`} data-action="send" disabled={counts.pending + counts.sending === 0}>
       Odeslat pozvánky ({counts.pending + counts.sending})
@@ -123,7 +132,7 @@ const btn = 'inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-medi
     const res = await fetch('/api/admin/campaign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action }),
+      body: JSON.stringify({ action, campaign: root?.dataset.campaign }),
     });
     const data = (await res.json().catch(() => ({ error: 'Neplatná odpověď serveru' }))) as Reply;
     if (!res.ok) throw new Error(data.error ?? `Chyba ${res.status}`);
