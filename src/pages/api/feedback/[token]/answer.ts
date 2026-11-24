@@ -12,10 +12,17 @@ import { env } from '@lib/env';
  * Formulář se odesílá bez JavaScriptu, proto endpoint odpovídá přesměrováním (303) zpět
  * na stránku s parametrem `stav`. Token je HMAC vázaný na zápis a id lekce, přihlášení
  * není potřeba. Opakovaná odpověď dřívější přepíše.
+ *
+ * Volitelné pole `z` říká, odkud čtenář přišel (stejné hodnoty jako u upřesnění). Ze stránky
+ * kurzu na potvrzení (`z=kurz`) se po odpovědi 1 vrací rovnou na kurz, protože upřesnění se
+ * k ní nenabízí; po odpovědi 2 a 3 jde na stránku s upřesněním a odkazem zpět na kurz.
  */
+const ORIGINS = new Set(['lekce', 'test', 'kurz']);
+
 export const POST: APIRoute = async ({ params, request, redirect }) => {
   const token = params.token ?? '';
-  const back = (stav: string) => redirect(`/srozumitelnost/${encodeURIComponent(token)}?stav=${stav}`, 303);
+  let origin = '';
+  const back = (stav: string) => redirect(`/srozumitelnost/${encodeURIComponent(token)}?stav=${stav}${origin}`, 303);
 
   const target = await verifyFeedbackToken(token, env.JWT_SECRET);
   if (!target) return new Response('Odkaz na zpětnou vazbu není platný.', { status: 400 });
@@ -28,6 +35,8 @@ export const POST: APIRoute = async ({ params, request, redirect }) => {
   } catch {
     return back('chyba');
   }
+  const from = form.get('z');
+  if (typeof from === 'string' && ORIGINS.has(from)) origin = `&z=${from}`;
 
   const answer = parseFeedbackAnswer(form.get('answer'));
   if (!answer) return back('odpoved');
@@ -45,5 +54,8 @@ export const POST: APIRoute = async ({ params, request, redirect }) => {
     lesson: context.lessonPosition, version: context.deliveredVersion, answer,
   });
 
+  if (from === 'kurz' && answer === 1) {
+    return redirect(`/profil/kurz/${encodeURIComponent(context.enrollmentId)}?srozumitelnost=ulozeno`, 303);
+  }
   return back('ulozeno');
 };

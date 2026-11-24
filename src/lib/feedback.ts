@@ -17,13 +17,6 @@ export const FEEDBACK_LABELS: Record<FeedbackAnswer, string> = {
   3: 'Nerozuměl jsem, potřebuji to vysvětlit lépe',
 };
 
-/** Tlačítka u kurzů na potvrzení: odpověď zároveň pošle další lekci. */
-export const FEEDBACK_NEXT_LABELS: Record<FeedbackAnswer, string> = {
-  1: 'Rozuměl jsem, pošlete další',
-  2: 'Něco mi nesedělo, pošlete další',
-  3: 'Nerozuměl jsem, potřebuji to vysvětlit lépe',
-};
-
 /** Připomínka je jedna věta. */
 export const FEEDBACK_COMMENT_MAX = 500;
 

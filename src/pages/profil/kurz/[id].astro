@@ -4,7 +4,8 @@ import { getOne, getAll } from '@lib/db';
 import type { Enrollment, Course, Lesson, Certificate } from '@lib/types';
 import { env } from '@lib/env';
 import { enrollmentStatusLabel } from '@lib/labels';
-import { FEEDBACK_ANSWERS, FEEDBACK_LABELS, FEEDBACK_NEXT_LABELS, type FeedbackAnswer } from '@lib/feedback';
+import { FEEDBACK_ANSWERS, FEEDBACK_LABELS, type FeedbackAnswer } from '@lib/feedback';
+import { createFeedbackToken } from '@lib/unsubscribe';
 
 const { id } = Astro.params;
 const user = Astro.locals.user!;
@@ -62,14 +63,30 @@ const lastLessonAnswered = course.delivery_mode === 'on_click' && enrollment.sta
     ))
   : true;
 const askLastLesson = !lastLessonAnswered && enrollment.score === null && !certificate;
-const askFeedback = (canContinue && !!readLesson) || askLastLesson;
+
+// Během kurzu je odpověď na srozumitelnost oddělená od postupu: uloží se přes stránku
+// /srozumitelnost (nic neposílá) a další lekci pošle až tlačítko „Mám přečteno“.
+// Čtenáři si dřív odpověď pletli s potvrzením a kurz jim „utekl“ o lekci dál.
+const readToken = canContinue && readLesson
+  ? await createFeedbackToken(enrollment.id, readLesson.id, env.JWT_SECRET)
+  : null;
+const readAnswer = readToken && readLesson
+  ? (await getOne<{ answer: FeedbackAnswer }>(
+      env.DB, `SELECT answer FROM lesson_feedback WHERE enrollment_id = ? AND lesson_id = ?`, enrollment.id, readLesson.id,
+    ))?.answer ?? null
+  : null;
+const answerSaved = Astro.url.searchParams.get('srozumitelnost') === 'ulozeno';
+
+// Lekce, které už odešly, jdou číst i na webu. `current_lesson` ukazuje na lekci, která se pošle příště.
+const isSent = (position: number) =>
+  enrollment.status !== 'pending' && (position < enrollment.current_lesson || enrollment.status === 'completed');
 
 const TEST_LABELS: Record<FeedbackAnswer, string> = {
   1: 'Rozuměl jsem, přejít k testu',
   2: 'Něco mi nesedělo, přejít k testu',
   3: FEEDBACK_LABELS[3],
 };
-const answerLabels = !askLastLesson ? FEEDBACK_NEXT_LABELS : hasTest ? TEST_LABELS : FEEDBACK_LABELS;
+const answerLabels = hasTest ? TEST_LABELS : FEEDBACK_LABELS;
 
 // Chyby po odeslání formuláře bez JavaScriptu (endpoint přesměruje zpět s parametrem).
 const doneErrors: Record<string, string> = {
@@ -141,13 +158,19 @@ const doneError = doneErrors[Astro.url.searchParams.get('chyba') ?? ''];
         <h2>Lekce</h2>
         <ol class="outline">
           {lessons.map((lesson) => {
-            const isCompleted = lesson.position < enrollment.current_lesson;
-            const isCurrent = lesson.position === enrollment.current_lesson;
+            const sent = isSent(lesson.position);
+            // Poslední odeslaná lekce je ta, kterou čtenář právě čte; hotové jsou jen starší.
+            const isReading = sent && lesson.position === readPosition && enrollment.status !== 'completed';
+            const isDone = sent && !isReading;
             return (
-              <li class:list={[isCompleted && 'done', isCurrent && 'now']} aria-current={isCurrent ? 'step' : undefined}>
-                <span class="lt">{lesson.title}</span>
+              <li class:list={[isDone && 'done', isReading && 'now']} aria-current={isReading ? 'step' : undefined}>
+                <span class="lt">
+                  {sent
+                    ? <a href={`/profil/kurz/${enrollment.id}/lekce/${lesson.position}`}>{lesson.title}</a>
+                    : lesson.title}
+                </span>
                 <span class="lm">
-                  {isCompleted ? 'hotovo · ' : isCurrent ? 'aktuální · ' : ''}{lesson.reading_minutes} min
+                  {isDone ? 'hotovo · ' : isReading ? 'čtete teď · ' : ''}{lesson.reading_minutes} min
                 </span>
               </li>
             );
@@ -155,19 +178,40 @@ const doneError = doneErrors[Astro.url.searchParams.get('chyba') ?? ''];
         </ol>
       </section>
 
-      {(canContinue || canPause || askFeedback) && (
+      {(canContinue || canPause || askLastLesson) && (
         <div class="stack">
           {/* Tři odpovědi mají stejný vzhled a stálé pořadí. Žádná není zvýrazněná a žádná postup neblokuje. */}
-          {askFeedback && readLesson && (
+          {readToken && readLesson && (
+            <form method="post" action={`/api/feedback/${readToken}/answer`}>
+              <input type="hidden" name="z" value="kurz" />
+              <fieldset class="question plain">
+                <legend>Jak srozumitelná byla lekce {readLesson.position}?</legend>
+                <p class="hint">
+                  Odpověď je dobrovolná a další lekci neposílá. Tu si vyžádáte tlačítkem níže, až budete mít přečteno.
+                </p>
+                <div class="answers">
+                  {FEEDBACK_ANSWERS.map((answer) => (
+                    <button type="submit" name="answer" value={answer} class="btn" aria-pressed={readAnswer === answer ? 'true' : 'false'}>
+                      {FEEDBACK_LABELS[answer]}
+                    </button>
+                  ))}
+                </div>
+                {readAnswer !== null && (
+                  <p class="hint" role={answerSaved ? 'status' : undefined}>
+                    {answerSaved ? 'Děkujeme, odpověď je uložená' : 'Vaše odpověď'}: {FEEDBACK_LABELS[readAnswer]}. Jiným tlačítkem ji změníte.
+                  </p>
+                )}
+              </fieldset>
+            </form>
+          )}
+          {askLastLesson && readLesson && (
             <form method="post" action={`/api/enrollments/${enrollment.id}/done`} id="feedback-form" data-enrollment-id={enrollment.id}>
               {/* Pozice lekce, ke které se otázka zobrazila: odpověď ze staré karty se nepřipíše jiné lekci. */}
               <input type="hidden" name="lesson" value={readLesson.position} />
               <fieldset class="question plain">
                 <legend>Jak srozumitelná byla lekce {readLesson.position}?</legend>
                 <p class="hint">
-                  {askLastLesson
-                    ? (hasTest ? 'Odpověď uložíme a přejdete k závěrečnému testu.' : 'Odpověď nám pomůže lekci vylepšit.')
-                    : 'Jedním kliknutím odpovíte a zároveň vám pošleme další lekci. Odejde vždy, ať odpovíte jakkoli.'}
+                  {hasTest ? 'Odpověď uložíme a přejdete k závěrečnému testu.' : 'Odpověď nám pomůže lekci vylepšit.'}
                 </p>
                 <div class="answers">
                   {FEEDBACK_ANSWERS.map((answer) => (
@@ -178,9 +222,9 @@ const doneError = doneErrors[Astro.url.searchParams.get('chyba') ?? ''];
             </form>
           )}
           <div class="actions">
-            {canContinue && !readLesson && (
+            {canContinue && (
               <button type="button" id="mark-done" class="btn" data-enrollment-id={enrollment.id}>
-                Pošlete mi další lekci
+                {readLesson ? 'Mám přečteno, pošlete další lekci' : 'Pošlete mi další lekci'}
               </button>
             )}
             {canPause && (
@@ -205,7 +249,7 @@ const doneError = doneErrors[Astro.url.searchParams.get('chyba') ?? ''];
       msg.hidden = false;
     };
 
-    // Odpověď na srozumitelnost: jedno kliknutí zapíše odpověď a pošle další lekci.
+    // Odpověď na srozumitelnost poslední lekce (kurz je dočtený): zapíše odpověď a vede k testu.
     // Bez JavaScriptu se formulář odešle běžně a server přesměruje.
     const feedbackForm = document.getElementById('feedback-form') as HTMLFormElement | null;
     feedbackForm?.addEventListener('submit', async (e) => {

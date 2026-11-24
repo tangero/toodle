@@ -1,0 +1,66 @@
+---
+/**
+ * Text lekce, která už čtenáři odešla e-mailem. Čtenáři se tak mohou k lekci vrátit, i když
+ * e-mail nemají po ruce. Lekce, které ještě neodešly, se nezobrazí (přesměrování na kurz).
+ * Přihlášení hlídá middleware (/profil/*), zápis musí patřit přihlášenému uživateli.
+ * Ukazuje se aktuální znění lekce; pokud jsme ji od odeslání upravili, liší se od e-mailu.
+ */
+import SiteLayout from '@layouts/SiteLayout.astro';
+import { getOne } from '@lib/db';
+import { env } from '@lib/env';
+import { renderMarkdown } from '@lib/markdown';
+
+const { id = '', pozice = '' } = Astro.params;
+const user = Astro.locals.user!;
+const coursePath = `/profil/kurz/${encodeURIComponent(id)}`;
+
+const enrollment = await getOne<{ id: string; course_id: string; status: string; current_lesson: number }>(
+  env.DB,
+  `SELECT id, course_id, status, current_lesson FROM enrollments WHERE id = ? AND user_id = ?`,
+  id, user.id,
+);
+if (!enrollment) return Astro.redirect('/profil');
+
+const position = /^[1-9]\d{0,2}$/.test(pozice) ? Number(pozice) : 0;
+const sent = enrollment.status !== 'pending'
+  && position > 0
+  && (position < enrollment.current_lesson || enrollment.status === 'completed');
+if (!sent) return Astro.redirect(coursePath);
+
+const lesson = await getOne<{ title: string; position: number; content_md: string }>(
+  env.DB,
+  `SELECT title, position, content_md FROM lessons WHERE course_id = ? AND position = ?`,
+  enrollment.course_id, position,
+);
+const course = await getOne<{ title: string; lesson_count: number }>(
+  env.DB, `SELECT title, lesson_count FROM courses WHERE id = ?`, enrollment.course_id,
+);
+if (!lesson || !course) return Astro.redirect(coursePath);
+
+const lastSent = enrollment.status === 'completed' ? course.lesson_count : enrollment.current_lesson - 1;
+const prev = position > 1 ? position - 1 : null;
+const next = position < lastSent ? position + 1 : null;
+const lessonPath = (n: number) => `${coursePath}/lekce/${n}`;
+const html = renderMarkdown(lesson.content_md);
+---
+
+<SiteLayout title={`${lesson.title} – ${course.title}`}>
+  <div class="wrap">
+    <a class="back" href={coursePath}>← Zpět na kurz</a>
+
+    <header class="page-head">
+      <p class="mono">Lekce {lesson.position} z {course.lesson_count} · {course.title}</p>
+      <h1>{lesson.title}</h1>
+    </header>
+
+    <div class="page-body narrow">
+      <article class="prose" set:html={html} />
+
+      <nav class="actions" aria-label="Další lekce kurzu">
+        {prev && <a class="btn btn-line" href={lessonPath(prev)}>← Lekce {prev}</a>}
+        <a class="btn btn-line" href={coursePath}>Zpět na kurz</a>
+        {next && <a class="btn btn-line" href={lessonPath(next)}>Lekce {next} →</a>}
+      </nav>
+    </div>
+  </div>
+</SiteLayout>

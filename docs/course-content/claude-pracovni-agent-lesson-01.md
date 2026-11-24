@@ -8,15 +8,16 @@
 - Předmět e-mailu: Lekce 1: Claude dnes nebude odpovídat, bude pracovat
 - Preheader: Připravíte si pracovní složku, pustíte k ní Claude a dostanete první soupis souborů.
 - Délka čtení: 6 minut + asi 15 minut práce
-- Režim doručení: on_click (tlačítko v e-mailu vede na stránku kurzu, další lekce odejde po potvrzení „Mám přečteno – pošlete další lekci“)
-- Fakta o funkcích ověřena: 12. 11. 2026 (support.claude.com „Claude Cowork and chat are one Claude“, „Use Claude Cowork safely“)
+- Režim doručení: on_click (tlačítko v e-mailu vede na stránku kurzu, další lekce odejde po potvrzení „Mám přečteno, pošlete další lekci“)
+- Fakta o funkcích ověřena: 12. 11. 2026 (support.claude.com „Claude Cowork and chat are one Claude“, „Use Claude Cowork safely“); režimy Auto a Manual ověřeny 24. 11. 2026 („Claude Cowork and chat are one Claude“, „Get started with Claude Cowork“)
+- Ověřit v aplikaci před publikací: zda se aplikace při připojení složky ptá na povolení úprav (nápověda to nepopisuje)
 
 ## Tělo e-mailu
 
 ```html
 <p>Vítejte v kurzu <strong>Claude jako pracovní agent</strong>.</p>
 
-<p>Tenhle kurz funguje jinak než ty předchozí. Lekce nechodí každý den. Další přijde, až kliknete na tlačítko <strong>Hotovo, chci další lekci</strong> pod e-mailem a na stránce kurzu potvrdíte <strong>Mám přečteno – pošlete další lekci</strong>. Některé úlohy budou trvat čtvrt hodiny, jiné víc, a tempo si určujete sami.</p>
+<p>Tenhle kurz funguje jinak než ty předchozí. Lekce nechodí každý den. Další přijde, až kliknete na tlačítko <strong>Hotovo, chci další lekci</strong> pod e-mailem a na stránce kurzu potvrdíte <strong>Mám přečteno, pošlete další lekci</strong>. Na stránce kurzu najdete i všechny lekce, které vám už přišly, a otázku, jak srozumitelná lekce byla. Odpověď je dobrovolná a další lekci neposílá. Některé úlohy budou trvat čtvrt hodiny, jiné víc, a tempo si určujete sami.</p>
 
 <p>Dnes si připravíte prostředí: nainstalujete desktopovou aplikaci, založíte pracovní složku a necháte Claude, ať vám řekne, co v ní je. Zní to skromně, ale právě v tom je první velký rozdíl proti chatu: Claude nebude odpovídat z hlavy, bude se dívat do vašich souborů.</p>
 
@@ -63,7 +64,9 @@
 
 <p>Otevřete desktopovou aplikaci a začněte novou konverzaci. Pod polem pro zprávu přidejte složku (ikona složky nebo <em>+</em> → přidat složku) a vyberte <strong>Kurz AI</strong>. Aplikace se vás zeptá na povolení, aby Claude mohl soubory ve složce upravovat. Dnes žádné úpravy nepotřebujeme, a proto to v zadání výslovně zakážeme. Se soubory začneme hýbat až ve 3. lekci, a to na kopii.</p>
 
-<p>Ve výchozím nastavení se Claude <strong>zeptá, než udělá nějakou akci</strong>. Tak to v kurzu nechte. Uvidíte, co přesně chce udělat, a naučíte se, jak agent přemýšlí. Až budete mít jistotu, můžete mu povolit samostatnější práci. Když se vás Claude během úlohy zeptá na svolení, přečtěte si, co přesně chce udělat. Dnes má jen číst.</p>
+<p>Pod polem pro zprávu je přepínač, který určuje, jak samostatně Claude pracuje. Na většině tarifů je dnes výchozí režim <strong>Auto</strong>: Claude pracuje bez ptaní a před většinou akcí proběhne automatická bezpečnostní kontrola. Pro kurz přepněte na <strong>Manual</strong>. Claude se pak před každou akcí zeptá, uvidíte, co přesně chce udělat, a naučíte se, jak agent přemýšlí. Aplikace si volbu pamatuje, další konverzace už začnou v režimu Manual. K režimu Auto se můžete vrátit, až budete mít jistotu. <a target="_blank" rel="noopener noreferrer nofollow" href="https://support.claude.com/en/articles/13345190-get-started-with-claude-cowork">Nápověda Claude k režimům</a>.</p>
+
+<p>Když se vás Claude během úlohy zeptá na svolení, přečtěte si, co přesně chce udělat. Dnes má jen číst.</p>
 
 <h3><strong>Dnešní úkol: první úloha</strong></h3>
 
