@@ -30,6 +30,8 @@ def main():
     ap.add_argument('users_json', help='export uživatelů ze staré aplikace (data-ze-stare/users.json)')
     ap.add_argument('--campaign', required=True, help='název vlny, např. vlna2-2026-11')
     ap.add_argument('--limit', type=int, required=True, help='kolik lidí vlna dostane')
+    ap.add_argument('--vynechat', action='append', default=[], metavar='EMAIL',
+                    help='další adresa k vynechání (třeba osobní alias týmu), jde opakovat')
     a = ap.parse_args()
     if not re.fullmatch(r'[a-z0-9-]+', a.campaign):
         sys.exit('Název kampaně smí obsahovat jen malá písmena, číslice a pomlčky.')
@@ -37,7 +39,7 @@ def main():
         sys.exit('Limit musí být mezi 1 a 5000.')
 
     users = json.load(open(a.users_json, encoding='utf-8'))
-    excluded = sorted({u['email'].strip().lower() for u in users if not u['is_active'] or u['is_admin']})
+    excluded = sorted({u['email'].strip().lower() for u in users if not u['is_active'] or u['is_admin']} | {e.strip().lower() for e in a.vynechat})
     team = ' '.join(f"AND LOWER(u.email) NOT LIKE {q('%@' + d)} AND LOWER(u.email) NOT LIKE {q('%.' + d)}" for d in TEAM_DOMAINS)
     print(f'-- Zmrazení příjemců vlny {a.campaign} (limit {a.limit}). Obsahuje e-maily, nepatří do repa.')
     print(f"""INSERT OR IGNORE INTO campaign_recipients (campaign, user_id)
