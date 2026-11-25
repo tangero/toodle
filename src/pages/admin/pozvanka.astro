@@ -1,24 +1,29 @@
 ---
 /**
- * Pozvánka k novým kurzům: náhled, zkušební e-mail a rozesílka po dávkách ze zmrazeného
- * seznamu příjemců (campaign_recipients, scripts/pilot/zmrazit_prijemce.py). Vlnu vybírá
- * parametr ?kampan= (hodnoty z CAMPAIGNS), bez něj se ukáže poslední vlna.
+ * Pozvánka k novým kurzům: Markdown editor s živým náhledem, zkušební e-mail a rozesílka
+ * po dávkách ze zmrazeného seznamu příjemců (campaign_recipients, scripts/pilot/zmrazit_prijemce.py).
+ * Vlnu vybírá parametr ?kampan= (hodnoty z CAMPAIGNS), bez něj se ukáže poslední vlna.
  * Odeslání spouští admin; stránka volá /api/admin/campaign opakovaně, dokud nikdo nečeká.
  */
 import AdminLayout from '@layouts/AdminLayout.astro';
+import InvitationEditor from '@components/admin/InvitationEditor';
 import { getAll } from '@lib/db';
 import { env } from '@lib/env';
-import { CAMPAIGNS, campaignCounts, CURRENT_CAMPAIGN, invitationCourses, parseCampaign } from '@lib/campaign';
-import { INVITATION_SUBJECT, invitationEmail } from '@lib/email-templates/invitation';
+import {
+  CAMPAIGNS,
+  campaignCounts,
+  CURRENT_CAMPAIGN,
+  getInvitationTemplate,
+  invitationCourses,
+  parseCampaign,
+} from '@lib/campaign';
 
 const campaign = parseCampaign(Astro.url.searchParams.get('kampan')) ?? CURRENT_CAMPAIGN;
-const counts = await campaignCounts(env.DB, campaign);
-const courses = await invitationCourses(env.DB);
-const preview = invitationEmail({
-  courses,
-  appUrl: env.APP_URL,
-  optOutUrl: `${env.APP_URL}/odhlaseni-nabidek/ukazka`,
-});
+const [counts, courses, template] = await Promise.all([
+  campaignCounts(env.DB, campaign),
+  invitationCourses(env.DB),
+  getInvitationTemplate(env.DB, campaign),
+]);
 
 const recipients = await getAll<{
   name: string; email: string; created_at: string; status: string; sent_at: string | null; error: string | null;
@@ -83,11 +88,18 @@ const btn = 'inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-medi
   </div>
   <p class="mb-8 min-h-6 text-sm text-gray-700" role="status" aria-live="polite" data-campaign-status></p>
 
-  <section class="mb-10">
-    <h2 class="mb-2 text-lg font-bold text-gray-900">Náhled</h2>
-    <p class="mb-2 text-sm text-gray-600">Předmět: <strong>{INVITATION_SUBJECT}</strong></p>
-    <iframe title="Náhled pozvánky" srcdoc={preview} class="h-[760px] w-full max-w-3xl rounded-xl border border-gray-200 bg-white" sandbox=""></iframe>
-  </section>
+  <InvitationEditor
+    client:load
+    campaign={campaign}
+    initialSubject={template.subject}
+    initialPreheader={template.preheader}
+    initialBodyMd={template.body_md}
+    isCustom={template.is_custom}
+    updatedAt={template.updated_at}
+    sentCount={counts.sent}
+    courses={courses}
+    appUrl={env.APP_URL}
+  />
 
   {recipients.length > 0 && (
     <section>
@@ -125,14 +137,17 @@ const btn = 'inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-medi
     error?: string;
     message?: string;
     counts: Counts;
-    result: { sent: number; failed: number; skipped: number; throttled: boolean; quotaExceeded: boolean };
+    result: {
+      sent: number; failed: number; skipped: number; throttled: boolean; quotaExceeded: boolean;
+      templateChanged: boolean; templateVersion: string | null;
+    };
   }
 
-  async function call(action: string): Promise<Reply> {
+  async function call(action: string, extra: Record<string, unknown> = {}): Promise<Reply> {
     const res = await fetch('/api/admin/campaign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, campaign: root?.dataset.campaign }),
+      body: JSON.stringify({ action, campaign: root?.dataset.campaign, ...extra }),
     });
     const data = (await res.json().catch(() => ({ error: 'Neplatná odpověď serveru' }))) as Reply;
     if (!res.ok) throw new Error(data.error ?? `Chyba ${res.status}`);
@@ -143,14 +158,27 @@ const btn = 'inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-medi
     const button = (e.target as HTMLElement).closest<HTMLButtonElement>('button[data-action]');
     if (!button) return;
     const action = button.dataset.action!;
+    if ((action === 'test' || action === 'send') && document.querySelector('[data-invitation-dirty="true"]')) {
+      status.textContent = 'V editoru jsou neuložené změny. Nejdřív klikněte na Uložit změny, potom e-mail odešlete.';
+      return;
+    }
     if (action === 'send' && !confirm('Opravdu odeslat pozvánky všem čekajícím příjemcům?')) return;
     buttons().forEach((b) => (b.disabled = true));
+    // Během rozesílky editor text neuloží (InvitationEditor poslouchá tuto událost).
+    if (action === 'send') window.dispatchEvent(new CustomEvent('invitation-sending', { detail: true }));
     try {
       if (action === 'send') {
         let sent = 0;
         let throttledInRow = 0;
+        // Verze textu z první dávky; server další dávky odmítne, když se text mezitím změnil.
+        let version: { template_version: string | null } | undefined;
         for (;;) {
-          const data = await call('batch');
+          const data = await call('batch', version ?? {});
+          if (data.result.templateChanged) {
+            status.textContent = `Odesláno v tomto běhu: ${sent}. Zastaveno: text pozvánky se během rozesílky změnil. Zkontrolujte ho a spusťte odeslání znovu.`;
+            return;
+          }
+          version ??= { template_version: data.result.templateVersion };
           sent += data.result.sent;
           const waiting = data.counts.pending + data.counts.sending;
           status.textContent = `Odesláno v tomto běhu: ${sent}. Čeká: ${waiting}. Chyb celkem: ${data.counts.failed}.`;
@@ -181,6 +209,7 @@ const btn = 'inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-medi
       status.textContent = `Nepovedlo se: ${(err as Error).message}`;
     } finally {
       buttons().forEach((b) => (b.disabled = false));
+      if (action === 'send') window.dispatchEvent(new CustomEvent('invitation-sending', { detail: false }));
     }
   });
 </script>
