@@ -19,7 +19,7 @@ import { logAudit } from './audit';
  * Vlny pozvánky, od nejstarší. Každá má vlastní zmrazený seznam a vlastní Idempotency-Key;
  * skript zmrazení do nové vlny nepustí nikoho, kdo už je v jiné. Novou vlnu přidejte na konec.
  */
-export const CAMPAIGNS = ['pilot-2026-11', 'vlna2-2026-11'] as const;
+export const CAMPAIGNS = ['pilot-2026-11', 'vlna2-2026-11', 'vlna3-2026-11'] as const;
 export type Campaign = (typeof CAMPAIGNS)[number];
 /** Výchozí vlna v adminu: poslední v seznamu. */
 export const CURRENT_CAMPAIGN: Campaign = CAMPAIGNS[CAMPAIGNS.length - 1];
