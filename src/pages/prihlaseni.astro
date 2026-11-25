@@ -21,7 +21,7 @@ const errorMessages: Record<string, string> = {
 
     <div class="page-body narrow">
       {error && (
-        <p class="note err">{errorMessages[error] || 'Přihlášení se nepodařilo. Nechte si poslat nový odkaz.'}</p>
+        <p id="url-error" class="note err">{errorMessages[error] || 'Přihlášení se nepodařilo. Nechte si poslat nový odkaz.'}</p>
       )}
 
       <form id="login-form" class="form" method="post">
@@ -77,6 +77,13 @@ const errorMessages: Record<string, string> = {
       button.textContent = 'Odesílám…';
       messageEl.hidden = true;
       messageEl.textContent = '';
+      // Chyba z adresy (např. prošlý odkaz) patří k předchozímu pokusu; po novém odeslání by mátla.
+      document.getElementById('url-error')?.remove();
+      const url = new URL(location.href);
+      if (url.searchParams.has('error')) {
+        url.searchParams.delete('error');
+        history.replaceState(null, '', url);
+      }
 
       try {
         const res = await fetch('/api/auth/magic-link', {
