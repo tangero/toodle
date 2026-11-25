@@ -32,6 +32,6 @@ Věci, které při práci na projektu stály čas. Každá s tím, jak se jí vy
 ## Pracovní postup
 
 - **Složky `.claude/autoharness` vznikají tam, kde zrovna stojí shell.** Uvnitř `public/` by se nasadily veřejně. Pracuj z kořene repozitáře s absolutními cestami a před commitem i nasazením spusť `find public docs src scripts -name .claude`.
-- **`gh pr merge` do `main` blokuje klasifikátor oprávnění.** Sloučení dělá Patrick. Repozitář nemá automatické nasazování, sloučení samo nic nenasadí.
+- **Klasifikátor oprávnění blokuje `npx wrangler deploy`** (zásah do produkce). 25. 11. 2026 prošel `gh pr merge`, když o sloučení Patrick výslovně požádal, ale nasazení zablokoval. Claude proto připraví build a Patrick nasadí sám příkazem `! npm run build && npx wrangler deploy` v promptu. Repozitář nemá automatické nasazování, sloučení samo nic nenasadí.
 - **Nápověda OpenAI vrací pro `curl` 403.** Stránky `help.openai.com` čti přes nástroj pro načítání webu; stav odkazů v lekcích tak není ověřený přímým požadavkem.
 - **Sanitizér lekcí** (`src/lib/markdown.ts`) propouští jen vyjmenované značky a atributy. Co lekce potřebuje navíc (dřív `ol start`), se musí přidat tam i do testu, jinak to z e-mailu tiše zmizí.

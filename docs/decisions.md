@@ -69,3 +69,11 @@ Rozhodnutí s důvodem. Novější nahoře. Pravidla, která z nich plynou pro k
 - **Seznam příjemců se zmrazí jednou** (`campaign_recipients`), aby opakované odeslání nepokračovalo dalšími lidmi a šlo měřit, kdo z pozvaných se zapsal a odpověděl. Neaktivní a admin účty se vynechávají podle starých dat, protože import tyto příznaky nepřenesl.
 - **Vysvětlení na připomínky navrhuje model, posílá člověk.** Model `anthropic/claude-sonnet-5.5` (vybral Patrick), volá se jen kliknutím u konkrétní připomínky, nikdy hromadně. Bez schválení nic neodejde. Zásady ochrany údajů to popisují v bodě 4.
 - **Otázka na srozumitelnost zůstává od první lekce** (Patrick).
+
+## 2026-11-25 · Editor pozvánky
+
+- **Text pozvánky se upravuje v Markdownu v `/admin/pozvanka`** a ukládá se pro každou vlnu zvlášť do `campaign_templates` (migrace 0011). Bez uloženého řádku vlna posílá výchozí text `DEFAULT_INVITATION_MD` z kódu.
+- **Text shodný s výchozím se neukládá** (uložení řádek smaže). Důvod: vlna, která se vrátila k výchozímu textu, má převzít i jeho pozdější opravy v kódu. Zamítnuto: ukládat kopii, nebo samostatné tlačítko pro smazání.
+- **Blokové značky** (`{{kurzy}}`, `{{tlacitko:Text|URL}}`, `{{podpis}}`, `{{poznamka:Text}}`) se vykreslí vždy jako samostatný blok, i když nestojí na vlastním řádku. Důvod: seznam nebo tlačítko uvnitř `<p>` či `<code>` poštovní klienti rozbijí. `{{podpis}}` a `{{poznamka:…}}` vznikly, aby výchozí pozvánka vypadala stejně jako pilotní (mezera nad podpisem, drobná poznámka).
+- **Jedna vlna odchází s jedním textem.** Během rozesílky editor nedovolí uložit a dávky nesou verzi textu z první dávky; když se text mezitím změní (třeba z jiné záložky), server dávku odmítne a rozesílka se zastaví. Zamítnuto: jen kontrola neuložených změn při kliknutí na Odeslat.
+
