@@ -233,6 +233,15 @@ CREATE TABLE IF NOT EXISTS campaign_recipients (
 
 CREATE INDEX IF NOT EXISTS idx_campaign_recipients_user ON campaign_recipients(user_id);
 
+-- Upravitelný text pozvánky (Markdown) pro každou vlnu kampaně; bez záznamu se použije výchozí šablona.
+CREATE TABLE IF NOT EXISTS campaign_templates (
+  campaign TEXT PRIMARY KEY,
+  subject TEXT NOT NULL,
+  preheader TEXT NOT NULL DEFAULT '',
+  body_md TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Magic links (token = SHA-256 hash, ne samotný token)
 CREATE TABLE IF NOT EXISTS magic_links (
   token TEXT PRIMARY KEY,

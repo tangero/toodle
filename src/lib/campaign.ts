@@ -1,7 +1,14 @@
 import { getAll, getOne, run } from './db';
 import type { AppEnv } from './env';
 import { EmailSendError, isAlreadySentConflict, sendEmail } from './email';
-import { INVITATION_SUBJECT, invitationEmail, type InvitationCourse } from './email-templates/invitation';
+import {
+  DEFAULT_INVITATION_MD,
+  INVITATION_PREHEADER,
+  INVITATION_SUBJECT,
+  invitationEmail,
+  type InvitationCourse,
+  type InvitationTemplateInput,
+} from './email-templates/invitation';
 import { createPromoOptOutToken } from './unsubscribe';
 import { toSqlDateTime } from './time';
 import { logAudit } from './audit';
@@ -42,6 +49,11 @@ export interface CampaignCounts {
   total: number;
 }
 
+export interface InvitationTemplate extends InvitationTemplateInput {
+  is_custom: boolean;
+  updated_at: string | null;
+}
+
 export async function campaignCounts(db: D1Database, campaign: string): Promise<CampaignCounts> {
   const rows = await getAll<{ status: keyof CampaignCounts; n: number }>(
     db, `SELECT status, COUNT(*) AS n FROM campaign_recipients WHERE campaign = ? GROUP BY status`, campaign,
@@ -54,6 +66,46 @@ export async function campaignCounts(db: D1Database, campaign: string): Promise<
   return counts;
 }
 
+/** Načte uložený text pozvánky pro vlnu, nebo vrátí výchozí šablonu z kódu. */
+export async function getInvitationTemplate(db: D1Database, campaign: string): Promise<InvitationTemplate> {
+  const row = await getOne<{ subject: string; preheader: string; body_md: string; updated_at: string }>(
+    db,
+    `SELECT subject, preheader, body_md, updated_at FROM campaign_templates WHERE campaign = ?`,
+    campaign,
+  );
+  if (row) {
+    return { ...row, is_custom: true };
+  }
+  return {
+    subject: INVITATION_SUBJECT,
+    preheader: INVITATION_PREHEADER,
+    body_md: DEFAULT_INVITATION_MD,
+    is_custom: false,
+    updated_at: null,
+  };
+}
+
+/** Uloží (nebo aktualizuje) text pozvánky v Markdownu pro danou vlnu kampaně. */
+export async function saveInvitationTemplate(
+  db: D1Database,
+  campaign: string,
+  input: InvitationTemplateInput,
+): Promise<InvitationTemplate> {
+  const now = toSqlDateTime(new Date());
+  await run(
+    db,
+    `INSERT INTO campaign_templates (campaign, subject, preheader, body_md, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(campaign) DO UPDATE SET
+       subject = excluded.subject,
+       preheader = excluded.preheader,
+       body_md = excluded.body_md,
+       updated_at = excluded.updated_at`,
+    campaign, input.subject, input.preheader, input.body_md, now,
+  );
+  return { ...input, is_custom: true, updated_at: now };
+}
+
 /** Publikované kurzy v pořadí katalogu, pro seznam v pozvánce. */
 export async function invitationCourses(db: D1Database): Promise<InvitationCourse[]> {
   return getAll<InvitationCourse>(
@@ -63,13 +115,21 @@ export async function invitationCourses(db: D1Database): Promise<InvitationCours
   );
 }
 
-async function renderInvitation(env: AppEnv, user: { id: string; name: string; email: string }, courses: InvitationCourse[]) {
+async function renderInvitation(
+  env: AppEnv,
+  user: { id: string; name: string; email: string },
+  courses: InvitationCourse[],
+  template: InvitationTemplateInput,
+) {
   const token = await createPromoOptOutToken(user.id, env.JWT_SECRET);
   return {
     html: invitationEmail({
       courses,
       appUrl: env.APP_URL,
       optOutUrl: `${env.APP_URL}/odhlaseni-nabidek/${token}`,
+      subject: template.subject,
+      preheader: template.preheader,
+      bodyMd: template.body_md,
     }),
     // Odhlášení jedním kliknutím z poštovního klienta odhlásí nabídky (RFC 8058).
     headers: {
@@ -80,15 +140,27 @@ async function renderInvitation(env: AppEnv, user: { id: string; name: string; e
 }
 
 /** Zkušební pozvánka na adresu admina. Do seznamu příjemců se nezapisuje. */
-export async function sendTestInvitation(env: AppEnv, adminEmail: string): Promise<string> {
+export async function sendTestInvitation(
+  env: AppEnv,
+  adminEmail: string,
+  campaign: string = CURRENT_CAMPAIGN,
+): Promise<string> {
   const admin = await getOne<{ id: string; name: string; email: string }>(
     env.DB, `SELECT id, name, email FROM users WHERE email = ? AND deleted_at IS NULL`, adminEmail,
   );
-  const courses = await invitationCourses(env.DB);
-  const { html, headers } = await renderInvitation(env, admin ?? { id: 'test', name: '', email: adminEmail }, courses);
+  const [courses, template] = await Promise.all([
+    invitationCourses(env.DB),
+    getInvitationTemplate(env.DB, campaign),
+  ]);
+  const { html, headers } = await renderInvitation(
+    env,
+    admin ?? { id: 'test', name: '', email: adminEmail },
+    courses,
+    template,
+  );
   const result = await sendEmail(env, {
     to: adminEmail,
-    subject: `[Zkouška] ${INVITATION_SUBJECT}`,
+    subject: `[Zkouška] ${template.subject}`,
     html,
     headers,
     tags: [{ name: 'type', value: 'invitation-test' }],
@@ -109,7 +181,10 @@ export interface BatchResult {
 /** Pošle další dávku čekajících pozvánek. */
 export async function sendInvitationBatch(env: AppEnv, campaign: string, actor: string): Promise<BatchResult> {
   const result: BatchResult = { sent: 0, failed: 0, skipped: 0, throttled: false, quotaExceeded: false };
-  const courses = await invitationCourses(env.DB);
+  const [courses, template] = await Promise.all([
+    invitationCourses(env.DB),
+    getInvitationTemplate(env.DB, campaign),
+  ]);
   const candidates = await getAll<{ user_id: string }>(
     env.DB,
     `SELECT user_id FROM campaign_recipients
@@ -142,11 +217,11 @@ export async function sendInvitationBatch(env: AppEnv, campaign: string, actor: 
     }
 
     if (i > 0) await new Promise((r) => setTimeout(r, SEND_GAP_MS));
-    const { html, headers } = await renderInvitation(env, user, courses);
+    const { html, headers } = await renderInvitation(env, user, courses, template);
     try {
       const sent = await sendEmail(env, {
         to: user.email,
-        subject: INVITATION_SUBJECT,
+        subject: template.subject,
         html,
         headers,
         idempotencyKey: `campaign-${campaign}-${user.id}`,

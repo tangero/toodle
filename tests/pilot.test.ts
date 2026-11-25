@@ -1,13 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { invitationEmail } from '@lib/email-templates/invitation';
+import {
+  DEFAULT_INVITATION_MD,
+  INVITATION_BODY_MAX,
+  INVITATION_PREHEADER_MAX,
+  INVITATION_SUBJECT_MAX,
+  invitationEmail,
+  validateInvitationTemplateInput,
+} from '@lib/email-templates/invitation';
 import { feedbackReplyEmail, plainTextToParagraphs } from '@lib/email-templates/feedback-reply';
 import { buildReplyPayload, cleanReplyDraft, REPLY_MAX_LENGTH, stripEmoji, type FeedbackReplyContext } from '@lib/feedback-reply';
 
 const APP = 'https://skola.example';
 
 describe('pozvánka', () => {
+  const courses = [
+    { slug: 'chatgpt', title: 'Začínáme s ChatGPT', lesson_count: 15 },
+    { slug: 'b', title: 'A & B', lesson_count: 3 },
+  ];
   const html = invitationEmail({
-    courses: [{ slug: 'chatgpt', title: 'Začínáme s ChatGPT', lesson_count: 15 }, { slug: 'b', title: 'A & B', lesson_count: 3 }],
+    courses,
     appUrl: APP,
     optOutUrl: `${APP}/odhlaseni-nabidek/tok`,
   });
@@ -18,11 +29,77 @@ describe('pozvánka', () => {
     expect(html).toContain('15 lekcí');
     expect(html).toContain('3 lekce');
     expect(html).toContain(`${APP}/kurz/chatgpt`);
+    expect(html).not.toMatch(/<p[^>]*>\s*<ul/);
+    expect(html).not.toMatch(/<p[^>]*>\s*<table/);
   });
 
   it('má odkaz na odhlášení nabídek a podpis', () => {
     expect(html).toContain(`${APP}/odhlaseni-nabidek/tok`);
     expect(html).toContain('Tým Školy AI, Patrick a Andrea');
+  });
+
+  it('renderuje vlastní Markdown, zástupné značky a relativní odkazy', () => {
+    const custom = invitationEmail({
+      courses,
+      appUrl: `${APP}/`,
+      optOutUrl: `${APP}/odhlaseni-nabidek/tok`,
+      subject: 'Vlastní <předmět>',
+      preheader: 'Krátký & náhled',
+      bodyMd: [
+        '## Novinky',
+        '',
+        'Podívejte se na **kurzy** na [webu](/obce) nebo na {{url}}/kurzy.',
+        '',
+        '{{kurzy}}',
+        '',
+        '{{tlacitko:Zapsat se & začít|https://skola.example/kurz/chatgpt?a=1&b=2}}',
+        '',
+        '{{tlacitko:Relativní|/prihlaseni}}',
+      ].join('\n'),
+    });
+    expect(custom).toContain('<title>Vlastní &lt;předmět&gt;</title>');
+    expect(custom).toContain('Krátký &amp; náhled');
+    expect(custom).toMatch(/<h2 style="[^"]+">Novinky<\/h2>/);
+    expect(custom).toContain('<strong>kurzy</strong>');
+    expect(custom).toContain(`href="${APP}/obce"`);
+    expect(custom).toContain(`${APP}/kurzy`);
+    expect(custom).toContain('Zapsat se &amp; začít');
+    expect(custom).toContain('href="https://skola.example/kurz/chatgpt?a=1&amp;b=2"');
+    expect(custom).toContain(`href="${APP}/prihlaseni"`);
+    expect(custom).toContain(`${APP}/odhlaseni-nabidek/tok`);
+  });
+
+  it('sanitizuje nebezpečný vstup a odmítne neplatnou adresu v tlačítku', () => {
+    const unsafe = invitationEmail({
+      courses,
+      appUrl: APP,
+      optOutUrl: `${APP}/odhlaseni-nabidek/tok`,
+      bodyMd: '<script>alert(1)</script>\n\n[klik](javascript:alert(1))\n\n{{tlacitko:Pozor|javascript:alert(1)}}',
+    });
+    expect(unsafe).not.toContain('<script>');
+    expect(unsafe).not.toContain('javascript:');
+    expect(unsafe).toContain(`href="${APP}/#kurzy"`);
+    expect(unsafe).toContain(`${APP}/odhlaseni-nabidek/tok`);
+  });
+
+  it('validuje vstup šablony pozvánky', () => {
+    expect(validateInvitationTemplateInput({ subject: '  ', body_md: 'ok' })).toMatchObject({ ok: false });
+    expect(validateInvitationTemplateInput({ subject: 'Předmět', body_md: '   ' })).toMatchObject({ ok: false });
+    expect(validateInvitationTemplateInput({ subject: 'x'.repeat(INVITATION_SUBJECT_MAX + 1), body_md: 'ok' })).toMatchObject({ ok: false });
+    expect(validateInvitationTemplateInput({ subject: 'ok', preheader: 'x'.repeat(INVITATION_PREHEADER_MAX + 1), body_md: 'ok' })).toMatchObject({ ok: false });
+    expect(validateInvitationTemplateInput({ subject: 'ok', body_md: 'x'.repeat(INVITATION_BODY_MAX + 1) })).toMatchObject({ ok: false });
+    expect(validateInvitationTemplateInput({
+      subject: '  Předmět\nřádek  ',
+      preheader: '  Náhled  ',
+      body_md: `  ${DEFAULT_INVITATION_MD}\r\n`,
+    })).toEqual({
+      ok: true,
+      value: {
+        subject: 'Předmět řádek',
+        preheader: 'Náhled',
+        body_md: DEFAULT_INVITATION_MD,
+      },
+    });
   });
 });
 
