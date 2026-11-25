@@ -68,11 +68,18 @@ export async function campaignCounts(db: D1Database, campaign: string): Promise<
 
 /** Načte uložený text pozvánky pro vlnu, nebo vrátí výchozí šablonu z kódu. */
 export async function getInvitationTemplate(db: D1Database, campaign: string): Promise<InvitationTemplate> {
-  const row = await getOne<{ subject: string; preheader: string; body_md: string; updated_at: string }>(
-    db,
-    `SELECT subject, preheader, body_md, updated_at FROM campaign_templates WHERE campaign = ?`,
-    campaign,
-  );
+  let row: { subject: string; preheader: string; body_md: string; updated_at: string } | null = null;
+  try {
+    row = await getOne<{ subject: string; preheader: string; body_md: string; updated_at: string }>(
+      db,
+      `SELECT subject, preheader, body_md, updated_at FROM campaign_templates WHERE campaign = ?`,
+      campaign,
+    );
+  } catch (err) {
+    // Před migrací 0011 tabulka neexistuje: posílá se výchozí text, uložit ho ale nepůjde.
+    if (!/no such table/i.test(String(err))) throw err;
+    console.warn('[campaign] tabulka campaign_templates chybí, používám výchozí text pozvánky');
+  }
   if (row) {
     return { ...row, is_custom: true };
   }
@@ -91,6 +98,15 @@ export async function saveInvitationTemplate(
   campaign: string,
   input: InvitationTemplateInput,
 ): Promise<InvitationTemplate> {
+  // Text shodný s výchozím se neukládá: vlna pak dál přebírá výchozí text z kódu i s pozdějšími opravami.
+  if (
+    input.subject === INVITATION_SUBJECT &&
+    input.preheader === INVITATION_PREHEADER &&
+    input.body_md === DEFAULT_INVITATION_MD
+  ) {
+    await run(db, `DELETE FROM campaign_templates WHERE campaign = ?`, campaign);
+    return { ...input, is_custom: false, updated_at: null };
+  }
   const now = toSqlDateTime(new Date());
   await run(
     db,
@@ -176,15 +192,35 @@ export interface BatchResult {
   throttled: boolean;
   /** Resend odmítl kvůli denní nebo měsíční kvótě tarifu: čekání nepomůže, rozesílka se má zastavit. */
   quotaExceeded: boolean;
+  /** Text pozvánky se od začátku rozesílky změnil, dávka nic neposlala. */
+  templateChanged: boolean;
+  /** Verze textu, se kterou dávka pracovala (updated_at, u výchozího textu null). */
+  templateVersion: string | null;
 }
 
-/** Pošle další dávku čekajících pozvánek. */
-export async function sendInvitationBatch(env: AppEnv, campaign: string, actor: string): Promise<BatchResult> {
-  const result: BatchResult = { sent: 0, failed: 0, skipped: 0, throttled: false, quotaExceeded: false };
+/**
+ * Pošle další dávku čekajících pozvánek. `expectedVersion` je verze textu z první dávky běhu
+ * (undefined u první dávky): když ji mezitím někdo změnil, dávka nic nepošle, aby jedna vlna
+ * neodešla se dvěma různými texty.
+ */
+export async function sendInvitationBatch(
+  env: AppEnv,
+  campaign: string,
+  actor: string,
+  expectedVersion?: string | null,
+): Promise<BatchResult> {
   const [courses, template] = await Promise.all([
     invitationCourses(env.DB),
     getInvitationTemplate(env.DB, campaign),
   ]);
+  const result: BatchResult = {
+    sent: 0, failed: 0, skipped: 0, throttled: false, quotaExceeded: false,
+    templateChanged: false, templateVersion: template.updated_at,
+  };
+  if (expectedVersion !== undefined && expectedVersion !== template.updated_at) {
+    result.templateChanged = true;
+    return result;
+  }
   const candidates = await getAll<{ user_id: string }>(
     env.DB,
     `SELECT user_id FROM campaign_recipients

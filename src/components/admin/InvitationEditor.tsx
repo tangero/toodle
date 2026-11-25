@@ -63,6 +63,14 @@ export default function InvitationEditor({
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [previewMode, setPreviewMode] = useState<PreviewMode>('desktop');
+  // Stránka během rozesílky pošle událost invitation-sending; do té doby text nejde uložit.
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    const onSending = (e: Event) => setSending(Boolean((e as CustomEvent<boolean>).detail));
+    window.addEventListener('invitation-sending', onSending);
+    return () => window.removeEventListener('invitation-sending', onSending);
+  }, []);
 
   const isDirty =
     subject !== saved.subject ||
@@ -150,7 +158,7 @@ export default function InvitationEditor({
 
   const handleSave = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (saving) return;
+    if (saving || sending) return;
     setSaving(true);
     setStatus(null);
     try {
@@ -203,7 +211,10 @@ export default function InvitationEditor({
     setSubject(INVITATION_SUBJECT);
     setPreheader(INVITATION_PREHEADER);
     setBodyMd(DEFAULT_INVITATION_MD);
-    setStatus({ kind: 'ok', text: 'Načten výchozí text. Pro uložení klikněte na Uložit změny.' });
+    setStatus({
+      kind: 'ok',
+      text: 'Načten výchozí text. Po uložení bude vlna používat výchozí text z kódu včetně jeho pozdějších oprav.',
+    });
   };
 
   const handleDiscard = () => {
@@ -216,14 +227,14 @@ export default function InvitationEditor({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
       e.preventDefault();
-      if (isDirty && !saving) void handleSave();
+      if (isDirty && !saving && !sending) void handleSave();
     }
   };
 
   const inputClass =
     'mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900';
   const toolbarBtn =
-    'inline-flex min-h-9 items-center rounded-md border border-gray-200 bg-white px-2.5 text-xs font-medium text-gray-700 hover:border-gray-300 hover:bg-gray-50';
+    'inline-flex min-h-11 items-center rounded-md border border-gray-200 bg-white px-2.5 text-xs font-medium text-gray-700 hover:border-gray-300 hover:bg-gray-50';
   const btn =
     'inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50';
 
@@ -365,6 +376,8 @@ export default function InvitationEditor({
                 <code className="rounded bg-gray-100 px-1">{'{{kurzy}}'}</code> seznam publikovaných kurzů,{' '}
                 <code className="rounded bg-gray-100 px-1">{'{{tlacitko:Text}}'}</code> nebo{' '}
                 <code className="rounded bg-gray-100 px-1">{'{{tlacitko:Text|URL}}'}</code> tlačítko,{' '}
+                <code className="rounded bg-gray-100 px-1">{'{{poznamka:Text}}'}</code> drobnější šedý text,{' '}
+                <code className="rounded bg-gray-100 px-1">{'{{podpis}}'}</code> podpis týmu,{' '}
                 <code className="rounded bg-gray-100 px-1">{'{{url}}'}</code> adresa webu.
               </p>
               <p className="text-gray-500">
@@ -376,7 +389,7 @@ export default function InvitationEditor({
           <div className="flex flex-wrap items-center gap-3 pt-1">
             <button
               type="submit"
-              disabled={saving || !isDirty}
+              disabled={saving || sending || !isDirty}
               className={`${btn} bg-gray-900 text-white`}
             >
               {saving ? 'Ukládám…' : 'Uložit změny'}
@@ -400,6 +413,10 @@ export default function InvitationEditor({
               Obnovit výchozí text
             </button>
           </div>
+
+          {sending && (
+            <p className="text-sm text-amber-900">Probíhá rozesílka, text teď nejde uložit.</p>
+          )}
 
           <p
             role="status"
@@ -428,7 +445,7 @@ export default function InvitationEditor({
                   aria-pressed={previewMode === mode}
                   onClick={() => setPreviewMode(mode)}
                   className={
-                    'min-h-8 rounded-md px-3 font-medium ' +
+                    'min-h-11 rounded-md px-3 font-medium ' +
                     (previewMode === mode ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-100')
                   }
                 >

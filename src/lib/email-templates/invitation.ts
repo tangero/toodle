@@ -1,4 +1,4 @@
-import { baseTemplate, button, LINK, SMALL, styleProse } from './base';
+import { baseTemplate, button, LINK, SIGNATURE, SMALL, styleProse } from './base';
 import { escapeHtml } from '../escape';
 import { lessonCountLabel } from '../labels';
 import { renderMarkdown } from '../markdown';
@@ -55,9 +55,9 @@ export const DEFAULT_INVITATION_MD = [
   '',
   '{{tlacitko:Vybrat kurz}}',
   '',
-  'Zápis zabere minutu: vyplníte jméno a e-mail a potvrdíte odkaz, který vám pošleme.',
+  '{{poznamka:Zápis zabere minutu: vyplníte jméno a e-mail a potvrdíte odkaz, který vám pošleme.}}',
   '',
-  'Tým Školy AI, Patrick a Andrea',
+  '{{podpis}}',
 ].join('\n');
 
 export function validateInvitationTemplateInput(raw: {
@@ -106,7 +106,10 @@ function resolveButtonUrl(rawUrl: string | undefined, appUrl: string): string {
  * Pozvánka k novým kurzům z Markdownu. Podporuje zástupné značky:
  * - `{{kurzy}}` – seznam publikovaných kurzů s počtem lekcí,
  * - `{{tlacitko}}`, `{{tlacitko:Text}}` nebo `{{tlacitko:Text|URL}}` – hlavní tlačítko,
+ * - `{{poznamka:Text}}` – drobnější šedý odstavec,
+ * - `{{podpis}}` – podpis týmu s mezerou nad ním,
  * - `{{url}}` – kořenová adresa webu.
+ * Blokové značky se vždy vykreslí jako samostatný blok, i když v textu nestojí na vlastním řádku.
  * Odkaz na odhlášení nabídek se vždy doplní na konec e-mailu.
  */
 export function invitationEmail(p: InvitationParams): string {
@@ -128,32 +131,39 @@ export function invitationEmail(p: InvitationParams): string {
     return token;
   };
 
+  // Blokovou značku obalíme prázdnými řádky, aby z ní Markdown udělal samostatný odstavec
+  // (jinak by <ul> nebo tabulka tlačítka skončily uvnitř <p>, <code> nebo <pre>).
+  const block = (html: string): string => `\n\n${pushBlock(html)}\n\n`;
   const preparedMd = withUrl
-    .replace(/\{\{kurzy\}\}/g, () => pushBlock(renderCourseList(p.courses, appUrl)))
-    .replace(/\{\{tlacitko(?::([^}\n]*))?\}\}/g, (_match, rawArg?: string) => {
+    .replace(/[ \t]*`?\{\{kurzy\}\}`?[ \t]*/g, () => block(renderCourseList(p.courses, appUrl)))
+    .replace(/[ \t]*`?\{\{podpis\}\}`?[ \t]*/g, () => block(SIGNATURE))
+    .replace(/[ \t]*`?\{\{poznamka:([^}\n]*)\}\}`?[ \t]*/g, (_match, text: string) =>
+      block(`<p style="${SMALL}">${escapeHtml(text.trim())}</p>`),
+    )
+    .replace(/[ \t]*`?\{\{tlacitko(?::([^}\n]*))?\}\}`?[ \t]*/g, (_match, rawArg?: string) => {
       const arg = rawArg ?? '';
       const pipe = arg.indexOf('|');
       const rawLabel = pipe === -1 ? arg : arg.slice(0, pipe);
       const rawUrl = pipe === -1 ? undefined : arg.slice(pipe + 1);
       const label = rawLabel.trim() || 'Vybrat kurz';
       const url = resolveButtonUrl(rawUrl, appUrl);
-      return pushBlock(button(url, label));
-    });
+      return block(button(url, label));
+    })
+    .replace(/\n{3,}/g, '\n\n');
 
   let bodyHtml = styleProse(renderMarkdown(preparedMd));
 
-  // Relativní odkazy z Markdownu (/kurz/...) převedeme na plnou adresu pro e-mailové klienty.
-  bodyHtml = bodyHtml.replace(
-    /href="(\/(?!\/)[^"]*)"/g,
-    (_m, path: string) => `href="${escapeHtml(appUrl)}${path}"`,
-  );
+  // Relativní odkazy z Markdownu (/kurz/...) převedeme na plnou adresu pro e-mailové klienty,
+  // odkazy bez protokolu (//example.com) na https: e-mail nemá základní adresu, ke které by je vztáhl.
+  bodyHtml = bodyHtml
+    .replace(/href="(\/(?!\/)[^"]*)"/g, (_m, path: string) => `href="${escapeHtml(appUrl)}${path}"`)
+    .replace(/href="\/\/([^"]*)"/g, (_m, rest: string) => `href="https://${rest}"`);
 
   for (let i = 0; i < blocks.length; i++) {
     const token = `${prefix}${i}END`;
     const standalone = new RegExp(`<p[^>]*>\\s*${token}\\s*</p>`, 'g');
-    bodyHtml = bodyHtml
-      .replace(standalone, () => blocks[i])
-      .replaceAll(token, () => blocks[i]);
+    // Značka uvnitř bloku kódu (```) se zahodí: blok do <pre> nevkládáme.
+    bodyHtml = bodyHtml.replace(standalone, () => blocks[i]).replaceAll(token, '');
   }
 
   const optOut = `<p style="${SMALL}margin-top:24px;">Další pozvánky nechcete? <a href="${escapeHtml(p.optOutUrl)}" style="color:inherit;text-decoration:underline;">Odhlásit nabídky</a>.</p>`;

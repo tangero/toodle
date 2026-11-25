@@ -16,16 +16,23 @@ import { logAudit } from '@lib/audit';
  * Akce:
  * - `save` (uloží předmět, preheader a Markdown tělo pozvánky pro danou vlnu),
  * - `test` (zkušební e-mail adminovi),
- * - `batch` (další dávka ze zmrazeného seznamu dané vlny; stránka ji volá opakovaně, dokud nikdo nečeká),
+ * - `batch` (další dávka ze zmrazeného seznamu dané vlny; stránka ji volá opakovaně, dokud nikdo nečeká;
+ *   `template_version` z první dávky hlídá, že se text během rozesílky nezměnil),
  * - `retry` (neúspěšné zpět do fronty).
  * Přístup hlídá middleware (jen ADMIN_EMAIL).
  */
 export const POST: APIRoute = async ({ request, locals }) => {
   const actor = locals.user!.email;
-  let body: { action?: unknown; campaign?: unknown; subject?: unknown; preheader?: unknown; body_md?: unknown };
+  let body: {
+    action?: unknown; campaign?: unknown; subject?: unknown; preheader?: unknown; body_md?: unknown;
+    template_version?: unknown;
+  };
   try {
     body = (await request.json()) as typeof body;
   } catch {
+    return json({ error: 'Neplatný požadavek' }, 400);
+  }
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
     return json({ error: 'Neplatný požadavek' }, 400);
   }
   const action = String(body.action ?? '');
@@ -55,7 +62,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
       return json({ ok: true, message: `Zkušební pozvánka odešla na ${actor}.` });
     }
     if (action === 'batch') {
-      const result = await sendInvitationBatch(env, campaign, actor);
+      // První dávka běhu verzi nenese; další posílají verzi, kterou vrátila první.
+      const v = body.template_version;
+      const expected = v === undefined ? undefined : typeof v === 'string' ? v : null;
+      const result = await sendInvitationBatch(env, campaign, actor, expected);
       return json({ ok: true, result, counts: await campaignCounts(env.DB, campaign) });
     }
     if (action === 'retry') {

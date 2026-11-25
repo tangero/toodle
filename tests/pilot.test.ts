@@ -82,6 +82,40 @@ describe('pozvánka', () => {
     expect(unsafe).toContain(`${APP}/odhlaseni-nabidek/tok`);
   });
 
+  it('výchozí text má podpis s mezerou a drobnou poznámku', () => {
+    expect(html).toMatch(/<p style="[^"]*margin-top:24px;">Tým Školy AI, Patrick a Andrea<\/p>/);
+    expect(html).toMatch(/<p style="[^"]*font-size:14px[^"]*">Zápis zabere minutu/);
+    expect(html).not.toContain('{{');
+  });
+
+  it('blokové značky mimo samostatný řádek nevloží do odstavce ani kódu', () => {
+    const render = (bodyMd: string) =>
+      invitationEmail({ courses, appUrl: APP, optOutUrl: `${APP}/odhlaseni-nabidek/tok`, bodyMd });
+    for (const bodyMd of [
+      'Kurzy:\n{{kurzy}}',
+      'Klikněte {{tlacitko:Jít}} teď',
+      'Seznam `{{kurzy}}` a dál',
+      '    {{kurzy}}',
+      '- bod\n- {{tlacitko:Jít}}',
+      'Text {{podpis}}',
+    ]) {
+      const out = render(bodyMd);
+      expect(out, bodyMd).not.toMatch(/<p[^>]*>(?:(?!<\/p>)[\s\S])*<(?:ul|table|p)[\s>]/);
+      expect(out, bodyMd).not.toMatch(/<(?:code|pre)[^>]*>(?:(?!<\/(?:code|pre)>)[\s\S])*<(?:ul|table)/);
+      expect(out, bodyMd).not.toContain('XINVBLK');
+    }
+    expect(render('Kurzy:\n{{kurzy}}')).toContain(`${APP}/kurz/chatgpt`);
+    expect(render('Klikněte {{tlacitko:Jít}} teď')).toContain('>Jít<');
+  });
+
+  it('odkaz bez protokolu doplní na https', () => {
+    const out = invitationEmail({
+      courses, appUrl: APP, optOutUrl: `${APP}/odhlaseni-nabidek/tok`, bodyMd: '[x](//example.com/a)',
+    });
+    expect(out).toContain('href="https://example.com/a"');
+    expect(out).not.toContain('href="//');
+  });
+
   it('validuje vstup šablony pozvánky', () => {
     expect(validateInvitationTemplateInput({ subject: '  ', body_md: 'ok' })).toMatchObject({ ok: false });
     expect(validateInvitationTemplateInput({ subject: 'Předmět', body_md: '   ' })).toMatchObject({ ok: false });

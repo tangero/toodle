@@ -137,14 +137,17 @@ const btn = 'inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-medi
     error?: string;
     message?: string;
     counts: Counts;
-    result: { sent: number; failed: number; skipped: number; throttled: boolean; quotaExceeded: boolean };
+    result: {
+      sent: number; failed: number; skipped: number; throttled: boolean; quotaExceeded: boolean;
+      templateChanged: boolean; templateVersion: string | null;
+    };
   }
 
-  async function call(action: string): Promise<Reply> {
+  async function call(action: string, extra: Record<string, unknown> = {}): Promise<Reply> {
     const res = await fetch('/api/admin/campaign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, campaign: root?.dataset.campaign }),
+      body: JSON.stringify({ action, campaign: root?.dataset.campaign, ...extra }),
     });
     const data = (await res.json().catch(() => ({ error: 'Neplatná odpověď serveru' }))) as Reply;
     if (!res.ok) throw new Error(data.error ?? `Chyba ${res.status}`);
@@ -161,12 +164,21 @@ const btn = 'inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-medi
     }
     if (action === 'send' && !confirm('Opravdu odeslat pozvánky všem čekajícím příjemcům?')) return;
     buttons().forEach((b) => (b.disabled = true));
+    // Během rozesílky editor text neuloží (InvitationEditor poslouchá tuto událost).
+    if (action === 'send') window.dispatchEvent(new CustomEvent('invitation-sending', { detail: true }));
     try {
       if (action === 'send') {
         let sent = 0;
         let throttledInRow = 0;
+        // Verze textu z první dávky; server další dávky odmítne, když se text mezitím změnil.
+        let version: { template_version: string | null } | undefined;
         for (;;) {
-          const data = await call('batch');
+          const data = await call('batch', version ?? {});
+          if (data.result.templateChanged) {
+            status.textContent = `Odesláno v tomto běhu: ${sent}. Zastaveno: text pozvánky se během rozesílky změnil. Zkontrolujte ho a spusťte odeslání znovu.`;
+            return;
+          }
+          version ??= { template_version: data.result.templateVersion };
           sent += data.result.sent;
           const waiting = data.counts.pending + data.counts.sending;
           status.textContent = `Odesláno v tomto běhu: ${sent}. Čeká: ${waiting}. Chyb celkem: ${data.counts.failed}.`;
@@ -197,6 +209,7 @@ const btn = 'inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-medi
       status.textContent = `Nepovedlo se: ${(err as Error).message}`;
     } finally {
       buttons().forEach((b) => (b.disabled = false));
+      if (action === 'send') window.dispatchEvent(new CustomEvent('invitation-sending', { detail: false }));
     }
   });
 </script>
